@@ -625,17 +625,29 @@ const VALID_SEATS = [
   '中1','中2','中3','中4'
 ];
 
+// URL-safe aliases (英語ID) → 表示用日本語
+const SEAT_ALIASES = {
+  'Maru': '丸', 'maru': '丸', 'MARU': '丸',
+  'N1': '中1', 'n1': '中1',
+  'N2': '中2', 'n2': '中2',
+  'N3': '中3', 'n3': '中3',
+  'N4': '中4', 'n4': '中4'
+};
+
 function normalizeTable(raw) {
   if (!raw) return '?';
   // URLデコード（中1などの日本語対応）
   try { raw = decodeURIComponent(raw); } catch(e) {}
   raw = String(raw).trim();
+  // 英語エイリアスチェック
+  if (SEAT_ALIASES[raw]) return SEAT_ALIASES[raw];
   // 既に有効な形式
   if (VALID_SEATS.includes(raw)) return raw;
   // 大文字化試行 (t1 → T1)
   const upper = raw.toUpperCase();
   if (VALID_SEATS.includes(upper)) return upper;
-  // 数字のみの旧URL対応 (1 → T1, 7 → C1, 11 → 丸, 12 → 中1)
+  if (SEAT_ALIASES[upper]) return SEAT_ALIASES[upper];
+  // 数字のみの旧URL対応
   const num = parseInt(raw);
   if (!isNaN(num)) {
     if (num >= 1 && num <= 6) return `T${num}`;
