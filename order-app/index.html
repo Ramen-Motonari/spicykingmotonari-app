@@ -624,7 +624,8 @@ function rebuildMenu() {
   allCatKeys = newCatKeys;
 
   // 表示中なら再描画
-  if (typeof $ === 'function' && $('menuScreen') && $('menuScreen').classList.contains('active')) {
+  const ms = document.getElementById('menuScreen');
+  if (ms && ms.classList.contains('active')) {
     try { buildTabs(); renderMenu(); } catch(e){}
   }
 }
