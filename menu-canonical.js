@@ -176,6 +176,9 @@
      price:150, spicy:false, night:false, custom:{}},
 
     // ── サイド（昼夜共通） ──
+    {id:66, cat:'side', img:'🥟',
+     name:{ja:'餃子2個＋半ライスセット', en:'Gyoza ×2 + Half Rice Set', zh:'饺子2个+半碗饭套餐', ko:'교자2개+하프라이스 세트'},
+     price:300, spicy:false, night:false, custom:{}},
     {id:65, cat:'side', img:'🍚',
      name:{ja:'半ライス', en:'Half Rice', zh:'半碗米饭', ko:'하프 라이스'},
      price:120, spicy:false, night:false, custom:{}},
@@ -197,9 +200,6 @@
     {id:28, cat:'side', img:'🥟',
      name:{ja:'メキシカン餃子（4個）', en:'Mexican Gyoza ×4', zh:'墨西哥饺子4个', ko:'멕시칸 교자 4개'},
      price:500, spicy:false, night:false, custom:{}},
-    {id:66, cat:'side', img:'🥟',
-     name:{ja:'餃子2個＋半ライスセット', en:'Gyoza ×2 + Half Rice Set', zh:'饺子2个+半碗饭套餐', ko:'교자2개+하프라이스 세트'},
-     price:300, spicy:false, night:false, custom:{}},
     {id:67, cat:'side', img:'🥟',
      name:{ja:'3種餃子セット', en:'3 Types Gyoza Set', zh:'3种饺子套餐', ko:'3종 교자 세트'},
      price:700, spicy:false, night:false, custom:{}},

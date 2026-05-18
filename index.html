@@ -138,10 +138,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .btn-secondary{width:100%;margin-top:10px;padding:14px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
 
 /* Bottom bar */
-.cart-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--accent);border-top:1px solid var(--accent);z-index:90;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
+.cart-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--bg);border-top:1px solid var(--border);z-index:90;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
 .bottom-nav{display:flex;padding:8px 12px 4px;gap:6px}
-.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;border:none;background:transparent;color:rgba(255,255,255,.75);font-size:10px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
-.bnav-btn.active{color:#fff;background:rgba(255,255,255,.22)}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;border:none;background:transparent;color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
+.bnav-btn.active{color:var(--accent);background:rgba(200,134,10,.12)}
 .bnav-btn .bicon{font-size:20px}
 .cart-order-btn{margin:0 12px 8px;width:calc(100% - 24px);padding:14px;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .cart-count{background:rgba(255,255,255,.25);border-radius:20px;padding:2px 10px;font-size:13px}
@@ -520,12 +520,15 @@ const T = {
   ko:{visitTitle:'처음 방문하셨나요?',visitSub:'선택해 주세요',lblFirst:'처음 방문',subFirst:'はじめて',lblRepeat:'재방문',subRepeat:'2回目以降',cartBtn:'🛒 주문 확인',cartTitle:'주문 내역',totalLabel:'합계 금액 (세금 포함)',orderBtn:'주문 확정 🍜',successMsg:'주문을 접수했습니다\n잠시 기다려 주세요.',successTitle:'주문 완료',backBtn:'계속 주문하기',emptyCart:'장바구니가 비어 있습니다',tabAll:'전체',tabTonkotsu:'돈코츠',tabShouyu:'쇼유',tabTeishoku:'정식',tabSide:'사이드',tabTopping:'토핑',tabDrink:'음료',addToCart:'장바구니에 추가',optChashu:'차슈를 선택해 주세요（필수 선택）',optNoodle:'면 굵기를 선택해 주세요（필수 선택）',optTop:'토핑을 선택해 주세요（필수 선택）',optSpicy:'매운맛을 선택해 주세요（필수 선택）',spicyNone:'맵지 않게',spicyPick:'매운맛 추가🌶',nightNote:'🌙 야간 한정 메뉴 포함',badgeCustom:'커스텀',badgeNight:'🌙 야간한정',badgePirikara:'🌶 약간 매움',badgeSpicyCurry:'🌶 약간매운 베이스｜매운맛 0〜10',badgeSpicy:'🌶 매운맛 0〜10',badgeSpicyPlain:'🌶 매움',badgeGhost:'🏴 극한매움｜10매운맛 완식자 한정🔒',bnavMenu:'메뉴',bnavCart:'장바구니',bnavHistory:'주문내역',bnavPayment:'결제',historyTitle:'주문 내역',paymentTitle:'결제',noHistory:'아직 주문 내역이 없습니다',historySubtotal:'소계',paymentOrderLabel:'주문 내역',paymentTotalLabel:'합계 금액 (세금 포함)',paymentGuideMsg:'테이블 번호를 계산대에 제시해 주세요<br>현금 및 신용카드로 결제 가능합니다',tableNumLabel:'번 테이블',cartBackBtn:'‹ 메뉴로 돌아가기',backToMenu:'‹ 메뉴로 돌아가기',removeBtn:'✕',addonToppingLabel:'추가 토핑을 선택해 주세요',addonSideLabel:'사이드 메뉴를 선택해 주세요',addonDrinkLabel:'음료를 선택해 주세요',addonNone:'없음',addonYes:'추가',addonNoodleLabel:'면 종류・양을 선택해 주세요（필수 선택）',optRice:'밥 크기를 선택해 주세요（필수 선택）',selectRequiredMsg:'아래 항목을 선택해 주세요',allSelectedMsg:'선택 완료！장바구니에 추가할 수 있습니다',lunchFreeMsg:'평일 런치 혜택：가는면 곱배기・면 추가 무료！',statusPending:'접수 완료',statusPreparing:'조리 중',statusServed:'제공 완료',connecting:'연결 중...',connected:'온라인',offline:'오프라인',sending:'전송 중...',sendError:'전송 실패',requiredTag:'필수 선택'}
 };
 
-const catLabels = {
+let catLabels = {
   ja:{tonkotsu:'豚骨 Tonkotsu',shouyu:'醤油 Shouyu',teishoku:'定食',side:'サイドメニュー',topping:'追加トッピング',drink:'ドリンク'},
   en:{tonkotsu:'Tonkotsu',shouyu:'Shouyu',teishoku:'Set Meal',side:'Side Menu',topping:'Extra Toppings',drink:'Drinks'},
   zh:{tonkotsu:'猪骨汤面',shouyu:'酱油拉面',teishoku:'套餐',side:'小菜',topping:'追加配料',drink:'饮料'},
   ko:{tonkotsu:'돈코츠',shouyu:'쇼유',teishoku:'정식',side:'사이드 메뉴',topping:'추가 토핑',drink:'음료'}
 };
+// 基本カテゴリ順序（カスタムカテゴリは後ろに追加）
+const BASE_CAT_ORDER = ['tonkotsu','shouyu','teishoku','topping','side','drink'];
+let allCatKeys = [...BASE_CAT_ORDER]; // rebuildMenuで動的更新
 
 const chashuOpts = {ja:['豚','鶏'],en:['Pork','Chicken'],zh:['猪肉','鸡肉'],ko:['돼지','닭']};
 const kataOpts   = {ja:['かため','ふつう','やわ'],en:['Firm','Medium','Soft'],zh:['硬','普通','软'],ko:['단단히','보통','부드럽게']};
@@ -552,17 +555,83 @@ const spicyLevels = [
   {l:'6辛',p:270},{l:'7辛',p:320},{l:'8辛',p:370},{l:'9辛',p:420},{l:'10辛',p:470}
 ];
 
-/* ========== MENU DATA ========== */
-const menu = MOTONARI.MENU_ITEMS.map(m => {
-  // 替え玉の平日ランチ無料を反映するための getter ラッパー
-  if (m.lunchFreeBase) {
-    const w = {...m};
-    Object.defineProperty(w, 'price',     { get(){ return isLunchWeekday() ? 0 : m.price; }, enumerable:true });
-    Object.defineProperty(w, 'lunchFree', { get(){ return isLunchWeekday(); }, enumerable:true });
-    return w;
+// 辛さラベルを言語別に表示用変換（内部識別子は '0辛'..'10辛' のまま固定）
+function localizeSpicyLabel(label, langCode){
+  if (langCode === 'en') {
+    const m = String(label).match(/^(\d+)辛$/);
+    if (m) return m[1] + 'Lv';
   }
-  return m;
-});
+  return label;
+}
+// オプション文字列内の辛さ表記を表示用に変換（カート/履歴/会計などで使用）
+function localizeOptText(opt, langCode){
+  if (langCode === 'en') return String(opt).replace(/(\d+)辛/g, '$1Lv');
+  return opt;
+}
+
+/* ========== MENU DATA (dynamic; rebuilt when Firestore overrides arrive) ========== */
+let menu = [];
+// menuOverrides / customMenuItems / customCategories の最新値
+let _menuOverrides = {};
+let _customMenuItems = [];
+let _customCategories = [];
+
+function wrapLunchFree(m) {
+  if (!m.lunchFreeBase) return m;
+  const w = { ...m };
+  Object.defineProperty(w, 'price',     { get(){ return isLunchWeekday() ? 0 : m.price; }, enumerable:true });
+  Object.defineProperty(w, 'lunchFree', { get(){ return isLunchWeekday(); }, enumerable:true });
+  return w;
+}
+
+function rebuildMenu() {
+  const merged = [];
+  // canonical + overrides
+  MOTONARI.MENU_ITEMS.forEach(m => {
+    const ov = _menuOverrides[String(m.id)] || {};
+    if (ov.hidden) return; // 非表示
+    let item = { ...m };
+    if (typeof ov.priceOverride === 'number') item.price = ov.priceOverride;
+    if (ov.imageUrl) item.img = ov.imageUrl;
+    merged.push(wrapLunchFree(item));
+  });
+  // custom items
+  _customMenuItems.forEach(c => {
+    if (c.hidden) return;
+    merged.push({
+      id: c.id,
+      cat: c.cat,
+      img: c.imageUrl || c.img || '🍜',
+      name: c.name || { ja: '', en: '', zh: '', ko: '' },
+      price: c.price || 0,
+      spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara,
+      custom: c.custom || {}
+    });
+  });
+  menu = merged;
+
+  // カテゴリラベル更新
+  const newCatKeys = [...BASE_CAT_ORDER];
+  _customCategories.forEach(c => {
+    if (c.key && !newCatKeys.includes(c.key)) {
+      newCatKeys.push(c.key);
+      ['ja','en','zh','ko'].forEach(lng => {
+        if (!catLabels[lng]) catLabels[lng] = {};
+        catLabels[lng][c.key] = (c.name && c.name[lng]) || c.key;
+      });
+    }
+  });
+  allCatKeys = newCatKeys;
+
+  // 表示中なら再描画
+  const ms = document.getElementById('menuScreen');
+  if (ms && ms.classList.contains('active')) {
+    try { buildTabs(); renderMenu(); } catch(e){}
+  }
+}
+
+// 起動時に初期メニュー構築
+rebuildMenu();
 
 /* ========== STATE ========== */
 let lang='ja', currentCat='all', cart=[], curItem=null, curOpts={}, curQty=1;
@@ -661,9 +730,47 @@ window.addEventListener('fb-ready', () => {
   setFbStatus('online', T[lang].connected);
   // Subscribe to soldout changes globally
   subscribeSoldout();
+  // メニューオーバーライド・カスタムメニュー・カスタムカテゴリの監視
+  subscribeMenuOverrides();
+  subscribeCustomMenuItems();
+  subscribeCustomCategories();
   // リロード時のセッション復元（fbReady & 認証完了の両方が揃ったタイミングで実行）
   tryStartRecovery();
 });
+
+/* ========== Menu overrides / custom items / categories subscriptions ========== */
+let unsubMenuOverrides=null, unsubCustomMenu=null, unsubCustomCats=null;
+function subscribeMenuOverrides(){
+  if(!fbReady) return;
+  if(unsubMenuOverrides) unsubMenuOverrides();
+  const colRef = window.FB.collection(window.FB.db, 'menuOverrides');
+  unsubMenuOverrides = window.FB.onSnapshot(colRef, (snap) => {
+    _menuOverrides = {};
+    snap.forEach(d => { _menuOverrides[d.id] = d.data(); });
+    rebuildMenu();
+  }, err => console.error('menuOverrides listener:', err));
+}
+function subscribeCustomMenuItems(){
+  if(!fbReady) return;
+  if(unsubCustomMenu) unsubCustomMenu();
+  const colRef = window.FB.collection(window.FB.db, 'customMenuItems');
+  unsubCustomMenu = window.FB.onSnapshot(colRef, (snap) => {
+    _customMenuItems = [];
+    snap.forEach(d => { _customMenuItems.push({ docId: d.id, ...d.data() }); });
+    rebuildMenu();
+  }, err => console.error('customMenuItems listener:', err));
+}
+function subscribeCustomCategories(){
+  if(!fbReady) return;
+  if(unsubCustomCats) unsubCustomCats();
+  const colRef = window.FB.collection(window.FB.db, 'customCategories');
+  unsubCustomCats = window.FB.onSnapshot(colRef, (snap) => {
+    _customCategories = [];
+    snap.forEach(d => { _customCategories.push({ docId: d.id, ...d.data() }); });
+    _customCategories.sort((a,b) => (a.order||0)-(b.order||0));
+    rebuildMenu();
+  }, err => console.error('customCategories listener:', err));
+}
 
 window.addEventListener('fb-error', (e) => {
   fbError = e.detail;
@@ -967,10 +1074,15 @@ function leaveMenu(){
 /* ========== MENU RENDERING ========== */
 function buildTabs(){
   const t=T[lang];
-  const tabs=[
+  const baseTabs = [
     {k:'all',l:t.tabAll},{k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
     {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink}
   ];
+  // カスタムカテゴリをタブに追加（基本カテゴリ以外）
+  const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k)).map(k => ({
+    k, l: (catLabels[lang] && catLabels[lang][k]) || k
+  }));
+  const tabs = [...baseTabs, ...customTabs];
   setHTML('tabsEl', tabs.map(tb=>
     `<button class="tab ${tb.k===currentCat?'active':''}" onclick="filterCat('${tb.k}')">${tb.l}</button>`
   ).join(''));
@@ -978,20 +1090,24 @@ function buildTabs(){
 
 function filterCat(cat){ currentCat=cat; buildTabs(); renderMenu(); }
 
-const imgEl = (src,cls='item-img') =>
-  src.startsWith('http') ? `<div class="${cls}"><img src="${src}" alt=""></div>` : `<div class="${cls}">${src}</div>`;
+const imgEl = (src,cls='item-img') => {
+  const s = src || '🍜';
+  return (typeof s === 'string' && s.startsWith('http'))
+    ? `<div class="${cls}"><img src="${s}" alt=""></div>`
+    : `<div class="${cls}">${s}</div>`;
+};
 
 function renderMenu(){
   const el=$('menuContainer');
   el.innerHTML='';
-  const t=T[lang], cl=catLabels[lang];
-  const cats = currentCat==='all' ? ['tonkotsu','shouyu','teishoku','topping','side','drink'] : [currentCat];
+  const t=T[lang], cl=catLabels[lang] || {};
+  const cats = currentCat==='all' ? allCatKeys : [currentCat];
 
   cats.forEach(cat=>{
     const items=menu.filter(m=>m.cat===cat);
     if(!items.length) return;
     const sec=document.createElement('div');
-    sec.innerHTML=`<div class="section-title">${cl[cat]}</div>`;
+    sec.innerHTML=`<div class="section-title">${cl[cat] || cat}</div>`;
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
       sec.innerHTML+=`<div class="night-notice">${t.nightNote}</div>`;
 
@@ -1059,9 +1175,10 @@ function maybeCloseItem(e){
 
 function renderModal(){
   const item=curItem, t=T[lang];
-  $('modalImg').innerHTML = item.img.startsWith('http')
-    ? `<img src="${item.img}" alt="" style="width:100%;height:100%;object-fit:cover">`
-    : item.img;
+  const itemImg = item.img || '🍜';
+  $('modalImg').innerHTML = (typeof itemImg === 'string' && itemImg.startsWith('http'))
+    ? `<img src="${itemImg}" alt="" style="width:100%;height:100%;object-fit:cover">`
+    : itemImg;
 
   const c=item.custom;
   const isMainDish=['tonkotsu','shouyu','teishoku'].includes(item.cat);
@@ -1114,7 +1231,7 @@ function renderModal(){
           const colorStyle = isZero ? 'color:#1a1a1a' : 'color:#e74c3c';
           return `
           <button class="spicy-item ${currentLv===s.l?'selected':''}" onclick="pickSpicy('${s.l}',${s.p})" style="${colorStyle}">
-            <div class="sl" style="${colorStyle}">${s.l}</div>${s.p>0?`<div class="sp" style="color:#e74c3c">+¥${s.p}</div>`:`<div class="sp">${t.spicyNone||''}</div>`}
+            <div class="sl" style="${colorStyle}">${localizeSpicyLabel(s.l,lang)}</div>${s.p>0?`<div class="sp" style="color:#e74c3c">+¥${s.p}</div>`:`<div class="sp">${t.spicyNone||''}</div>`}
           </button>`;
         }).join('')}
       </div>
@@ -1197,7 +1314,7 @@ function spicyGrid(){
   return `<div class="spicy-grid">
     ${spicyLevels.map(s=>`
       <button class="spicy-item ${curOpts.spicyLv===s.l?'selected':''}" onclick="pickSpicy('${s.l}',${s.p})">
-        <div class="sl">${s.l}</div><div class="sp">+¥${s.p}</div>
+        <div class="sl">${localizeSpicyLabel(s.l,lang)}</div><div class="sp">+¥${s.p}</div>
       </button>`).join('')}
   </div>`;
 }
@@ -1384,7 +1501,7 @@ function renderCart(){
     <div class="cart-row${sold?' soldout':''}">
       <div style="flex:1">
         <div class="cart-row-name">${i.name} × ${i.qty}${sold?'<span class="soldout-tag">🚫 売切</span>':''}</div>
-        ${i.opts.length?`<div class="cart-row-sub">${i.opts.join(' / ')}</div>`:''}
+        ${i.opts.length?`<div class="cart-row-sub">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
       </div>
       <div class="cart-row-price">¥${i.total.toLocaleString()}</div>
       <button class="remove-btn" onclick="removeCart(${i.id})">${t.removeBtn}</button>
@@ -1572,7 +1689,7 @@ function renderHistory(){
       </div>
       ${h.items.map(i=>`
         <div class="history-row">
-          <span>${i.name} × ${i.qty}${(i.opts&&i.opts.length)?' ('+i.opts.join('/')+'）':''}</span>
+          <span>${i.name} × ${i.qty}${(i.opts&&i.opts.length)?' ('+i.opts.map(o=>localizeOptText(o,lang)).join('/')+'）':''}</span>
           <span>¥${(i.total||0).toLocaleString()}</span>
         </div>`).join('')}
       <div class="history-total">
@@ -1617,7 +1734,7 @@ function renderPayment(){
       <div class="payment-row">
         <div style="flex:1;min-width:0">
           <div>${i.name} × ${i.qty}</div>
-          ${i.opts.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${i.opts.join(' / ')}</div>`:''}
+          ${i.opts.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
         </div>
         <span>¥${i.total.toLocaleString()}</span>
       </div>`).join('');
@@ -1901,7 +2018,7 @@ function renderAdminOrders(){
               <option value="served" ${o.status==='served'?'selected':''}>提供済</option>
             </select>
           </div>
-          ${(o.items||[]).map(i=>`<div style="font-size:12px;padding:2px 0">${i.name} × ${i.qty}${(i.opts&&i.opts.length)?' <span style="color:var(--muted)">('+i.opts.join('/')+')</span>':''}</div>`).join('')}
+          ${(o.items||[]).map(i=>`<div style="font-size:12px;padding:2px 0">${i.name} × ${i.qty}${(i.opts&&i.opts.length)?' <span style="color:var(--muted)">('+i.opts.map(o=>localizeOptText(o,lang)).join('/')+')</span>':''}</div>`).join('')}
           <div style="font-size:11px;text-align:right;color:var(--accent);font-weight:700;margin-top:4px">¥${(o.total||0).toLocaleString()}</div>
         </div>`;
       }).join('')}
@@ -1912,11 +2029,11 @@ function renderAdminOrders(){
 function renderAdminSoldout(){
   const c=$('adminContent');
   c.innerHTML = `<div style="font-size:11px;color:var(--muted);margin-bottom:10px">タップで売り切れ切替（リアルタイム反映）</div>` +
-    ['tonkotsu','shouyu','teishoku','side','topping','drink'].map(cat=>{
+    allCatKeys.map(cat=>{
       const items = menu.filter(m=>m.cat===cat);
       if(!items.length) return '';
       return `<div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${catLabels.ja[cat]}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${(catLabels.ja && catLabels.ja[cat]) || cat}</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${items.map(item=>{
             const so = isItemSoldout(item.id);
