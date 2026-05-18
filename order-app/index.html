@@ -338,6 +338,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div class="payment-grand-label" id="paymentTotalLabel">合計金額（税込）</div>
     <div class="payment-grand-price" id="paymentTotal">¥0</div>
   </div>
+  <div style="margin:16px">
+    <button id="openKaedamaBtn" onclick="openKaedamaModal()" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#c8860a 0%,#e9a428 100%);color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;box-shadow:0 2px 8px rgba(200,134,10,.35);display:flex;align-items:center;justify-content:center;gap:8px">
+      <span id="kaedamaBtnLabel">🍝 替え玉を追加注文</span>
+    </button>
+  </div>
   <div style="margin:0 16px;padding:16px;background:#f5f3ef;border-radius:14px;text-align:center;border:1px solid var(--border)">
     <div style="font-size:20px;margin-bottom:8px">🎫</div>
     <div style="font-size:13px;font-weight:700;color:var(--text);line-height:1.8" id="paymentGuideMsg">テーブル番号をレジにお持ちください<br>現金・クレジットカードでお支払いいただけます</div>
@@ -347,6 +352,26 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
       ✅ スタッフを呼びました。お席でお待ちください
     </div>
   </div>
+</div>
+
+<!-- 替え玉モーダル -->
+<div class="sub-screen" id="kaedamaScreen">
+  <div class="sub-header">
+    <button class="sub-back" onclick="closeSubScreen('kaedamaScreen')">‹</button>
+    <div class="sub-title" id="kaedamaModalTitle">替え玉の追加</div>
+  </div>
+  <div id="kaedamaNote" style="margin:12px 16px;padding:10px 14px;background:#fff8e1;border:1px solid #ffd54f;border-radius:10px;font-size:12px;color:#7d5a00;line-height:1.6"></div>
+  <div id="kaedamaRamenList" style="padding:0 16px"></div>
+  <div id="kaedamaCart" style="margin:16px;padding:14px;background:var(--surface2);border-radius:14px;display:none">
+    <div id="kaedamaCartTitle" style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">追加注文カート</div>
+    <div id="kaedamaCartList"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-weight:700">
+      <span>合計</span>
+      <span class="cart-total-price" id="kaedamaCartTotal" style="font-size:20px">¥0</span>
+    </div>
+    <button id="kaedamaSubmitBtn" onclick="submitKaedamaOrder()" style="width:100%;margin-top:12px;padding:14px;border-radius:12px;border:none;background:var(--accent2);color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">追加注文を確定 🍝</button>
+  </div>
+  <div style="height:24px"></div>
 </div>
 
 <!-- Item Modal -->
@@ -514,10 +539,10 @@ try {
 <script>
 /* ========== TRANSLATIONS ========== */
 const T = {
-  ja:{visitTitle:'はじめてのご来店ですか？',visitSub:'お選びください',lblFirst:'はじめて',subFirst:'First visit',lblRepeat:'2回目以降',subRepeat:'Repeat visit',cartBtn:'🛒 注文を確認する',cartTitle:'ご注文内容',totalLabel:'合計金額（税込）',orderBtn:'注文を確定する 🍜',successMsg:'ご注文を承りました\nしばらくお待ちください',successTitle:'ORDER PLACED',backBtn:'続けて注文する',emptyCart:'カートは空です',tabAll:'すべて',tabTonkotsu:'豚骨',tabShouyu:'醤油',tabTeishoku:'定食',tabSide:'サイド',tabTopping:'トッピング',tabDrink:'ドリンク',addToCart:'カートに追加',optChashu:'チャーシューをお選びください（必須選択）',optNoodle:'麺の硬さをお選びください（必須選択）',optTop:'トッピングをお選びください（必須選択）',optSpicy:'辛さをお選びください（必須選択）',spicyNone:'辛さなし',spicyPick:'辛さを追加🌶',nightNote:'🌙 夜限定メニューが含まれています',badgeCustom:'カスタム',badgeNight:'🌙 夜限定',badgePirikara:'🌶 ピリ辛',badgeSpicyCurry:'🌶 ピリ辛ベース｜辛さ調整0〜10',badgeSpicy:'🌶 辛さ 0〜10',badgeSpicyPlain:'🌶 Spicy',badgeGhost:'🏴 超激辛｜10辛完食者限定🔒',bnavMenu:'メニュー',bnavCart:'カート',bnavHistory:'注文履歴',bnavPayment:'お会計',historyTitle:'注文履歴',paymentTitle:'お会計',noHistory:'まだ注文履歴がありません',historySubtotal:'小計',paymentOrderLabel:'ご注文内容',paymentTotalLabel:'合計金額（税込）',paymentGuideMsg:'テーブル番号をレジにお持ちください<br>現金・クレジットカードでお支払いいただけます',tableNumLabel:'番テーブル',cartBackBtn:'‹ メニューに戻る',backToMenu:'‹ メニューに戻る',removeBtn:'✕',addonToppingLabel:'追加トッピングをお選びください',addonSideLabel:'サイドメニューをお選びください',addonDrinkLabel:'ドリンクをお選びください',addonNone:'なし',addonYes:'あり',addonNoodleLabel:'麺の種類・量をお選びください（必須選択）',optRice:'ライスのサイズをお選びください（必須選択）',selectRequiredMsg:'以下の項目を選択してください',allSelectedMsg:'選択完了！カートに追加できます',lunchFreeMsg:'平日ランチ特典：細麺大盛り・替え玉 無料！',statusPending:'受付済',statusPreparing:'調理中',statusServed:'提供済',connecting:'接続中...',connected:'オンライン',offline:'オフライン',sending:'送信中...',sendError:'送信に失敗しました',requiredTag:'選択必須'},
-  en:{visitTitle:'Is this your first visit?',visitSub:'Please select',lblFirst:'First time',subFirst:'初めて',lblRepeat:'Repeat visit',subRepeat:'2回目以降',cartBtn:'🛒 View Order',cartTitle:'Your Order',totalLabel:'Total (tax incl.)',orderBtn:'Place Order 🍜',successMsg:'Order received!\nPlease wait a moment.',successTitle:'ORDER PLACED',backBtn:'Continue ordering',emptyCart:'Your cart is empty',tabAll:'All',tabTonkotsu:'Tonkotsu',tabShouyu:'Shouyu',tabTeishoku:'Set Meal',tabSide:'Sides',tabTopping:'Toppings',tabDrink:'Drinks',addToCart:'Add to Cart',optChashu:'Please choose your chashu (Required)',optNoodle:'Please choose noodle firmness (Required)',optTop:'Please choose your topping (Required)',optSpicy:'Please choose your spicy level (Required)',spicyNone:'No Spicy',spicyPick:'Add Spicy 🌶',nightNote:'🌙 Includes evening-only items',badgeCustom:'Custom',badgeNight:'🌙 Night',badgePirikara:'🌶 Mild Spicy',badgeSpicyCurry:'🌶 Mild Base｜Spicy 0〜10',badgeSpicy:'🌶 Spicy 0〜10',badgeSpicyPlain:'🌶 Spicy',badgeGhost:'🏴 Ultra Spicy｜10-Spice Finisher Only🔒',bnavMenu:'Menu',bnavCart:'Cart',bnavHistory:'History',bnavPayment:'Payment',historyTitle:'Order History',paymentTitle:'Payment',noHistory:'No order history yet',historySubtotal:'Subtotal',paymentOrderLabel:'Your Orders',paymentTotalLabel:'Total (tax incl.)',paymentGuideMsg:'Please show your table number at the register<br>We accept cash and credit cards',tableNumLabel:'Table',cartBackBtn:'‹ Back to Menu',backToMenu:'‹ Back to Menu',removeBtn:'✕',addonToppingLabel:'Please choose extra toppings',addonSideLabel:'Please choose a side dish',addonDrinkLabel:'Please choose a drink',addonNone:'None',addonYes:'Add',addonNoodleLabel:'Please choose noodle type & size (Required)',optRice:'Please choose rice size (Required)',selectRequiredMsg:'Please select the following options',allSelectedMsg:'All set! Ready to add to cart',lunchFreeMsg:'Weekday Lunch Special: Thin Noodle Large & Extra Noodles FREE!',statusPending:'Received',statusPreparing:'Preparing',statusServed:'Served',connecting:'Connecting...',connected:'Online',offline:'Offline',sending:'Sending...',sendError:'Failed to send',requiredTag:'Required'},
-  zh:{visitTitle:'这是您第一次光临吗？',visitSub:'请选择',lblFirst:'首次光临',subFirst:'はじめて',lblRepeat:'再次光临',subRepeat:'2回目以降',cartBtn:'🛒 查看订单',cartTitle:'您的订单',totalLabel:'合计金额（含税）',orderBtn:'确认订单 🍜',successMsg:'订单已收到！\n请稍候。',successTitle:'订单已提交',backBtn:'继续点餐',emptyCart:'购物车是空的',tabAll:'全部',tabTonkotsu:'猪骨',tabShouyu:'酱油',tabTeishoku:'套餐',tabSide:'小菜',tabTopping:'配料',tabDrink:'饮料',addToCart:'加入购物车',optChashu:'请选择叉烧（必选）',optNoodle:'请选择面条软硬（必选）',optTop:'请选择配料（必选）',optSpicy:'请选择辣度（必选）',spicyNone:'不加辣',spicyPick:'添加辣度🌶',nightNote:'🌙 含夜间限定菜品',badgeCustom:'定制',badgeNight:'🌙 夜间限定',badgePirikara:'🌶 微辣',badgeSpicyCurry:'🌶 微辣底｜辣度0〜10',badgeSpicy:'🌶 辣度 0〜10',badgeSpicyPlain:'🌶 辣',badgeGhost:'🏴 超级辣｜仅限10辛完食者🔒',bnavMenu:'菜单',bnavCart:'购物车',bnavHistory:'订单历史',bnavPayment:'结账',historyTitle:'订单历史',paymentTitle:'结账',noHistory:'暂无订单历史',historySubtotal:'小计',paymentOrderLabel:'订单内容',paymentTotalLabel:'合计金额（含税）',paymentGuideMsg:'请将桌号出示给收银员<br>支持现金及信用卡付款',tableNumLabel:'号桌',cartBackBtn:'‹ 返回菜单',backToMenu:'‹ 返回菜单',removeBtn:'✕',addonToppingLabel:'请选择追加配料',addonSideLabel:'请选择小菜',addonDrinkLabel:'请选择饮料',addonNone:'不加',addonYes:'添加',addonNoodleLabel:'请选择面条种类・份量（必选）',optRice:'请选择米饭大小（必选）',selectRequiredMsg:'请选择以下项目',allSelectedMsg:'选择完成！可以加入购物车',lunchFreeMsg:'工作日午餐特惠：细面大碗・加面 免费！',statusPending:'已受理',statusPreparing:'制作中',statusServed:'已上桌',connecting:'连接中...',connected:'在线',offline:'离线',sending:'发送中...',sendError:'发送失败',requiredTag:'必选'},
-  ko:{visitTitle:'처음 방문하셨나요?',visitSub:'선택해 주세요',lblFirst:'처음 방문',subFirst:'はじめて',lblRepeat:'재방문',subRepeat:'2回目以降',cartBtn:'🛒 주문 확인',cartTitle:'주문 내역',totalLabel:'합계 금액 (세금 포함)',orderBtn:'주문 확정 🍜',successMsg:'주문을 접수했습니다\n잠시 기다려 주세요.',successTitle:'주문 완료',backBtn:'계속 주문하기',emptyCart:'장바구니가 비어 있습니다',tabAll:'전체',tabTonkotsu:'돈코츠',tabShouyu:'쇼유',tabTeishoku:'정식',tabSide:'사이드',tabTopping:'토핑',tabDrink:'음료',addToCart:'장바구니에 추가',optChashu:'차슈를 선택해 주세요（필수 선택）',optNoodle:'면 굵기를 선택해 주세요（필수 선택）',optTop:'토핑을 선택해 주세요（필수 선택）',optSpicy:'매운맛을 선택해 주세요（필수 선택）',spicyNone:'맵지 않게',spicyPick:'매운맛 추가🌶',nightNote:'🌙 야간 한정 메뉴 포함',badgeCustom:'커스텀',badgeNight:'🌙 야간한정',badgePirikara:'🌶 약간 매움',badgeSpicyCurry:'🌶 약간매운 베이스｜매운맛 0〜10',badgeSpicy:'🌶 매운맛 0〜10',badgeSpicyPlain:'🌶 매움',badgeGhost:'🏴 극한매움｜10매운맛 완식자 한정🔒',bnavMenu:'메뉴',bnavCart:'장바구니',bnavHistory:'주문내역',bnavPayment:'결제',historyTitle:'주문 내역',paymentTitle:'결제',noHistory:'아직 주문 내역이 없습니다',historySubtotal:'소계',paymentOrderLabel:'주문 내역',paymentTotalLabel:'합계 금액 (세금 포함)',paymentGuideMsg:'테이블 번호를 계산대에 제시해 주세요<br>현금 및 신용카드로 결제 가능합니다',tableNumLabel:'번 테이블',cartBackBtn:'‹ 메뉴로 돌아가기',backToMenu:'‹ 메뉴로 돌아가기',removeBtn:'✕',addonToppingLabel:'추가 토핑을 선택해 주세요',addonSideLabel:'사이드 메뉴를 선택해 주세요',addonDrinkLabel:'음료를 선택해 주세요',addonNone:'없음',addonYes:'추가',addonNoodleLabel:'면 종류・양을 선택해 주세요（필수 선택）',optRice:'밥 크기를 선택해 주세요（필수 선택）',selectRequiredMsg:'아래 항목을 선택해 주세요',allSelectedMsg:'선택 완료！장바구니에 추가할 수 있습니다',lunchFreeMsg:'평일 런치 혜택：가는면 곱배기・면 추가 무료！',statusPending:'접수 완료',statusPreparing:'조리 중',statusServed:'제공 완료',connecting:'연결 중...',connected:'온라인',offline:'오프라인',sending:'전송 중...',sendError:'전송 실패',requiredTag:'필수 선택'}
+  ja:{visitTitle:'はじめてのご来店ですか？',visitSub:'お選びください',lblFirst:'はじめて',subFirst:'First visit',lblRepeat:'2回目以降',subRepeat:'Repeat visit',cartBtn:'🛒 注文を確認する',cartTitle:'ご注文内容',totalLabel:'合計金額（税込）',orderBtn:'注文を確定する 🍜',successMsg:'ご注文を承りました\nしばらくお待ちください',successTitle:'ORDER PLACED',backBtn:'続けて注文する',emptyCart:'カートは空です',tabAll:'すべて',tabTonkotsu:'豚骨',tabShouyu:'醤油',tabTeishoku:'定食',tabSide:'サイド',tabTopping:'トッピング',tabDrink:'ドリンク',addToCart:'カートに追加',optChashu:'チャーシューをお選びください（必須選択）',optNoodle:'麺の硬さをお選びください（必須選択）',optTop:'トッピングをお選びください（必須選択）',optSpicy:'辛さをお選びください（必須選択）',spicyNone:'辛さなし',spicyPick:'辛さを追加🌶',nightNote:'🌙 夜限定メニューが含まれています',badgeCustom:'カスタム',badgeNight:'🌙 夜限定',badgePirikara:'🌶 ピリ辛',badgeSpicyCurry:'🌶 ピリ辛ベース｜辛さ調整0〜10',badgeSpicy:'🌶 辛さ 0〜10',badgeSpicyPlain:'🌶 Spicy',badgeGhost:'🏴 超激辛｜10辛完食者限定🔒',bnavMenu:'メニュー',bnavCart:'カート',bnavHistory:'注文履歴',bnavPayment:'お会計',historyTitle:'注文履歴',paymentTitle:'お会計',noHistory:'まだ注文履歴がありません',historySubtotal:'小計',paymentOrderLabel:'ご注文内容',paymentTotalLabel:'合計金額（税込）',paymentGuideMsg:'テーブル番号をレジにお持ちください<br>現金・クレジットカードでお支払いいただけます',tableNumLabel:'番テーブル',cartBackBtn:'‹ メニューに戻る',backToMenu:'‹ メニューに戻る',removeBtn:'✕',addonToppingLabel:'追加トッピングをお選びください',addonSideLabel:'サイドメニューをお選びください',addonDrinkLabel:'ドリンクをお選びください',addonNone:'なし',addonYes:'あり',addonNoodleLabel:'麺の種類・量をお選びください（必須選択）',optRice:'ライスのサイズをお選びください（必須選択）',selectRequiredMsg:'以下の項目を選択してください',allSelectedMsg:'選択完了！カートに追加できます',lunchFreeMsg:'平日ランチ特典：細麺大盛り・替え玉 無料！',kaedamaBtnLabel:'🍝 替え玉を追加注文',kaedamaModalTitle:'替え玉の追加',kaedamaSelectRamen:'どのラーメンに追加しますか？',kaedamaFreeBadge:'1杯無料',kaedamaPaidBadge:'+¥150',kaedamaHardness:'麺の硬さ',kaedamaQty:'数量',kaedamaAddBtn:'カートに追加',kaedamaCartTitle:'追加注文カート',kaedamaSubmitBtn:'追加注文を確定 🍝',kaedamaEmptyRamen:'替え玉対象のラーメン注文がありません',kaedamaSuccessMsg:'替え玉を追加しました',kaedamaNoteLunch:'平日ランチは1杯目無料（大盛り選択時は対象外）',kaedamaNoteShoyu:'醤油は平日ランチ時のみ1杯目無料',statusPending:'受付済',statusPreparing:'調理中',statusServed:'提供済',connecting:'接続中...',connected:'オンライン',offline:'オフライン',sending:'送信中...',sendError:'送信に失敗しました',requiredTag:'選択必須'},
+  en:{visitTitle:'Is this your first visit?',visitSub:'Please select',lblFirst:'First time',subFirst:'初めて',lblRepeat:'Repeat visit',subRepeat:'2回目以降',cartBtn:'🛒 View Order',cartTitle:'Your Order',totalLabel:'Total (tax incl.)',orderBtn:'Place Order 🍜',successMsg:'Order received!\nPlease wait a moment.',successTitle:'ORDER PLACED',backBtn:'Continue ordering',emptyCart:'Your cart is empty',tabAll:'All',tabTonkotsu:'Tonkotsu',tabShouyu:'Shouyu',tabTeishoku:'Set Meal',tabSide:'Sides',tabTopping:'Toppings',tabDrink:'Drinks',addToCart:'Add to Cart',optChashu:'Please choose your chashu (Required)',optNoodle:'Please choose noodle firmness (Required)',optTop:'Please choose your topping (Required)',optSpicy:'Please choose your spicy level (Required)',spicyNone:'No Spicy',spicyPick:'Add Spicy 🌶',nightNote:'🌙 Includes evening-only items',badgeCustom:'Custom',badgeNight:'🌙 Night',badgePirikara:'🌶 Mild Spicy',badgeSpicyCurry:'🌶 Mild Base｜Spicy 0〜10',badgeSpicy:'🌶 Spicy 0〜10',badgeSpicyPlain:'🌶 Spicy',badgeGhost:'🏴 Ultra Spicy｜10-Spice Finisher Only🔒',bnavMenu:'Menu',bnavCart:'Cart',bnavHistory:'History',bnavPayment:'Payment',historyTitle:'Order History',paymentTitle:'Payment',noHistory:'No order history yet',historySubtotal:'Subtotal',paymentOrderLabel:'Your Orders',paymentTotalLabel:'Total (tax incl.)',paymentGuideMsg:'Please show your table number at the register<br>We accept cash and credit cards',tableNumLabel:'Table',cartBackBtn:'‹ Back to Menu',backToMenu:'‹ Back to Menu',removeBtn:'✕',addonToppingLabel:'Please choose extra toppings',addonSideLabel:'Please choose a side dish',addonDrinkLabel:'Please choose a drink',addonNone:'None',addonYes:'Add',addonNoodleLabel:'Please choose noodle type & size (Required)',optRice:'Please choose rice size (Required)',selectRequiredMsg:'Please select the following options',allSelectedMsg:'All set! Ready to add to cart',lunchFreeMsg:'Weekday Lunch Special: Thin Noodle Large & Extra Noodles FREE!',kaedamaBtnLabel:'🍝 Add Extra Noodles',kaedamaModalTitle:'Add Extra Noodles',kaedamaSelectRamen:'Which ramen to add to?',kaedamaFreeBadge:'1 FREE',kaedamaPaidBadge:'+¥150',kaedamaHardness:'Noodle Firmness',kaedamaQty:'Quantity',kaedamaAddBtn:'Add to Cart',kaedamaCartTitle:'Extra Order Cart',kaedamaSubmitBtn:'Confirm Extra Order 🍝',kaedamaEmptyRamen:'No eligible ramen orders found',kaedamaSuccessMsg:'Extra noodles added',kaedamaNoteLunch:'Weekday lunch: 1st bowl free (unless large size chosen)',kaedamaNoteShoyu:'Shoyu: 1st bowl free only during weekday lunch',statusPending:'Received',statusPreparing:'Preparing',statusServed:'Served',connecting:'Connecting...',connected:'Online',offline:'Offline',sending:'Sending...',sendError:'Failed to send',requiredTag:'Required'},
+  zh:{visitTitle:'这是您第一次光临吗？',visitSub:'请选择',lblFirst:'首次光临',subFirst:'はじめて',lblRepeat:'再次光临',subRepeat:'2回目以降',cartBtn:'🛒 查看订单',cartTitle:'您的订单',totalLabel:'合计金额（含税）',orderBtn:'确认订单 🍜',successMsg:'订单已收到！\n请稍候。',successTitle:'订单已提交',backBtn:'继续点餐',emptyCart:'购物车是空的',tabAll:'全部',tabTonkotsu:'猪骨',tabShouyu:'酱油',tabTeishoku:'套餐',tabSide:'小菜',tabTopping:'配料',tabDrink:'饮料',addToCart:'加入购物车',optChashu:'请选择叉烧（必选）',optNoodle:'请选择面条软硬（必选）',optTop:'请选择配料（必选）',optSpicy:'请选择辣度（必选）',spicyNone:'不加辣',spicyPick:'添加辣度🌶',nightNote:'🌙 含夜间限定菜品',badgeCustom:'定制',badgeNight:'🌙 夜间限定',badgePirikara:'🌶 微辣',badgeSpicyCurry:'🌶 微辣底｜辣度0〜10',badgeSpicy:'🌶 辣度 0〜10',badgeSpicyPlain:'🌶 辣',badgeGhost:'🏴 超级辣｜仅限10辛完食者🔒',bnavMenu:'菜单',bnavCart:'购物车',bnavHistory:'订单历史',bnavPayment:'结账',historyTitle:'订单历史',paymentTitle:'结账',noHistory:'暂无订单历史',historySubtotal:'小计',paymentOrderLabel:'订单内容',paymentTotalLabel:'合计金额（含税）',paymentGuideMsg:'请将桌号出示给收银员<br>支持现金及信用卡付款',tableNumLabel:'号桌',cartBackBtn:'‹ 返回菜单',backToMenu:'‹ 返回菜单',removeBtn:'✕',addonToppingLabel:'请选择追加配料',addonSideLabel:'请选择小菜',addonDrinkLabel:'请选择饮料',addonNone:'不加',addonYes:'添加',addonNoodleLabel:'请选择面条种类・份量（必选）',optRice:'请选择米饭大小（必选）',selectRequiredMsg:'请选择以下项目',allSelectedMsg:'选择完成！可以加入购物车',lunchFreeMsg:'工作日午餐特惠：细面大碗・加面 免费！',kaedamaBtnLabel:'🍝 追加加面',kaedamaModalTitle:'追加加面',kaedamaSelectRamen:'要为哪碗拉面加面？',kaedamaFreeBadge:'1碗免费',kaedamaPaidBadge:'+¥150',kaedamaHardness:'面条硬度',kaedamaQty:'数量',kaedamaAddBtn:'加入购物车',kaedamaCartTitle:'追加订单',kaedamaSubmitBtn:'确认追加订单 🍝',kaedamaEmptyRamen:'暂无可追加的拉面订单',kaedamaSuccessMsg:'已追加加面',kaedamaNoteLunch:'工作日午餐：第1碗免费（选大碗时除外）',kaedamaNoteShoyu:'酱油拉面：仅工作日午餐第1碗免费',statusPending:'已受理',statusPreparing:'制作中',statusServed:'已上桌',connecting:'连接中...',connected:'在线',offline:'离线',sending:'发送中...',sendError:'发送失败',requiredTag:'必选'},
+  ko:{visitTitle:'처음 방문하셨나요?',visitSub:'선택해 주세요',lblFirst:'처음 방문',subFirst:'はじめて',lblRepeat:'재방문',subRepeat:'2回目以降',cartBtn:'🛒 주문 확인',cartTitle:'주문 내역',totalLabel:'합계 금액 (세금 포함)',orderBtn:'주문 확정 🍜',successMsg:'주문을 접수했습니다\n잠시 기다려 주세요.',successTitle:'주문 완료',backBtn:'계속 주문하기',emptyCart:'장바구니가 비어 있습니다',tabAll:'전체',tabTonkotsu:'돈코츠',tabShouyu:'쇼유',tabTeishoku:'정식',tabSide:'사이드',tabTopping:'토핑',tabDrink:'음료',addToCart:'장바구니에 추가',optChashu:'차슈를 선택해 주세요（필수 선택）',optNoodle:'면 굵기를 선택해 주세요（필수 선택）',optTop:'토핑을 선택해 주세요（필수 선택）',optSpicy:'매운맛을 선택해 주세요（필수 선택）',spicyNone:'맵지 않게',spicyPick:'매운맛 추가🌶',nightNote:'🌙 야간 한정 메뉴 포함',badgeCustom:'커스텀',badgeNight:'🌙 야간한정',badgePirikara:'🌶 약간 매움',badgeSpicyCurry:'🌶 약간매운 베이스｜매운맛 0〜10',badgeSpicy:'🌶 매운맛 0〜10',badgeSpicyPlain:'🌶 매움',badgeGhost:'🏴 극한매움｜10매운맛 완식자 한정🔒',bnavMenu:'메뉴',bnavCart:'장바구니',bnavHistory:'주문내역',bnavPayment:'결제',historyTitle:'주문 내역',paymentTitle:'결제',noHistory:'아직 주문 내역이 없습니다',historySubtotal:'소계',paymentOrderLabel:'주문 내역',paymentTotalLabel:'합계 금액 (세금 포함)',paymentGuideMsg:'테이블 번호를 계산대에 제시해 주세요<br>현금 및 신용카드로 결제 가능합니다',tableNumLabel:'번 테이블',cartBackBtn:'‹ 메뉴로 돌아가기',backToMenu:'‹ 메뉴로 돌아가기',removeBtn:'✕',addonToppingLabel:'추가 토핑을 선택해 주세요',addonSideLabel:'사이드 메뉴를 선택해 주세요',addonDrinkLabel:'음료를 선택해 주세요',addonNone:'없음',addonYes:'추가',addonNoodleLabel:'면 종류・양을 선택해 주세요（필수 선택）',optRice:'밥 크기를 선택해 주세요（필수 선택）',selectRequiredMsg:'아래 항목을 선택해 주세요',allSelectedMsg:'선택 완료！장바구니에 추가할 수 있습니다',lunchFreeMsg:'평일 런치 혜택：가는면 곱배기・면 추가 무료！',kaedamaBtnLabel:'🍝 면 추가 주문',kaedamaModalTitle:'면 추가',kaedamaSelectRamen:'어떤 라멘에 추가하시겠습니까?',kaedamaFreeBadge:'1그릇 무료',kaedamaPaidBadge:'+¥150',kaedamaHardness:'면 굵기',kaedamaQty:'수량',kaedamaAddBtn:'장바구니에 추가',kaedamaCartTitle:'추가 주문 장바구니',kaedamaSubmitBtn:'추가 주문 확정 🍝',kaedamaEmptyRamen:'면 추가가 가능한 라멘 주문이 없습니다',kaedamaSuccessMsg:'면 추가를 완료했습니다',kaedamaNoteLunch:'평일 런치：첫 그릇 무료（곱배기 선택 시 제외）',kaedamaNoteShoyu:'쇼유：평일 런치 시에만 첫 그릇 무료',statusPending:'접수 완료',statusPreparing:'조리 중',statusServed:'제공 완료',connecting:'연결 중...',connected:'온라인',offline:'오프라인',sending:'전송 중...',sendError:'전송 실패',requiredTag:'필수 선택'}
 };
 
 let catLabels = {
@@ -534,7 +559,7 @@ const chashuOpts = {ja:['豚','鶏'],en:['Pork','Chicken'],zh:['猪肉','鸡肉'
 const kataOpts   = {ja:['かため','ふつう','やわ'],en:['Firm','Medium','Soft'],zh:['硬','普通','软'],ko:['단단히','보통','부드럽게']};
 const topOpts    = {ja:['とんかつ','チキンカツ'],en:['Tonkatsu','Chicken Katsu'],zh:['炸猪排','炸鸡排'],ko:['돈카츠','치킨카츠']};
 const riceOpts   = {ja:['普通盛り','大盛り（無料）'],en:['Regular','Large (Free)'],zh:['普通量','大碗（免费）'],ko:['보통','곱배기（무료）']};
-// 麺サイズ選択：細麺(並・大盛り) / 平打ち麺(少・並・大盛り) ※平打ち麺の少は並と同料金
+// 麺サイズ選択（とんこつ）：細麺(並・大盛り) / 平打ち麺(少・並・大盛り)
 const noodleSizeOptsWeekday = {
   ja:['細麺 並','細麺 大盛り 無料🎉','平打ち麺 少 +150円','平打ち麺 並 +150円','平打ち麺 大盛り +250円'],
   en:['Thin Regular','Thin Large FREE🎉','Flat Less +¥150','Flat Regular +¥150','Flat Large +¥250'],
@@ -547,7 +572,17 @@ const noodleSizeOptsWeekend = {
   zh:['细面普通','细面大碗+¥100','宽面少量+¥150','宽面普通+¥150','宽面大碗+¥250'],
   ko:['가는면 보통','가는면 곱배기+¥100','넓은면 적게+¥150','넓은면 보통+¥150','넓은면 곱배기+¥250']
 };
-const getNoodleSizeOpts = l => isLunchWeekday() ? noodleSizeOptsWeekday[l] : noodleSizeOptsWeekend[l];
+// 麺サイズ選択（醤油）：平打ち麺のみ、大盛りは時間帯問わず+150
+const noodleSizeOptsShouyu = {
+  ja:['平打ち麺 並','平打ち麺 大盛り +150円'],
+  en:['Flat Regular','Flat Large +¥150'],
+  zh:['宽面普通','宽面大碗+¥150'],
+  ko:['넓은면 보통','넓은면 곱배기+¥150']
+};
+function getNoodleSizeOpts(l, cat){
+  if (cat === 'shouyu') return noodleSizeOptsShouyu[l];
+  return isLunchWeekday() ? noodleSizeOptsWeekday[l] : noodleSizeOptsWeekend[l];
+}
 
 const spicyLevels = [
   {l:'0辛',p:0},
@@ -704,7 +739,53 @@ const setHTML = (id, html) => { const el=$(id); if(el) el.innerHTML=html; };
 const isItemSoldout = id => soldoutSet.has(id);
 const isNightTime  = () => { const h=new Date().getHours(); return h>=17&&h<21; };
 const isLunchTime  = () => { const h=new Date().getHours(); return h>=11&&h<14; };
-const isWeekday    = () => { const d=new Date().getDay(); return d>=1&&d<=5; };
+
+/* ===== 日本の祝日判定 ===== */
+// 2025-2030 の主要な日本の祝日（固定日 + ハッピーマンデー + 春分/秋分）
+// 春分/秋分は天文学的計算式（簡易版）で算出
+function _vernalEquinoxDay(year){
+  // 春分: 1980-2099 範囲で有効な簡易式
+  return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+}
+function _autumnEquinoxDay(year){
+  return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+}
+// ハッピーマンデー: その月のn番目の月曜日
+function _nthMonday(year, month, n){
+  const d = new Date(year, month - 1, 1);
+  const offset = (1 - d.getDay() + 7) % 7; // 1日が月曜から何日離れているか
+  return 1 + offset + (n - 1) * 7;
+}
+function isJapaneseHoliday(date){
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  // 固定日の祝日
+  const fixed = {
+    '1-1': true,    // 元日
+    '2-11': true,   // 建国記念の日
+    '2-23': true,   // 天皇誕生日
+    '4-29': true,   // 昭和の日
+    '5-3': true,    // 憲法記念日
+    '5-4': true,    // みどりの日
+    '5-5': true,    // こどもの日
+    '8-11': true,   // 山の日
+    '11-3': true,   // 文化の日
+    '11-23': true   // 勤労感謝の日
+  };
+  if (fixed[`${m}-${d}`]) return true;
+  // ハッピーマンデー祝日
+  if (m === 1 && d === _nthMonday(y, 1, 2)) return true;  // 成人の日（1月第2月曜）
+  if (m === 7 && d === _nthMonday(y, 7, 3)) return true;  // 海の日（7月第3月曜）
+  if (m === 9 && d === _nthMonday(y, 9, 3)) return true;  // 敬老の日（9月第3月曜）
+  if (m === 10 && d === _nthMonday(y, 10, 2)) return true; // スポーツの日（10月第2月曜）
+  // 春分・秋分
+  if (m === 3 && d === _vernalEquinoxDay(y)) return true;  // 春分の日
+  if (m === 9 && d === _autumnEquinoxDay(y)) return true;  // 秋分の日
+  return false;
+}
+
+const isWeekday    = () => { const d=new Date(); return d.getDay()>=1 && d.getDay()<=5 && !isJapaneseHoliday(d); };
 const isLunchWeekday = () => isLunchTime()&&isWeekday();
 const isAvailable  = item => !item.night || isNightTime();
 
@@ -892,6 +973,10 @@ function applyLang(){
   setText('successTitle',t.successTitle);
   setText('backBtn',t.backBtn);
   setText('cartBtnLabel',t.cartBtn);
+  setText('kaedamaBtnLabel',t.kaedamaBtnLabel);
+  setText('kaedamaModalTitle',t.kaedamaModalTitle);
+  setText('kaedamaCartTitle',t.kaedamaCartTitle);
+  setText('kaedamaSubmitBtn',t.kaedamaSubmitBtn);
   if(fbReady) setFbStatus('online', t.connected);
   else if(fbError) setFbStatus('offline', t.offline);
   else setFbStatus('connecting', t.connecting);
@@ -1216,7 +1301,7 @@ function renderModal(){
   if(c.chashu)     h+=optGrpReq(t.optChashu,'chashu',chashuOpts[lang],missing);
   if(c.top)        h+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
   if(c.kata && !c.noodleSize) h+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
-  if(c.noodleSize) h+=optGrpReq(t.addonNoodleLabel,'noodleSize',getNoodleSizeOpts(lang),missing);
+  if(c.noodleSize) h+=optGrpReq(t.addonNoodleLabel,'noodleSize',getNoodleSizeOpts(lang, curItem&&curItem.cat),missing);
   if(c.noodleSize && curOpts.noodleSize && curOpts.noodleSize.includes('細麺'))
     h+=optGrpReq('麺の硬さ（細麺のみ）（必須選択）','kata',kataOpts[lang],missing);
   if(c.rice)       h+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing);
@@ -1357,14 +1442,9 @@ function addonQty(key,itemId,delta){
 function calcNoodleExtra(){
   if(!curOpts.noodleSize) return 0;
   const ns=curOpts.noodleSize;
-  if(isLunchWeekday()){
-    if(ns.includes('+150')) return 150;
-    if(ns.includes('+250')) return 250;
-    return 0;
-  }
-  if(ns.includes('+100')) return 100;
-  if(ns.includes('+150')) return 150;
-  if(ns.includes('+250')) return 250;
+  // 表記内の +金額 を抽出（言語非依存）
+  const m = ns.match(/\+\D*(\d+)/);
+  if (m) return parseInt(m[1], 10);
   return 0;
 }
 
@@ -1784,6 +1864,254 @@ async function requestPayment(){
     showValidationMsg('⚠️ 通信エラー: ' + e.message);
     if(btn) btn.disabled = false;
   } finally {
+    showLoading(false);
+  }
+}
+
+/* ========== KAEDAMA (替え玉) — 食後の追加注文 ========== */
+const KAEDAMA_MENU_ID = 40; // menu-canonical.js の「替え玉（細麺）」ID
+const KAEDAMA_PRICE   = 150;
+
+// 注文済みラーメンを抽出し、各々の無料権利の残数を計算
+function computeKaedamaCredits(){
+  const ramenList = [];
+  orderHistory.forEach(h => {
+    if (!h.items) return;
+    h.items.forEach((it, idx) => {
+      // メインラーメンのみ対象（とんこつ/醤油カテゴリ）
+      if (!it.isMain) return;
+      const m = menu.find(mm => mm.id === it.itemId);
+      const cat = m ? m.cat : null;
+      if (cat !== 'tonkotsu' && cat !== 'shouyu') return;
+      // 数量分のラーメンを個別に登録
+      for (let q = 0; q < (it.qty||1); q++){
+        ramenList.push({
+          orderFbId: h.fbId,
+          orderIdx: idx,
+          subIdx: q,
+          name: it.name,
+          cat,
+          opts: it.opts || [],
+          createdAt: h.createdAt
+        });
+      }
+    });
+  });
+  // 既に追加注文した替え玉の集計（無料/有料の利用済み数）
+  const usedFreeByKey = {}; // key: `${orderFbId}_${orderIdx}_${subIdx}` → 既消費の無料杯数
+  orderHistory.forEach(h => {
+    if (!h.items) return;
+    h.items.forEach(it => {
+      if (it.itemId !== KAEDAMA_MENU_ID) return;
+      const tag = it.kaedamaTarget; // {orderFbId, orderIdx, subIdx, wasFree:bool}
+      if (tag && tag.wasFree){
+        const k = `${tag.orderFbId}_${tag.orderIdx}_${tag.subIdx}`;
+        usedFreeByKey[k] = (usedFreeByKey[k] || 0) + (it.qty||1);
+      }
+    });
+  });
+  // 各ラーメンに無料権利が残っているか判定
+  return ramenList.map(r => {
+    const key = `${r.orderFbId}_${r.orderIdx}_${r.subIdx}`;
+    const used = usedFreeByKey[key] || 0;
+    // 無料権利の最大数を判定
+    let maxFree = 0;
+    if (isLunchWeekday()){
+      if (r.cat === 'tonkotsu'){
+        // とんこつ平日ランチ：大盛りを選んでいなければ1杯無料
+        const hasLarge = r.opts.some(o => /大盛り|Large|大碗|곱배기/.test(o));
+        maxFree = hasLarge ? 0 : 1;
+      } else if (r.cat === 'shouyu'){
+        // しょうゆ平日ランチ：必ず1杯無料（大盛りは別途課金なので関係なし）
+        maxFree = 1;
+      }
+    }
+    return { ...r, key, freeLeft: Math.max(0, maxFree - used) };
+  });
+}
+
+// 替え玉カートの状態（モーダル内で蓄積）
+let kaedamaCart = []; // {ramenKey, ramenName, hardness, qty, unitPrice, total, wasFree, target}
+
+function openKaedamaModal(){
+  if (!sessionActive){ showPaidScreen(); return; }
+  const t = T[lang];
+  setText('kaedamaModalTitle', t.kaedamaModalTitle);
+  setText('kaedamaCartTitle', t.kaedamaCartTitle);
+  setText('kaedamaSubmitBtn', t.kaedamaSubmitBtn);
+  // ノート
+  const noteEl = $('kaedamaNote');
+  if (noteEl){
+    noteEl.innerHTML = `<div>${t.kaedamaNoteLunch}</div><div style="margin-top:4px">${t.kaedamaNoteShoyu}</div>`;
+  }
+  kaedamaCart = [];
+  renderKaedamaList();
+  renderKaedamaCart();
+  $('kaedamaScreen').classList.add('open');
+}
+
+function renderKaedamaList(){
+  const t = T[lang];
+  const credits = computeKaedamaCredits();
+  const listEl = $('kaedamaRamenList');
+  if (!credits.length){
+    listEl.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:14px">${t.kaedamaEmptyRamen}</div>`;
+    return;
+  }
+  // ラーメン単位でカード表示。各カードに「麺硬さ選択 + 追加ボタン」
+  listEl.innerHTML = credits.map((r, i) => {
+    const badge = r.freeLeft > 0
+      ? `<span style="display:inline-block;background:#2e7d32;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;margin-left:6px">${t.kaedamaFreeBadge}</span>`
+      : `<span style="display:inline-block;background:#999;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;margin-left:6px">${t.kaedamaPaidBadge}</span>`;
+    const hardness = kataOpts[lang];
+    return `
+    <div class="history-item" style="padding:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">${r.name}${badge}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${r.opts.join(' / ')}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">${t.kaedamaHardness}</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px" id="kaedamaKata-${i}">
+        ${hardness.map((kt, j) => `<button data-i="${i}" data-kt="${kt}" onclick="pickKaedamaKata(${i},'${kt}')" class="kaedama-kt-btn" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${kt}</button>`).join('')}
+      </div>
+      <button onclick="addKaedamaToCart(${i})" style="width:100%;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">+ ${t.kaedamaAddBtn}</button>
+    </div>`;
+  }).join('');
+  // 内部保持
+  window._kaedamaCandidates = credits;
+  window._kaedamaPickedKata = {}; // i → kt
+}
+
+function pickKaedamaKata(i, kt){
+  window._kaedamaPickedKata = window._kaedamaPickedKata || {};
+  window._kaedamaPickedKata[i] = kt;
+  // ハイライト更新
+  const wrap = document.getElementById(`kaedamaKata-${i}`);
+  if (wrap){
+    wrap.querySelectorAll('.kaedama-kt-btn').forEach(b => {
+      const selected = b.getAttribute('data-kt') === kt;
+      b.style.background = selected ? 'var(--accent)' : '#fff';
+      b.style.color      = selected ? '#fff' : '#1a1a1a';
+      b.style.borderColor = selected ? 'var(--accent)' : 'var(--border)';
+    });
+  }
+}
+
+function addKaedamaToCart(i){
+  const cands = window._kaedamaCandidates || [];
+  const r = cands[i];
+  if (!r) return;
+  const kt = (window._kaedamaPickedKata || {})[i];
+  if (!kt){
+    showValidationMsg('⚠️ 麺の硬さを選んでください');
+    return;
+  }
+  // 既にカートにある同ラーメンの無料消費数
+  const alreadyFree = kaedamaCart.filter(c => c.target.key === r.key && c.wasFree).reduce((s,c)=>s+c.qty,0);
+  const wasFree = (r.freeLeft - alreadyFree) > 0;
+  const unitPrice = wasFree ? 0 : KAEDAMA_PRICE;
+  kaedamaCart.push({
+    ramenName: r.name,
+    hardness: kt,
+    qty: 1,
+    unitPrice,
+    total: unitPrice,
+    wasFree,
+    target: { key: r.key, orderFbId: r.orderFbId, orderIdx: r.orderIdx, subIdx: r.subIdx }
+  });
+  renderKaedamaCart();
+}
+
+function removeKaedamaCart(idx){
+  kaedamaCart.splice(idx, 1);
+  renderKaedamaCart();
+}
+
+function renderKaedamaCart(){
+  const t = T[lang];
+  const wrap = $('kaedamaCart');
+  const list = $('kaedamaCartList');
+  const totalEl = $('kaedamaCartTotal');
+  if (!kaedamaCart.length){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  list.innerHTML = kaedamaCart.map((c, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700">替え玉（細麺） × ${c.qty}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.ramenName} / ${c.hardness}${c.wasFree?' / '+t.kaedamaFreeBadge:''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent)">¥${c.total}</span>
+        <button onclick="removeKaedamaCart(${i})" style="border:none;background:#eee;color:#666;width:22px;height:22px;border-radius:11px;cursor:pointer;font-size:14px;line-height:1">✕</button>
+      </div>
+    </div>
+  `).join('');
+  const tot = kaedamaCart.reduce((s,c)=>s+c.total,0);
+  totalEl.textContent = `¥${tot.toLocaleString()}`;
+}
+
+async function submitKaedamaOrder(){
+  if (!kaedamaCart.length) return;
+  if (!sessionActive){ showPaidScreen(); return; }
+  if (!fbReady){
+    showValidationMsg('⚠️ ' + T[lang].offline);
+    return;
+  }
+  if (!currentUser){
+    try { await window.FB.signInAnonymously(window.FB.auth); }
+    catch(e){ showValidationMsg('⚠️ 認証エラー: ' + e.message); return; }
+  }
+  const btn = $('kaedamaSubmitBtn');
+  if (btn) btn.disabled = true;
+  showLoading(true);
+  try {
+    const t = T[lang];
+    const total = kaedamaCart.reduce((s,c)=>s+c.total,0);
+    const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const items = kaedamaCart.map(c => ({
+      itemId: KAEDAMA_MENU_ID,
+      name: `替え玉（細麺）`,
+      opts: [c.hardness, c.wasFree ? '【1杯無料】' : ''].filter(Boolean),
+      qty: c.qty,
+      price: c.unitPrice,
+      total: c.total,
+      served: false,
+      servedIndices: [],
+      groupId,
+      isMain: false,
+      isAddon: true,
+      isKaedama: true,
+      kaedamaTarget: c.target,
+      parentItemId: null
+    }));
+    const orderData = {
+      sessionId,
+      userId: currentUser?.uid || null,
+      table: tableNum,
+      tableLabel: tableNum,
+      language: lang,
+      visitType: window._currentVisitType || 'first',
+      items,
+      total,
+      status: 'pending',
+      paymentMethod: null,
+      paymentType: null,
+      isKaedamaOrder: true,
+      createdAt: window.FB.serverTimestamp()
+    };
+    await window.FB.addDoc(
+      window.FB.collection(window.FB.db, 'orders'),
+      orderData
+    );
+    showValidationMsg('✅ ' + t.kaedamaSuccessMsg);
+    kaedamaCart = [];
+    $('kaedamaScreen').classList.remove('open');
+  } catch(e){
+    console.error('Kaedama order failed:', e);
+    showValidationMsg('⚠️ ' + T[lang].sendError + ': ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
     showLoading(false);
   }
 }
