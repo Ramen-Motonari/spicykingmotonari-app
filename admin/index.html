@@ -25,6 +25,28 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .fb-dot.offline{background:#e74c3c}
 .fb-dot.connecting{background:#f59e0b;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.4}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.itemedit-row{margin-bottom:14px}
+.itemedit-label{display:block;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase}
+.itemedit-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;box-sizing:border-box}
+.itemedit-input:focus{border-color:var(--accent)}
+.itemedit-select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;box-sizing:border-box;cursor:pointer}
+.itemedit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.itemedit-img-preview{width:100%;aspect-ratio:1;background:var(--surface2);border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:64px;color:var(--muted);cursor:pointer;position:relative;overflow:hidden;margin-bottom:10px}
+.itemedit-img-preview img{width:100%;height:100%;object-fit:cover}
+.itemedit-img-preview .ipv-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6);color:#fff;display:none;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.itemedit-img-preview:hover .ipv-overlay{display:flex}
+.itemedit-checkbox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.itemedit-checkbox input{cursor:pointer}
+.itemedit-translate-btn{padding:6px 10px;border-radius:6px;background:var(--blue);color:#fff;border:none;font-size:10px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap}
+.itemedit-translate-btn:disabled{opacity:0.4;cursor:not-allowed}
+.cat-row{display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:10px;margin-bottom:8px}
+.cat-row-icon{width:36px;height:36px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.cat-row-main{flex:1;min-width:0}
+.cat-row-name{font-size:13px;font-weight:700;color:var(--text)}
+.cat-row-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.cat-row-actions{display:flex;gap:6px;flex-shrink:0}
+.cat-row-btn{padding:6px 10px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
 .main{margin-left:220px;flex:1;padding:32px;min-height:100vh}
 .page{display:none}
 .page.active{display:block}
@@ -124,7 +146,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div class="nav-item" onclick="switchPage('analytics',this)"><span class="nav-icon">📈</span><span>売上分析</span></div>
     <div class="nav-item" onclick="switchPage('visits',this)"><span class="nav-icon">👥</span><span>来店分析</span></div>
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
-    <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>メニュー一覧</span></div>
+    <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
   </div>
   <div class="fb-status">
     <div class="fb-dot connecting" id="fbDot"></div>
@@ -285,23 +307,47 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div class="card" style="margin-bottom:14px"><div class="card-title">🥟 餃子定食</div><div id="gyoza-count-chart"></div></div>
   </div>
 
-  <!-- Menu (read-only list, since真のメニュー管理はmenu-canonical.jsで一元化) -->
+  <!-- Menu Management -->
   <div class="page" id="page-menu">
-    <div class="page-title">メニュー一覧</div>
-    <div class="page-sub">menu-canonical.js のメニュー定義（編集する場合はそのファイルを直接編集してください）</div>
+    <div class="page-title">商品管理</div>
+    <div class="page-sub">メニューの追加・編集・画像アップロード・カテゴリ管理</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <button onclick="openAddItemModal()" style="padding:10px 18px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">＋ 新規メニュー追加</button>
+      <button onclick="openCategoryModal()" style="padding:10px 18px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗂 カテゴリ管理</button>
+    </div>
     <div class="menu-toolbar">
       <input type="text" class="search-box" placeholder="🔍 メニューを検索..." oninput="filterMenu(this.value)">
-      <div class="cat-filter">
+      <div class="cat-filter" id="catFilterRow">
         <button class="cf-btn active" onclick="setCatFilter(this,'all')">すべて</button>
-        <button class="cf-btn" onclick="setCatFilter(this,'tonkotsu')">豚骨</button>
-        <button class="cf-btn" onclick="setCatFilter(this,'shouyu')">醤油</button>
-        <button class="cf-btn" onclick="setCatFilter(this,'teishoku')">定食</button>
-        <button class="cf-btn" onclick="setCatFilter(this,'side')">サイド</button>
-        <button class="cf-btn" onclick="setCatFilter(this,'topping')">トッピング</button>
-        <button class="cf-btn" onclick="setCatFilter(this,'drink')">ドリンク</button>
       </div>
     </div>
     <div class="menu-grid" id="menuGrid"></div>
+  </div>
+
+  <!-- 商品編集/追加モーダル -->
+  <div id="itemEditOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto">
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent)" id="itemEditTitle">新規メニュー</div>
+        <button onclick="closeItemEditModal()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:16px 20px;overflow-y:auto;flex:1" id="itemEditBody"></div>
+      <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="closeItemEditModal()" style="padding:10px 20px;border-radius:10px;background:transparent;color:var(--muted);border:1px solid var(--border);font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
+        <button id="itemEditSaveBtn" onclick="saveItemEdit()" style="padding:10px 24px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- カテゴリ管理モーダル -->
+  <div id="categoryOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:520px;max-height:85vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--blue)">🗂 カテゴリ管理</div>
+        <button onclick="closeCategoryModal()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:16px 20px;overflow-y:auto;flex:1" id="categoryBody"></div>
+    </div>
   </div>
 
   <!-- Visits -->
@@ -325,13 +371,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, serverTimestamp, setDoc, addDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 const firebaseConfig = { apiKey:"AIzaSyAJ7Z0b0ex74nUPsnsiXXJqcxytJlU9wD0", authDomain:"motonari-4f9ee.firebaseapp.com", projectId:"motonari-4f9ee", storageBucket:"motonari-4f9ee.firebasestorage.app", messagingSenderId:"614951238402", appId:"1:614951238402:web:bb5a9d6ace6f4e6900e01b" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-window.fb = { app, auth, db };
-window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, signInAnonymously, onAuthStateChanged, serverTimestamp };
+const storage = getStorage(app);
+window.fb = { app, auth, db, storage };
+window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, signInAnonymously, onAuthStateChanged, serverTimestamp, setDoc, addDoc, deleteDoc, getDocs, storageRef, uploadBytes, getDownloadURL, deleteObject };
 </script>
 
 <script>
@@ -346,6 +394,12 @@ let allOrders = [];   // 全オーダー（cancelled_by_edit を除く）
 let paidOrders = [];  // status === 'paid' のみ
 let soldoutIds = [];
 let menuFilter = { search: '', cat: 'all' };
+// 商品管理用
+let menuOverrides = {};      // {itemId: {imageUrl, priceOverride, hidden, ...}}
+let customMenuItems = [];    // [{docId, id, cat, name:{ja,en,zh,ko}, price, imageUrl, ...}]
+let customCategories = [];   // [{docId, key, name:{ja,en,zh,ko}, icon, order}]
+let _editingItem = null;     // 編集中アイテム（新規時はnullに近い形）
+let _pendingImageFile = null;
 let currentPeriod = 'day';
 let currentSession = { 'week-chart': 'all', 'analytics-chart': 'all' };
 let currentSoupSession = 'all';
@@ -427,6 +481,146 @@ function startSoldoutListener() {
     soldoutIds = snap.exists() ? (snap.data().ids || []) : [];
     if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
   });
+}
+
+// ────── 商品管理: Firestore listeners ──────
+function startMenuOverridesListener() {
+  const { collection, onSnapshot } = window.fbApi;
+  onSnapshot(collection(window.fb.db, 'menuOverrides'), (snap) => {
+    menuOverrides = {};
+    snap.forEach(d => { menuOverrides[d.id] = d.data(); });
+    if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+  }, err => console.error('menuOverrides listener:', err));
+}
+function startCustomMenuItemsListener() {
+  const { collection, onSnapshot } = window.fbApi;
+  onSnapshot(collection(window.fb.db, 'customMenuItems'), (snap) => {
+    customMenuItems = [];
+    snap.forEach(d => { customMenuItems.push({ docId: d.id, ...d.data() }); });
+    if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+  }, err => console.error('customMenuItems listener:', err));
+}
+function startCustomCategoriesListener() {
+  const { collection, onSnapshot } = window.fbApi;
+  onSnapshot(collection(window.fb.db, 'customCategories'), (snap) => {
+    customCategories = [];
+    snap.forEach(d => { customCategories.push({ docId: d.id, ...d.data() }); });
+    customCategories.sort((a,b) => (a.order||0) - (b.order||0));
+    renderCategoryFilterButtons();
+    if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    // カテゴリ管理モーダルが開いていれば更新
+    if (document.getElementById('categoryOverlay').style.display === 'flex') renderCategoryModal();
+  }, err => console.error('customCategories listener:', err));
+}
+
+// ────── 商品管理: ヘルパー関数 ──────
+// canonical + customCategories のマージ
+function getMergedCategories() {
+  const canonical = Object.entries(MOTONARI.CATEGORIES || {}).map(([key, val]) => ({
+    key, name: val, icon: val.icon || '', isCanonical: true
+  }));
+  const custom = customCategories.map(c => ({
+    key: c.key, name: c.name || {ja:c.key}, icon: c.icon || '🏷', isCanonical: false, docId: c.docId
+  }));
+  return [...canonical, ...custom];
+}
+// canonical + customMenuItems + overrides 適用済みのメニューを返す
+function getMergedMenu() {
+  const merged = [];
+  // canonical メニュー（override適用）
+  MOTONARI.MENU_ITEMS.forEach(m => {
+    const ov = menuOverrides[String(m.id)] || {};
+    merged.push({
+      ...m,
+      imageUrl: ov.imageUrl || null,
+      _hidden: !!ov.hidden,
+      _isCanonical: true,
+      _overridePrice: ov.priceOverride
+    });
+  });
+  // custom メニュー
+  customMenuItems.forEach(c => {
+    merged.push({
+      id: c.id,
+      cat: c.cat,
+      img: c.img || '🍜',
+      name: c.name,
+      price: c.price,
+      spicy: !!c.spicy,
+      night: !!c.night,
+      pirikara: !!c.pirikara,
+      custom: c.custom || {},
+      imageUrl: c.imageUrl || null,
+      _hidden: !!c.hidden,
+      _isCustom: true,
+      _docId: c.docId
+    });
+  });
+  return merged;
+}
+// 画像をFirebase Storageへアップロード
+async function uploadImageToStorage(file, itemKey) {
+  if (!file) return null;
+  const { storageRef, uploadBytes, getDownloadURL } = window.fbApi;
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `menu-images/${itemKey}_${Date.now()}.${ext}`;
+  const ref = storageRef(window.fb.storage, path);
+  const snap = await uploadBytes(ref, file);
+  return await getDownloadURL(snap.ref);
+}
+// MyMemory APIで自動翻訳（無料・APIキー不要）
+async function translateText(text, targetLang) {
+  if (!text || !text.trim()) return '';
+  const langPair = 'ja|' + (targetLang === 'zh' ? 'zh-CN' : targetLang);
+  try {
+    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`);
+    const json = await res.json();
+    if (json.responseData && json.responseData.translatedText) {
+      return json.responseData.translatedText;
+    }
+  } catch(e) { console.error('translate error:', e); }
+  return '';
+}
+// menuOverrides に保存（canonical アイテムの編集）
+async function saveMenuOverride(itemId, data) {
+  const { doc, setDoc, serverTimestamp } = window.fbApi;
+  await setDoc(doc(window.fb.db, 'menuOverrides', String(itemId)), {
+    ...data,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+// customMenuItems に追加/更新
+async function saveCustomMenuItem(docId, data) {
+  const { doc, addDoc, setDoc, collection, serverTimestamp } = window.fbApi;
+  if (docId) {
+    await setDoc(doc(window.fb.db, 'customMenuItems', docId), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+    return docId;
+  } else {
+    const ref = await addDoc(collection(window.fb.db, 'customMenuItems'), { ...data, createdAt: serverTimestamp() });
+    return ref.id;
+  }
+}
+async function deleteCustomMenuItem(docId) {
+  const { doc, deleteDoc } = window.fbApi;
+  await deleteDoc(doc(window.fb.db, 'customMenuItems', docId));
+}
+async function saveCustomCategory(docId, data) {
+  const { doc, addDoc, setDoc, collection, serverTimestamp } = window.fbApi;
+  if (docId) {
+    await setDoc(doc(window.fb.db, 'customCategories', docId), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  } else {
+    await addDoc(collection(window.fb.db, 'customCategories'), { ...data, createdAt: serverTimestamp() });
+  }
+}
+async function deleteCustomCategoryById(docId) {
+  const { doc, deleteDoc } = window.fbApi;
+  await deleteDoc(doc(window.fb.db, 'customCategories', docId));
+}
+// 新規customMenuItemのIDを自動採番（canonical衝突回避のため10000+）
+function generateNewItemId() {
+  let maxId = 10000;
+  customMenuItems.forEach(c => { if (typeof c.id === 'number' && c.id > maxId) maxId = c.id; });
+  return maxId + 1;
 }
 
 function rerenderActivePage() {
@@ -1061,40 +1255,392 @@ function filterMenu(query) {
   renderMenuPage();
 }
 
+function renderCategoryFilterButtons() {
+  const row = document.getElementById('catFilterRow');
+  if (!row) return;
+  const cats = getMergedCategories();
+  const currentCat = menuFilter.cat;
+  row.innerHTML = `<button class="cf-btn ${currentCat==='all'?'active':''}" onclick="setCatFilter(this,'all')">すべて</button>` +
+    cats.map(c => `<button class="cf-btn ${currentCat===c.key?'active':''}" onclick="setCatFilter(this,'${c.key}')">${c.icon||''} ${c.name.ja||c.key}</button>`).join('');
+}
+
 function renderMenuPage() {
   const grid = document.getElementById('menuGrid');
   if (!grid) return;
-  let items = MOTONARI.MENU_ITEMS.slice();
+  renderCategoryFilterButtons();
+  let items = getMergedMenu();
   if (menuFilter.cat !== 'all') items = items.filter(m => m.cat === menuFilter.cat);
   if (menuFilter.search) {
     items = items.filter(m =>
-      m.name.ja.toLowerCase().includes(menuFilter.search) ||
+      (m.name.ja||'').toLowerCase().includes(menuFilter.search) ||
       (m.name.en||'').toLowerCase().includes(menuFilter.search) ||
       String(m.id).includes(menuFilter.search)
     );
   }
   if (!items.length) { grid.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:40px">該当するメニューがありません</div>'; return; }
+  const mergedCats = getMergedCategories();
+  const catLabel = (k) => {
+    const c = mergedCats.find(x => x.key === k);
+    return c ? (c.name.ja || k) : k;
+  };
   grid.innerHTML = items.map(m => {
     const isSold = soldoutIds.includes(m.id);
-    return `<div class="menu-card" style="${isSold?'opacity:0.5':''}">
-      <div class="menu-card-img">${m.img || '🍜'}${isSold ? '<div style="position:absolute;top:8px;right:8px;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🚫 売切</div>' : ''}</div>
+    const isHidden = m._hidden;
+    const editKey = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
+    const imgHtml = m.imageUrl
+      ? `<img src="${m.imageUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+      : (m.img || '🍜');
+    const displayPrice = (typeof m._overridePrice === 'number') ? m._overridePrice : (m.price || 0);
+    return `<div class="menu-card" style="${isSold||isHidden?'opacity:0.5':''};position:relative">
+      <div class="menu-card-img" style="position:relative;overflow:hidden">
+        ${imgHtml}
+        ${isSold ? '<div style="position:absolute;top:8px;right:8px;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🚫 売切</div>' : ''}
+        ${isHidden ? '<div style="position:absolute;top:8px;left:8px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
+        ${m._isCustom ? '<div style="position:absolute;bottom:8px;left:8px;background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">CUSTOM</div>' : ''}
+      </div>
       <div class="menu-card-body">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
           <div class="menu-card-name">${m.name.ja}</div>
           <span style="font-family:'Oswald',sans-serif;font-size:11px;color:var(--muted)">#${m.id}</span>
         </div>
-        <div class="menu-card-price">¥${(m.price||0).toLocaleString()}${m.lunchFreeBase ? ' <span style="font-size:10px;color:var(--green)">(平日昼無料)</span>' : ''}</div>
+        <div class="menu-card-price">¥${displayPrice.toLocaleString()}${m.lunchFreeBase ? ' <span style="font-size:10px;color:var(--green)">(平日昼無料)</span>' : ''}</div>
         <div class="menu-card-meta">
-          <span class="meta-tag tag-cat">${MOTONARI.CATEGORIES[m.cat]?.ja || m.cat}</span>
+          <span class="meta-tag tag-cat">${catLabel(m.cat)}</span>
           ${m.spicy ? '<span class="meta-tag tag-spicy">🌶 SPICY</span>' : ''}
           ${m.night ? '<span class="meta-tag tag-night">🌙 夜限定</span>' : ''}
           ${m.pirikara ? '<span class="meta-tag" style="background:#7a3a1a;color:#fb923c">ピリ辛</span>' : ''}
           ${m.ghost ? '<span class="meta-tag" style="background:#1a1a3a;color:#a78bfa">👻 GHOST</span>' : ''}
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">EN: ${m.name.en || '—'}</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px">EN: ${m.name.en || '—'}</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="openEditItemModal('${editKey}')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️ 編集</button>
+          ${m._isCustom ? `<button onclick="confirmDeleteCustomItem('${m._docId}','${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑</button>` : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// ────── 商品編集モーダル ──────
+function openAddItemModal() {
+  _editingItem = { isNew: true, id: generateNewItemId(), cat: '', name: {ja:'',en:'',zh:'',ko:''}, price: 0, imageUrl: null, custom: {} };
+  _pendingImageFile = null;
+  document.getElementById('itemEditTitle').textContent = '🍜 新規メニュー追加';
+  renderItemEditForm();
+  document.getElementById('itemEditOverlay').style.display = 'flex';
+}
+
+function openEditItemModal(editKey) {
+  const [type, idOrDoc] = editKey.split(':');
+  if (type === 'canonical') {
+    const id = parseInt(idOrDoc);
+    const canon = MOTONARI.getMenuById(id);
+    if (!canon) { showToast('メニューが見つかりません', true); return; }
+    const ov = menuOverrides[String(id)] || {};
+    _editingItem = {
+      isNew: false, isCanonical: true, id, cat: canon.cat,
+      name: { ja: canon.name.ja, en: canon.name.en || '', zh: canon.name.zh || '', ko: canon.name.ko || '' },
+      price: canon.price,
+      imageUrl: ov.imageUrl || null,
+      priceOverride: ov.priceOverride,
+      hidden: !!ov.hidden,
+      custom: canon.custom || {},
+      spicy: canon.spicy, night: canon.night, pirikara: canon.pirikara, lunchFreeBase: canon.lunchFreeBase
+    };
+  } else {
+    const c = customMenuItems.find(x => x.docId === idOrDoc);
+    if (!c) { showToast('メニューが見つかりません', true); return; }
+    _editingItem = {
+      isNew: false, isCanonical: false, docId: c.docId, id: c.id, cat: c.cat,
+      name: { ja: c.name?.ja || '', en: c.name?.en || '', zh: c.name?.zh || '', ko: c.name?.ko || '' },
+      price: c.price || 0,
+      imageUrl: c.imageUrl || null,
+      hidden: !!c.hidden,
+      custom: c.custom || {},
+      spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara
+    };
+  }
+  _pendingImageFile = null;
+  document.getElementById('itemEditTitle').textContent = (_editingItem.isCanonical ? '✏️ 編集（基本）' : '✏️ 編集（カスタム）') + ` #${_editingItem.id}`;
+  renderItemEditForm();
+  document.getElementById('itemEditOverlay').style.display = 'flex';
+}
+
+function closeItemEditModal() {
+  document.getElementById('itemEditOverlay').style.display = 'none';
+  _editingItem = null;
+  _pendingImageFile = null;
+}
+
+function renderItemEditForm() {
+  if (!_editingItem) return;
+  const it = _editingItem;
+  const cats = getMergedCategories();
+  const imgPreview = it.imageUrl
+    ? `<img src="${it.imageUrl}">`
+    : `<span>📷</span>`;
+  const html = `
+    <div class="itemedit-row">
+      <label class="itemedit-label">商品画像（クリックで選択）</label>
+      <div class="itemedit-img-preview" id="imgPreview" onclick="document.getElementById('imgFileInput').click()">
+        ${imgPreview}
+        <div class="ipv-overlay">📷 画像を選択</div>
+      </div>
+      <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
+      ${it.imageUrl ? '<button onclick="clearImage()" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline">画像を削除</button>' : ''}
+    </div>
+
+    <div class="itemedit-row">
+      <label class="itemedit-label">商品名（日本語） <span style="color:var(--accent2)">必須</span></label>
+      <input type="text" class="itemedit-input" id="nameJa" value="${(it.name.ja||'').replace(/"/g,'&quot;')}" placeholder="例：豚骨ラーメン">
+      <button class="itemedit-translate-btn" style="margin-top:6px" onclick="translateAllLangs()">🌐 他言語へ自動翻訳</button>
+    </div>
+
+    <div class="itemedit-grid">
+      <div class="itemedit-row">
+        <label class="itemedit-label">English</label>
+        <input type="text" class="itemedit-input" id="nameEn" value="${(it.name.en||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="itemedit-row">
+        <label class="itemedit-label">中文</label>
+        <input type="text" class="itemedit-input" id="nameZh" value="${(it.name.zh||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="itemedit-row">
+        <label class="itemedit-label">한국어</label>
+        <input type="text" class="itemedit-input" id="nameKo" value="${(it.name.ko||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="itemedit-row">
+        <label class="itemedit-label">価格（円） <span style="color:var(--accent2)">必須</span></label>
+        <input type="number" class="itemedit-input" id="itemPrice" value="${it.price || 0}" min="0" step="10">
+      </div>
+    </div>
+
+    <div class="itemedit-grid">
+      <div class="itemedit-row">
+        <label class="itemedit-label">カテゴリ <span style="color:var(--accent2)">必須</span></label>
+        <select class="itemedit-select" id="itemCat" ${it.isCanonical?'disabled':''}>
+          <option value="">— 選択 —</option>
+          ${cats.map(c => `<option value="${c.key}" ${it.cat===c.key?'selected':''}>${c.icon||''} ${c.name.ja||c.key}</option>`).join('')}
+        </select>
+        ${it.isCanonical ? '<div style="font-size:10px;color:var(--muted);margin-top:4px">※ 基本メニューはカテゴリ変更不可</div>' : ''}
+      </div>
+      <div class="itemedit-row">
+        <label class="itemedit-label">絵文字（画像なし時に表示）</label>
+        <input type="text" class="itemedit-input" id="itemImg" value="${it.img || '🍜'}" maxlength="4">
+      </div>
+    </div>
+
+    <div class="itemedit-row" style="display:flex;gap:8px;flex-wrap:wrap">
+      <label class="itemedit-checkbox"><input type="checkbox" id="itemSpicy" ${it.spicy?'checked':''}> 🌶 SPICY</label>
+      <label class="itemedit-checkbox"><input type="checkbox" id="itemNight" ${it.night?'checked':''}> 🌙 夜限定</label>
+      <label class="itemedit-checkbox"><input type="checkbox" id="itemPirikara" ${it.pirikara?'checked':''}> ピリ辛</label>
+      <label class="itemedit-checkbox"><input type="checkbox" id="itemHidden" ${it.hidden?'checked':''}> 👁 非表示</label>
+    </div>
+  `;
+  document.getElementById('itemEditBody').innerHTML = html;
+}
+
+function handleImageSelect(ev) {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  if (f.size > 5 * 1024 * 1024) { showToast('画像は5MB以下にしてください', true); return; }
+  _pendingImageFile = f;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('imgPreview').innerHTML = `<img src="${e.target.result}"><div class="ipv-overlay">📷 画像を変更</div>`;
+  };
+  reader.readAsDataURL(f);
+}
+
+function clearImage() {
+  if (_editingItem) _editingItem.imageUrl = null;
+  _pendingImageFile = null;
+  document.getElementById('imgPreview').innerHTML = '<span>📷</span><div class="ipv-overlay">📷 画像を選択</div>';
+  renderItemEditForm();
+}
+
+async function translateAllLangs() {
+  const ja = document.getElementById('nameJa').value.trim();
+  if (!ja) { showToast('日本語名を先に入力してください', true); return; }
+  const btn = document.querySelector('.itemedit-translate-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '🌐 翻訳中...'; }
+  try {
+    const [en, zh, ko] = await Promise.all([
+      translateText(ja, 'en'),
+      translateText(ja, 'zh'),
+      translateText(ja, 'ko')
+    ]);
+    if (en) document.getElementById('nameEn').value = en;
+    if (zh) document.getElementById('nameZh').value = zh;
+    if (ko) document.getElementById('nameKo').value = ko;
+    showToast('翻訳完了');
+  } catch(e) {
+    console.error(e);
+    showToast('翻訳に失敗しました', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🌐 他言語へ自動翻訳'; }
+  }
+}
+
+async function saveItemEdit() {
+  if (!_editingItem) return;
+  const it = _editingItem;
+  const nameJa = document.getElementById('nameJa').value.trim();
+  if (!nameJa) { showToast('日本語名は必須です', true); return; }
+  const price = parseInt(document.getElementById('itemPrice').value) || 0;
+  const cat = it.isCanonical ? it.cat : document.getElementById('itemCat').value;
+  if (!cat) { showToast('カテゴリを選択してください', true); return; }
+  const nameEn = document.getElementById('nameEn').value.trim();
+  const nameZh = document.getElementById('nameZh').value.trim();
+  const nameKo = document.getElementById('nameKo').value.trim();
+  const img = document.getElementById('itemImg').value.trim() || '🍜';
+  const spicy = document.getElementById('itemSpicy').checked;
+  const night = document.getElementById('itemNight').checked;
+  const pirikara = document.getElementById('itemPirikara').checked;
+  const hidden = document.getElementById('itemHidden').checked;
+
+  const saveBtn = document.getElementById('itemEditSaveBtn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
+
+  try {
+    // 画像アップロード（あれば）
+    let imageUrl = it.imageUrl || null;
+    if (_pendingImageFile) {
+      const key = it.isCanonical ? `c${it.id}` : (it.docId || `n${it.id}`);
+      imageUrl = await uploadImageToStorage(_pendingImageFile, key);
+    }
+    if (it.isCanonical) {
+      // canonical: menuOverrides に保存
+      const overrideData = { imageUrl, hidden };
+      // 価格変更時のみ priceOverride 設定
+      const canon = MOTONARI.getMenuById(it.id);
+      if (canon && price !== canon.price) overrideData.priceOverride = price;
+      else overrideData.priceOverride = null;
+      await saveMenuOverride(it.id, overrideData);
+    } else {
+      // custom: customMenuItems に保存
+      const data = {
+        id: it.id, cat, img,
+        name: { ja: nameJa, en: nameEn || nameJa, zh: nameZh || nameJa, ko: nameKo || nameJa },
+        price, imageUrl, hidden, spicy, night, pirikara,
+        custom: it.custom || {}
+      };
+      await saveCustomMenuItem(it.docId, data);
+    }
+    showToast('保存しました');
+    closeItemEditModal();
+  } catch(e) {
+    console.error('save error:', e);
+    showToast('保存に失敗しました: ' + (e.message || e), true);
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
+  }
+}
+
+async function confirmDeleteCustomItem(docId, name) {
+  if (!confirm(`「${name}」を削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    await deleteCustomMenuItem(docId);
+    showToast('削除しました');
+  } catch(e) {
+    console.error(e);
+    showToast('削除に失敗しました', true);
+  }
+}
+
+// ────── カテゴリ管理モーダル ──────
+function openCategoryModal() {
+  renderCategoryModal();
+  document.getElementById('categoryOverlay').style.display = 'flex';
+}
+function closeCategoryModal() {
+  document.getElementById('categoryOverlay').style.display = 'none';
+}
+function renderCategoryModal() {
+  const body = document.getElementById('categoryBody');
+  if (!body) return;
+  const cats = getMergedCategories();
+  const canonHtml = cats.filter(c => c.isCanonical).map(c => `
+    <div class="cat-row">
+      <div class="cat-row-icon">${c.icon || '🏷'}</div>
+      <div class="cat-row-main">
+        <div class="cat-row-name">${c.name.ja || c.key}</div>
+        <div class="cat-row-sub">基本カテゴリ（編集不可）</div>
+      </div>
+    </div>`).join('');
+  const customHtml = cats.filter(c => !c.isCanonical).map(c => `
+    <div class="cat-row">
+      <div class="cat-row-icon">${c.icon || '🏷'}</div>
+      <div class="cat-row-main">
+        <div class="cat-row-name">${c.name.ja || c.key}</div>
+        <div class="cat-row-sub">key: ${c.key} ${c.name.en?'/ '+c.name.en:''}</div>
+      </div>
+      <div class="cat-row-actions">
+        <button class="cat-row-btn" style="background:var(--accent2);color:#fff" onclick="confirmDeleteCategory('${c.docId}','${(c.name.ja||c.key).replace(/'/g,"\\'")}')">削除</button>
+      </div>
+    </div>`).join('');
+  body.innerHTML = `
+    <div style="margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">＋ 新規カテゴリ追加</div>
+      <div style="display:grid;grid-template-columns:60px 1fr;gap:8px;margin-bottom:8px">
+        <input type="text" class="itemedit-input" id="newCatIcon" placeholder="🏷" maxlength="4" style="text-align:center;font-size:18px">
+        <input type="text" class="itemedit-input" id="newCatKey" placeholder="key（英数字, 例: dessert）">
+      </div>
+      <div class="itemedit-grid" style="gap:6px;margin-bottom:8px">
+        <input type="text" class="itemedit-input" id="newCatNameJa" placeholder="名前（日本語）">
+        <input type="text" class="itemedit-input" id="newCatNameEn" placeholder="Name (EN)">
+      </div>
+      <div class="itemedit-grid" style="gap:6px;margin-bottom:10px">
+        <input type="text" class="itemedit-input" id="newCatNameZh" placeholder="中文名">
+        <input type="text" class="itemedit-input" id="newCatNameKo" placeholder="한국어 이름">
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="translateNewCatName()" style="flex:1;padding:8px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🌐 自動翻訳</button>
+        <button onclick="addNewCategory()" style="flex:1;padding:8px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">＋ 追加</button>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">登録済カテゴリ</div>
+    ${canonHtml}
+    ${customHtml || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:14px">カスタムカテゴリはまだありません</div>'}
+  `;
+}
+async function translateNewCatName() {
+  const ja = document.getElementById('newCatNameJa').value.trim();
+  if (!ja) { showToast('日本語名を入力してください', true); return; }
+  showToast('翻訳中...');
+  const [en, zh, ko] = await Promise.all([translateText(ja,'en'),translateText(ja,'zh'),translateText(ja,'ko')]);
+  if (en) document.getElementById('newCatNameEn').value = en;
+  if (zh) document.getElementById('newCatNameZh').value = zh;
+  if (ko) document.getElementById('newCatNameKo').value = ko;
+}
+async function addNewCategory() {
+  const key = document.getElementById('newCatKey').value.trim();
+  const ja = document.getElementById('newCatNameJa').value.trim();
+  if (!key || !ja) { showToast('keyと日本語名は必須です', true); return; }
+  if (!/^[a-z0-9_-]+$/i.test(key)) { showToast('keyは英数字のみで入力してください', true); return; }
+  // 重複チェック
+  const cats = getMergedCategories();
+  if (cats.find(c => c.key === key)) { showToast('そのkeyはすでに使用されています', true); return; }
+  const icon = document.getElementById('newCatIcon').value.trim() || '🏷';
+  const en = document.getElementById('newCatNameEn').value.trim() || ja;
+  const zh = document.getElementById('newCatNameZh').value.trim() || ja;
+  const ko = document.getElementById('newCatNameKo').value.trim() || ja;
+  try {
+    await saveCustomCategory(null, { key, icon, name: { ja, en, zh, ko }, order: customCategories.length + 1 });
+    showToast('カテゴリを追加しました');
+  } catch(e) {
+    console.error(e);
+    showToast('追加に失敗しました', true);
+  }
+}
+async function confirmDeleteCategory(docId, name) {
+  if (!confirm(`カテゴリ「${name}」を削除しますか？\nこのカテゴリに属する商品は表示できなくなる可能性があります。`)) return;
+  try {
+    await deleteCustomCategoryById(docId);
+    showToast('カテゴリを削除しました');
+  } catch(e) {
+    console.error(e);
+    showToast('削除に失敗しました', true);
+  }
 }
 
 // ────── Visits ──────
@@ -1199,6 +1745,20 @@ window.switchReportTab = switchReportTab;
 window.setCatFilter = setCatFilter;
 window.filterMenu = filterMenu;
 window.copyDailyReport = copyDailyReport;
+// 商品管理
+window.openAddItemModal = openAddItemModal;
+window.openEditItemModal = openEditItemModal;
+window.closeItemEditModal = closeItemEditModal;
+window.saveItemEdit = saveItemEdit;
+window.confirmDeleteCustomItem = confirmDeleteCustomItem;
+window.handleImageSelect = handleImageSelect;
+window.clearImage = clearImage;
+window.translateAllLangs = translateAllLangs;
+window.openCategoryModal = openCategoryModal;
+window.closeCategoryModal = closeCategoryModal;
+window.translateNewCatName = translateNewCatName;
+window.addNewCategory = addNewCategory;
+window.confirmDeleteCategory = confirmDeleteCategory;
 window.renderSoupRanking = renderSoupRanking;
 
 // ────── Bootstrap ──────
@@ -1220,6 +1780,9 @@ function bootstrap() {
         setFbStatus('online', '接続済');
         startOrdersListener();
         startSoldoutListener();
+        startMenuOverridesListener();
+        startCustomMenuItemsListener();
+        startCustomCategoriesListener();
       } else {
         signInAnonymously(window.fb.auth).catch(e => {
           console.error('signInAnonymously error:', e);

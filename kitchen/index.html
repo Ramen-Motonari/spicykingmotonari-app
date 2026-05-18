@@ -351,9 +351,34 @@ if (item.night)return '夜限定';
 return 'サイド';
 }
 
-const allMenuItems = MOTONARI.MENU_ITEMS.map(m => ({
+// allMenuItems を動的化（customMenuItems も含む）
+let allMenuItems = MOTONARI.MENU_ITEMS.map(m => ({
 id: m.id, name: m.name.ja, cat: kitchenCatLabel(m)
 }));
+// Firestoreから取得したカスタムメニュー
+let _kitchenCustomMenuItems = [];
+function rebuildAllMenuItems() {
+  const base = MOTONARI.MENU_ITEMS.map(m => ({
+    id: m.id, name: m.name.ja, cat: kitchenCatLabel(m)
+  }));
+  const custom = _kitchenCustomMenuItems.map(c => ({
+    id: c.id, name: (c.name && c.name.ja) || '?',
+    cat: kitchenCatLabel({ cat: c.cat, spicy: c.spicy, night: c.night })
+  }));
+  allMenuItems = [...base, ...custom];
+}
+// カスタムメニュー対応のID→アイテム lookup
+function lookupMenuItem(itemId) {
+  const canon = MOTONARI.getMenuById(itemId);
+  if (canon) return canon;
+  return _kitchenCustomMenuItems.find(c => c.id === itemId) || null;
+}
+function lookupMenuPrice(itemId) {
+  const canon = MOTONARI.getMenuById(itemId);
+  if (canon) return MOTONARI.getPrice(itemId) || 0;
+  const custom = _kitchenCustomMenuItems.find(c => c.id === itemId);
+  return (custom && custom.price) || 0;
+}
 
 const abbrev = {
 'SKSP スパイシーキングスペシャル':'SKSP','SK スパイシーキング':'SK','SKC スパイシーキングチーズ':'SKC',
@@ -457,6 +482,16 @@ updateSoldoutBadge(); updateSoldoutModeLabel();
 if (document.getElementById('soldoutFullPage').style.display === 'block') renderSoldoutFullList();
 if (document.getElementById('soldoutScreen').classList.contains('active')) renderSoldoutList();
 });
+}
+
+// カスタムメニュー監視（管理アプリで追加された商品をキッチン側でも認識）
+function startCustomMenuListener() {
+  const { collection, onSnapshot } = window.fbApi;
+  onSnapshot(collection(window.fb.db, 'customMenuItems'), (snap) => {
+    _kitchenCustomMenuItems = [];
+    snap.forEach(d => { _kitchenCustomMenuItems.push({ docId: d.id, ...d.data() }); });
+    rebuildAllMenuItems();
+  }, err => console.error('customMenuItems listener:', err));
 }
 
 async function setSoldoutIdsRemote(ids) {
@@ -1032,10 +1067,34 @@ return `<div class="ticket ${allServed?'completing':''}" id="ticket-${order.id}"
 // オーダーAPP側で addCart のたびに同じ groupId が振られる。
 // ラーメン+トッピングが一括りで送信される設計。
 // 古い注文（groupIdなし）は各itemを単独グループとして扱う（後方互換）。
+// 替え玉/サイド/ドリンクはラーメングループから外に出して独立カードとして表示
+function shouldExtractAddon(item) {
+  if (!item || item.isMain) return false;
+  const canon = MOTONARI.getMenuById(item.itemId);
+  if (canon) {
+    if (canon.cat === 'side' || canon.cat === 'drink') return true;
+    if (canon.id === 40) return true; // 替え玉（細麺）
+    return false;
+  }
+  // フォールバック（旧データ・canon未取得時）：名前ベース
+  const nm = item.name || '';
+  if (nm.includes('替え玉')) return true;
+  const logical = MOTONARI.classifyByName(nm);
+  if (logical === 'drink') return true;
+  const sideKw = ['ライス','餃子','ポテト','枝豆','唐揚げ','チャーハン','シューマイ','サラダ','きんぴら','おつまみ','ごぼうチップス'];
+  if (sideKw.some(k => nm.includes(k))) return true;
+  return false;
+}
+
 function buildItemGroups(items) {
   const groups = new Map();
-  let soloIdx = 0;
   items.forEach((item, idx) => {
+    // 替え玉/サイド/ドリンクは groupId に関わらず独立カードとして分離
+    if (shouldExtractAddon(item)) {
+      const sid = `_split_${idx}`;
+      groups.set(sid, { groupId: sid, isSolo: true, isSplit: true, splitIndex: idx, main: item, addons: [], items: [item], itemIndices: [idx] });
+      return;
+    }
     const gid = item.groupId || `_solo_${idx}`;
     if (!groups.has(gid)) groups.set(gid, { groupId: gid, isSolo: !item.groupId, main: null, addons: [], items: [], itemIndices: [] });
     const g = groups.get(gid);
@@ -1072,7 +1131,8 @@ function isRamenGroup(grp) {
 
 function getGroupKey(grp) {
   // toggleGroupServed で使う識別子
-  if (grp.groupId && !grp.groupId.startsWith('_solo_')) return 'group:' + grp.groupId;
+  if (grp.isSplit) return 'idx:' + grp.splitIndex;
+  if (grp.groupId && !grp.groupId.startsWith('_solo_') && !grp.groupId.startsWith('_split_')) return 'group:' + grp.groupId;
   // 単独アイテム（旧データ）：itemIdベース
   const m = grp.main || grp.items[0];
   return 'item:' + (m.itemId || m.id || '');
@@ -1156,7 +1216,11 @@ async function toggleGroupServed(orderId, key) {
   let toggleIndices = [];
   if (key.startsWith('group:')) {
     const gid = key.slice(6);
-    newItems.forEach((it, idx) => { if (it.groupId === gid) toggleIndices.push(idx); });
+    // 分離アイテム（替え玉/サイド/ドリンク）は別カードでトグルされるため除外
+    newItems.forEach((it, idx) => { if (it.groupId === gid && !shouldExtractAddon(it)) toggleIndices.push(idx); });
+  } else if (key.startsWith('idx:')) {
+    const i = parseInt(key.slice(4), 10);
+    if (Number.isInteger(i) && i >= 0 && i < newItems.length) toggleIndices = [i];
   } else if (key.startsWith('item:')) {
     const iid = key.slice(5);
     // 同じitemIdの最初の1件のみ（複数あっても1グループとして扱う）
@@ -1468,8 +1532,6 @@ renderBetsuUI();
 }
 
 function renderBetsuUI() {
-const ex = document.getElementById('betsuOverlay');
-if (ex) ex.remove();
 const items = window._betsuItems;
 const personNum = window._betsuPersonNum;
 const remaining = items.filter(i => !i._paid);
@@ -1523,10 +1585,8 @@ itemsHtml += `<div onclick="toggleBetsuItem(${item._idx})" style="display:flex;j
 });
 }
 
-const overlay = document.createElement('div');
-overlay.id = 'betsuOverlay';
-overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;display:flex;align-items:flex-end;';
-overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:92vh;display:flex;flex-direction:column;animation:slideUp 0.3s ease">
+const existingOverlay = document.getElementById('betsuOverlay');
+const cardInnerHtml = `
 <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:14px auto 0;flex-shrink:0"></div>
 <div style="padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
 <div>
@@ -1542,7 +1602,7 @@ ${(paidCash > 0 || paidCard > 0) ? `<div style="display:flex;gap:8px;padding:8px
 <div style="flex:1;display:flex;justify-content:space-between"><span style="color:var(--green)">💴 現金</span><span style="font-family:'Oswald',sans-serif;color:var(--green)">¥${paidCash.toLocaleString()}</span></div>
 <div style="flex:1;display:flex;justify-content:space-between"><span style="color:var(--blue)">💳 カード</span><span style="font-family:'Oswald',sans-serif;color:var(--blue)">¥${paidCard.toLocaleString()}</span></div>
 </div>` : ''}
-<div style="overflow-y:auto;flex:1">${logHtml}${itemsHtml}</div>
+<div style="overflow-y:auto;flex:1" data-betsu-scroll>${logHtml}${itemsHtml}</div>
 ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
 <span style="font-size:12px;color:var(--muted);font-weight:700">${personLabel} 小計</span>
@@ -1557,8 +1617,25 @@ ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--bord
 </div>` : `<div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <button onclick="finishAllBetsu()" style="width:100%;padding:18px;border-radius:14px;border:none;background:var(--green);color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✅ 全員会計完了 — オーダーを確定</button>
 </div>`}
-</div>`;
+`;
+
+if (existingOverlay) {
+// 既存オーバーレイを再利用：内部のカード内容のみ更新（slideUpアニメーション再生を防ぐ）
+const card = existingOverlay.firstElementChild;
+const scrollArea = card ? card.querySelector('[data-betsu-scroll]') : null;
+const scrollTop = scrollArea ? scrollArea.scrollTop : 0;
+if (card) {
+card.innerHTML = cardInnerHtml;
+const newScrollArea = card.querySelector('[data-betsu-scroll]');
+if (newScrollArea) newScrollArea.scrollTop = scrollTop;
+}
+} else {
+const overlay = document.createElement('div');
+overlay.id = 'betsuOverlay';
+overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;display:flex;align-items:flex-end;';
+overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:92vh;display:flex;flex-direction:column;animation:slideUp 0.3s ease">${cardInnerHtml}</div>`;
 document.body.appendChild(overlay);
+}
 }
 
 function toggleBetsuItem(idx) {
@@ -2046,6 +2123,7 @@ if (user) {
 setConnStatus('online', 'ONLINE');
 startOrdersListener();
 startSoldoutListener();
+startCustomMenuListener();
 } else {
 signInAnonymously(window.fb.auth).catch(e => {
 console.error('signInAnonymously error:', e);
