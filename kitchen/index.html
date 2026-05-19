@@ -38,8 +38,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:0;padding:0 0 72px;margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
-#kitchenContent > .ticket{flex:0 0 50vw;width:50vw;max-width:50vw;scroll-snap-align:start}
+#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 72px;margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
+#kitchenContent > .ticket{flex:0 0 calc(50vw - 5px);width:calc(50vw - 5px);max-width:calc(50vw - 5px);scroll-snap-align:start}
 /* === 替え玉待機バー（常時表示・コンパクト） === */
 .kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
 .kaedama-waiting-bar.empty{opacity:0.55}
