@@ -709,7 +709,8 @@ const VALID_SEATS = [
   'T1','T2','T3','T4','T5','T6',
   'C1','C2','C3','C4',
   'M',
-  'S1','S2','S3','S4'
+  'S1','S2','S3','S4',
+  'P1','P2','P3','P4','P5','P6','P7','P8'
 ];
 
 // 旧URL/旧ラベル → 新ラベル（QRコード互換のため保持）
@@ -717,6 +718,7 @@ const SEAT_ALIAS_MAP = {
   'Maru':'M','maru':'M','MARU':'M',
   'N1':'S1','n1':'S1','N2':'S2','n2':'S2',
   'N3':'S3','n3':'S3','N4':'S4','n4':'S4',
+  'p1':'P1','p2':'P2','p3':'P3','p4':'P4','p5':'P5','p6':'P6','p7':'P7','p8':'P8',
   '丸':'M',
   '中1':'S1','中2':'S2','中3':'S3','中4':'S4',
   '中１':'S1','中２':'S2','中３':'S3','中４':'S4'
@@ -1202,7 +1204,7 @@ function filterCat(cat){ currentCat=cat; buildTabs(); renderMenu(); }
 const imgEl = (src,cls='item-img') => {
   const s = src || '🍜';
   return (typeof s === 'string' && s.startsWith('http'))
-    ? `<div class="${cls}"><img src="${s}" alt=""></div>`
+    ? `<div class="${cls}"><img src="${s}" alt="" loading="lazy" decoding="async"></div>`
     : `<div class="${cls}">${s}</div>`;
 };
 
@@ -1286,7 +1288,7 @@ function renderModal(){
   const item=curItem, t=T[lang];
   const itemImg = item.img || '🍜';
   $('modalImg').innerHTML = (typeof itemImg === 'string' && itemImg.startsWith('http'))
-    ? `<img src="${itemImg}" alt="" style="width:100%;height:100%;object-fit:cover">`
+    ? `<img src="${itemImg}" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy" decoding="async">`
     : itemImg;
 
   const c=item.custom;
