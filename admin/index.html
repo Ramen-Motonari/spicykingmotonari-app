@@ -1441,16 +1441,52 @@ function renderItemEditForm() {
   document.getElementById('itemEditBody').innerHTML = html;
 }
 
-function handleImageSelect(ev) {
+// === 画像圧縮（オーダーAPP負荷軽減・Storage節約） ===
+// 長辺 800px に縮小、JPEG 85% 品質で再エンコード
+async function compressImage(file, { maxSize = 800, quality = 0.85 } = {}) {
+  if (!file || !file.type.startsWith('image/')) return file;
+  // GIF/SVG は変換せずそのまま（アニメ/ベクタ破壊回避）
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
+  const dataUrl = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result); r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise((res, rej) => {
+    const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl;
+  });
+  let { width, height } = img;
+  if (width <= maxSize && height <= maxSize && file.size < 200 * 1024) {
+    return file; // 既に小さいなら触らない
+  }
+  const scale = Math.min(1, maxSize / Math.max(width, height));
+  const w = Math.round(width * scale), h = Math.round(height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+  if (!blob) return file;
+  const outName = (file.name || 'image').replace(/\.[^.]+$/, '') + '.jpg';
+  console.log(`[img] ${file.name}: ${(file.size/1024).toFixed(0)}KB → ${(blob.size/1024).toFixed(0)}KB (${w}×${h})`);
+  return new File([blob], outName, { type: 'image/jpeg', lastModified: Date.now() });
+}
+
+async function handleImageSelect(ev) {
   const f = ev.target.files && ev.target.files[0];
   if (!f) return;
-  if (f.size > 5 * 1024 * 1024) { showToast('画像は5MB以下にしてください', true); return; }
-  _pendingImageFile = f;
+  if (f.size > 15 * 1024 * 1024) { showToast('画像は15MB以下にしてください', true); return; }
+  // 自動圧縮
+  let processed = f;
+  try { processed = await compressImage(f); }
+  catch(e) { console.warn('[img] compress failed, using original:', e); }
+  _pendingImageFile = processed;
   const reader = new FileReader();
   reader.onload = (e) => {
-    document.getElementById('imgPreview').innerHTML = `<img src="${e.target.result}"><div class="ipv-overlay">📷 画像を変更</div>`;
+    const sizeKB = (processed.size/1024).toFixed(0);
+    document.getElementById('imgPreview').innerHTML = `<img src="${e.target.result}"><div class="ipv-overlay">📷 画像を変更<br><span style="font-size:10px;opacity:0.8">${sizeKB}KB</span></div>`;
   };
-  reader.readAsDataURL(f);
+  reader.readAsDataURL(processed);
 }
 
 function clearImage() {
