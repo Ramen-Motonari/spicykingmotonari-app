@@ -1207,7 +1207,7 @@ function filterCat(cat){ currentCat=cat; buildTabs(); renderMenu(); }
 const imgEl = (src,cls='item-img') => {
   const s = src || '🍜';
   return (typeof s === 'string' && s.startsWith('http'))
-    ? `<div class="${cls}"><img src="${s}" alt="" loading="lazy" decoding="async"></div>`
+    ? `<div class="${cls}"><img src="${s}" alt="" decoding="async" fetchpriority="high"></div>`
     : `<div class="${cls}">${s}</div>`;
 };
 
@@ -2621,6 +2621,15 @@ if(isAdminMode){
     else setTimeout(showLogin, 200);
   };
   setTimeout(showLogin, 500);
+}
+
+// Service Worker 登録（メニュー画像の永続キャッシュで2回目以降を高速化）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('[sw] registered', reg.scope))
+      .catch(err => console.warn('[sw] registration failed:', err));
+  });
 }
 </script>
 </body>
