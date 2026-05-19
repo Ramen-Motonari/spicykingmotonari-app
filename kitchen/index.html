@@ -38,7 +38,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenContent{display:grid;grid-template-columns:repeat(2,1fr);align-content:start;gap:3px;padding:3px 3px calc(72px + 3px);margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
+#kitchenContent{display:grid;grid-template-columns:1fr;align-content:start;gap:3px;padding:3px 3px calc(72px + 3px);margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
 /* === 替え玉待機バー（常時表示・コンパクト） === */
 .kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
 .kaedama-waiting-bar.empty{opacity:0.55}
@@ -707,12 +707,17 @@ function isItemFullyServed(item) {
 }
 
 // 残ってる未提供がすべて替え玉のみのとき true
+// .served フラグ直接判定（先払いで eff=0 のときも待機扱いにする）
 function isKaedamaWaiting(order) {
   const items = Array.isArray(order.items) ? order.items : [];
   if (items.length === 0) return false;
-  const unserved = items.filter(i => !isItemFullyServed(i));
-  if (unserved.length === 0) return false;
-  return unserved.every(i => isKaedamaItem(i));
+  // 非替え玉アイテムはすべて .served 済みであること
+  const nonKaedama = items.filter(i => !isKaedamaItem(i));
+  if (nonKaedama.length && !nonKaedama.every(i => i.served)) return false;
+  // 替え玉アイテムが1つ以上あり、そのうち少なくとも1つが未提供
+  const kaedama = items.filter(i => isKaedamaItem(i));
+  if (kaedama.length === 0) return false;
+  return kaedama.some(i => !i.served);
 }
 
 function countKaedamaPending(order) {
@@ -1237,7 +1242,6 @@ function ticketNoodleOpt(opt, mainItem) {
   const isFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(opt);
   const isLarge = /(大盛り|Large|大碗|곱배기)/.test(opt);
   const isLess = /(少|Less|少量|적게)/.test(opt);
-  const isRegular = /(並|Regular|普通|보통)/.test(opt);
   const canon = mainItem ? MOTONARI.getMenuById(mainItem.itemId) : null;
   const cat = canon ? canon.cat : null;
   const isDefaultNoodle = (cat === 'tonkotsu' && isThin) || (cat === 'shouyu' && isFlat);
@@ -1246,9 +1250,9 @@ function ticketNoodleOpt(opt, mainItem) {
     if (isThin) parts.push('細麺');
     else if (isFlat) parts.push('平打ち麺');
   }
+  // 並はデフォルト量なので伝票表記なし。大盛り／少のみ表記。
   if (isLarge) parts.push('大盛り');
   else if (isLess) parts.push('少');
-  else if (isRegular) parts.push('並');
   return parts.join(' ');
 }
 function transformOptForTicket(opt, mainItem) {
