@@ -11,7 +11,7 @@
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;overflow-x:hidden;text-align:left}
 #modeScreen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:48px 24px 60px;text-align:center;background:radial-gradient(ellipse at 50% 0%,rgba(200,134,10,0.15) 0%,transparent 60%);overflow-y:auto;-webkit-overflow-scrolling:touch}
 .mode-logo{font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;color:var(--accent);margin-bottom:4px}
-.mode-title{font-family:'Oswald',sans-serif;font-size:28px;letter-spacing:2px;color:#111;margin-bottom:36px}
+.mode-title{font-family:'Oswald',sans-serif;font-size:28px;letter-spacing:2px;color:#FFF;margin-bottom:36px}
 .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;max-width:320px}
 .mode-btn{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px 20px;cursor:pointer;transition:all 0.2s;text-align:center}
 .mode-btn:active{transform:scale(0.97)}
@@ -38,7 +38,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenContent{display:grid;grid-template-columns:repeat(2,1fr);align-content:start;gap:14px;padding:14px 14px calc(72px + 14px);margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
+#kitchenContent{display:grid;grid-template-columns:repeat(2,1fr);align-content:start;gap:6px;padding:6px 6px calc(72px + 6px);margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
 /* === 替え玉待機バー（常時表示・コンパクト） === */
 .kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
 .kaedama-waiting-bar.empty{opacity:0.55}
@@ -118,7 +118,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .tc-qty{font-family:'Oswald',sans-serif;font-size:22px;color:#c8860a;font-weight:700;flex-shrink:0}
 /* === レスポンシブ：スマホは伝票1列・文字サイズ縮小 === */
 @media (max-width: 640px){
-  #kitchenContent{grid-template-columns:1fr;gap:10px;padding:10px 10px calc(72px + 10px)}
+  #kitchenContent{grid-template-columns:1fr;gap:8px;padding:6px 6px calc(72px + 6px)}
   .ticket{border-radius:14px;border-width:1px}
   .ticket-table{font-size:30px}
   .ticket-time{font-size:10px}
@@ -1433,6 +1433,8 @@ const grid = document.getElementById('tableGrid');
 grid.innerHTML = SEAT_LABELS.map(label => {
 const t = tables[label] || { label, orderIds: [], status: 'empty', total: 0, visitType: null, paymentRequested: false };
 const displayStatus = t.status;
+// P席（テイクアウト/別会計用）は使用時のみ表示
+if (label.startsWith('P') && displayStatus === 'empty') return '';
 if (regFilter === 'ordering' && displayStatus !== 'ordering') return '';
 if (regFilter === 'payment' && displayStatus !== 'payment') return '';
 let statusClass = '', statusLabel = '空席';
@@ -2141,26 +2143,61 @@ clearTimeout(el._t);
 el._t = setTimeout(() => el.style.display = 'none', 4000);
 }
 
-// ベル
-let bellEnabled = true, bellUnread = 0, audioCtx = null;
-function getAudioCtx() { if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
-function playBellSound() {
-try {
-const ctx = getAudioCtx();
-if (ctx.state === 'suspended') ctx.resume();
-const partials = [{freq:1047,gain:0.6,decay:2.8},{freq:2093,gain:0.25,decay:2.0},{freq:2960,gain:0.12,decay:1.4},{freq:4186,gain:0.06,decay:0.9}];
-partials.forEach(({freq,gain,decay}) => {
-const osc = ctx.createOscillator(), g = ctx.createGain();
-osc.connect(g); g.connect(ctx.destination);
-osc.type = 'sine';
-osc.frequency.setValueAtTime(freq, ctx.currentTime);
-g.gain.setValueAtTime(0, ctx.currentTime);
-g.gain.linearRampToValueAtTime(gain, ctx.currentTime+0.005);
-g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+decay);
-osc.start(ctx.currentTime);
-osc.stop(ctx.currentTime+decay);
+// ベル（autoplay policy 対策・ctx 再生成対応版）
+let bellEnabled = true, bellUnread = 0, audioCtx = null, audioUnlocked = false;
+function getAudioCtx() {
+  // closed / 失効した context は捨てて作り直す
+  if (audioCtx && audioCtx.state === 'closed') audioCtx = null;
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+    catch(e) { console.warn('[bell] AudioContext init failed:', e); return null; }
+  }
+  return audioCtx;
+}
+// 初回ユーザー操作時に音声をアンロック（autoplay policy 対策）
+async function unlockAudio() {
+  if (audioUnlocked) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    // 無音バッファを1回鳴らして iOS Safari でも以後の再生を許可させる
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf; src.connect(ctx.destination); src.start(0);
+    audioUnlocked = true;
+    console.log('[bell] audio unlocked, state=', ctx.state);
+  } catch(e) { console.warn('[bell] unlock failed:', e); }
+}
+// 任意のユーザー操作時に呼ばれるよう document に1度だけ仕込む
+['click','touchstart','keydown'].forEach(ev => {
+  document.addEventListener(ev, unlockAudio, { once:false, passive:true });
 });
-} catch(e) {}
+async function playBellSound() {
+  const ctx = getAudioCtx();
+  if (!ctx) { console.warn('[bell] no ctx'); return; }
+  try {
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+      await ctx.resume();
+    }
+    if (ctx.state !== 'running') {
+      console.warn('[bell] ctx not running after resume, state=', ctx.state);
+      return;
+    }
+    const partials = [{freq:1047,gain:0.6,decay:2.8},{freq:2093,gain:0.25,decay:2.0},{freq:2960,gain:0.12,decay:1.4},{freq:4186,gain:0.06,decay:0.9}];
+    const now = ctx.currentTime;
+    partials.forEach(({freq,gain,decay}) => {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(gain, now+0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, now+decay);
+      osc.start(now);
+      osc.stop(now+decay);
+    });
+  } catch(e) { console.warn('[bell] play failed:', e); }
 }
 function testBellSound() { document.getElementById('bellPanel').style.display='none'; playBellSound(); shakeBellIcon(); }
 function shakeBellIcon() { const btn = document.getElementById('bellBtn'); btn.style.animation = 'bellShake 0.6s ease'; setTimeout(()=>{btn.style.animation='';}, 700); }
