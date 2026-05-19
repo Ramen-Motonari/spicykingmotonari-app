@@ -16,6 +16,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes pulseCall{0%,100%{box-shadow:0 2px 8px rgba(192,57,43,.3)}50%{box-shadow:0 2px 18px rgba(231,76,60,.7)}}
+body.has-call-kaedama{padding-top:48px}
+body.has-call-kaedama .header,body.has-call-kaedama .sub-header{top:48px}
 @keyframes flashRed{
 0%,100%{transform:translateX(0)}
 25%{transform:translateX(-6px);background:#ffe0e0}
@@ -283,15 +285,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     </div>
     <div class="tabs" id="tabsEl"></div>
   </header>
-  <!-- 先払い替え玉「呼ぶ」バー（該当時のみ表示） -->
-  <div id="callKaedamaBar" style="display:none;position:sticky;top:0;z-index:90;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);padding:10px 16px;box-shadow:0 2px 8px rgba(192,57,43,.3);animation:pulseCall 1.8s ease infinite;cursor:pointer" onclick="openCallKaedamaModal()">
-    <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-weight:900;font-size:14px">
-      <span style="font-size:18px">🍝</span>
-      <span id="callKaedamaBarLabel">先払い替え玉×0 を呼ぶ</span>
-      <span style="font-size:18px">▶</span>
-    </div>
-  </div>
   <div id="menuContainer"></div>
+</div>
+
+<!-- 先払い替え玉「呼ぶ」バー（全画面共通・該当時のみ表示・最前面） -->
+<div id="callKaedamaBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);padding:12px 16px;box-shadow:0 4px 14px rgba(192,57,43,.45);animation:pulseCall 1.8s ease infinite;cursor:pointer" onclick="openCallKaedamaModal()">
+  <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-weight:900;font-size:15px">
+    <span style="font-size:20px">🍝</span>
+    <span id="callKaedamaBarLabel">注文済みの替え玉を頼む</span>
+    <span style="font-size:18px">▶</span>
+  </div>
 </div>
 
 <!-- 先払い替え玉「呼ぶ」モーダル -->
@@ -1985,9 +1988,11 @@ function updateCallKaedamaBar(){
   const count = countPendingPaidKaedama();
   if (count > 0){
     bar.style.display = 'block';
-    setText('callKaedamaBarLabel', `先払い替え玉×${count} を呼ぶ`);
+    setText('callKaedamaBarLabel', `注文済みの替え玉を頼む ×${count}`);
+    document.body.classList.add('has-call-kaedama');
   } else {
     bar.style.display = 'none';
+    document.body.classList.remove('has-call-kaedama');
   }
 }
 
