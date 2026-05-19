@@ -38,7 +38,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 72px;margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
+#kitchenCountBar{position:absolute;top:0;left:0;right:0;height:32px;background:linear-gradient(180deg,#231708 0%,#1a1008 100%);border-bottom:1px solid #3a2810;display:flex;align-items:center;justify-content:center;z-index:15;font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:2px;color:var(--accent);font-weight:700}
+#kitchenCountBar #kitchenCountNum{font-size:18px;color:#fff;margin:0 8px;font-weight:900;line-height:1}
+#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 72px;margin:0;position:absolute;left:0;top:32px;height:calc(100vh - 53px - 32px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
 #kitchenContent > .ticket{flex:0 0 calc(50vw - 5px);width:calc(50vw - 5px);max-width:calc(50vw - 5px);scroll-snap-align:start}
 /* === 替え玉待機バー（常時表示・コンパクト） === */
 .kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
@@ -266,6 +268,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 </div>
 
 <div class="app-screen active" id="kitchenScreen">
+<div id="kitchenCountBar">現在の注文 <span id="kitchenCountNum">0</span> 件</div>
 <div id="kitchenContent"></div>
 <div id="kaedamaWaitingBar" class="kaedama-waiting-bar empty">
 <div class="kaedama-bar-label"><span class="kbl-icon">🍝</span><span>替え玉<br>待機</span></div>
@@ -2140,6 +2143,8 @@ const count = orders.filter(o => o.status === 'pending' || o.status === 'prepari
 const badge = document.getElementById('activeCount');
 if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件'; }
 else badge.style.display = 'none';
+const num = document.getElementById('kitchenCountNum');
+if (num) num.textContent = count;
 }
 function showToast(msg) {
 const el = document.getElementById('toast');
