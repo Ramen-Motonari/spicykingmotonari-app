@@ -1187,7 +1187,7 @@ function buildTabs(){
   const t=T[lang];
   const baseTabs = [
     {k:'all',l:t.tabAll},{k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
-    {k:'teishoku',l:t.tabTeishoku},{k:'takeout',l:t.tabTakeout},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink}
+    {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink},{k:'takeout',l:t.tabTakeout}
   ];
   // カスタムカテゴリをタブに追加（基本カテゴリ以外）
   const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k)).map(k => ({
