@@ -15,6 +15,7 @@
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;max-width:480px;margin:0 auto;padding-bottom:120px}
 
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes pulseCall{0%,100%{box-shadow:0 2px 8px rgba(192,57,43,.3)}50%{box-shadow:0 2px 18px rgba(231,76,60,.7)}}
 @keyframes flashRed{
 0%,100%{transform:translateX(0)}
 25%{transform:translateX(-6px);background:#ffe0e0}
@@ -282,7 +283,28 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     </div>
     <div class="tabs" id="tabsEl"></div>
   </header>
+  <!-- 先払い替え玉「呼ぶ」バー（該当時のみ表示） -->
+  <div id="callKaedamaBar" style="display:none;position:sticky;top:0;z-index:90;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);padding:10px 16px;box-shadow:0 2px 8px rgba(192,57,43,.3);animation:pulseCall 1.8s ease infinite;cursor:pointer" onclick="openCallKaedamaModal()">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-weight:900;font-size:14px">
+      <span style="font-size:18px">🍝</span>
+      <span id="callKaedamaBarLabel">先払い替え玉×0 を呼ぶ</span>
+      <span style="font-size:18px">▶</span>
+    </div>
+  </div>
   <div id="menuContainer"></div>
+</div>
+
+<!-- 先払い替え玉「呼ぶ」モーダル -->
+<div class="modal-overlay" id="callKaedamaModal" onclick="maybeCloseCallKaedama(event)">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-inner" style="padding:24px">
+      <div class="modal-handle"></div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:8px;color:#1a1a1a" id="callKaedamaTitle">替え玉を呼ぶ</div>
+      <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:20px;line-height:1.6" id="callKaedamaSub">何杯呼びますか？</div>
+      <div id="callKaedamaButtons" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button onclick="$('callKaedamaModal').classList.remove('open')" style="margin-top:14px;width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
+    </div>
+  </div>
 </div>
 
 <!-- Admin FAB -->
@@ -942,6 +964,8 @@ function subscribeOrders(){
     });
     if($('historyScreen').classList.contains('open')) renderHistory();
     if($('paymentScreen').classList.contains('open')) renderPayment();
+    // 先払い替え玉「呼ぶ」バーの更新
+    updateCallKaedamaBar();
     // Check if all orders are paid → end session
     if(orderHistory.length > 0 && orderHistory.every(o => o.status === 'paid')) {
       sessionActive = false;
@@ -1562,7 +1586,12 @@ function addCart(){
         const addonOpts = isKaedamaAddon && curOpts.addonKaedamaKata
           ? [curOpts.addonKaedamaKata, '【先払い・後出し】']
           : [];
-        cart.push({id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:isKaedamaAddon, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty});
+        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:isKaedamaAddon, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
+        if (isKaedamaAddon){
+          cartItem.kaedamaPrepaid = true;
+          cartItem.kaedamaRequestedQty = 0;
+        }
+        cart.push(cartItem);
       }
     });
   });
@@ -1695,6 +1724,9 @@ async function placeOrder(){
         groupId: i.groupId || null,
         isMain: !!i.isMain,
         isAddon: !!i.isAddon,
+        isKaedama: !!i.isKaedama,
+        kaedamaPrepaid: !!i.kaedamaPrepaid,
+        kaedamaRequestedQty: i.kaedamaPrepaid ? (i.kaedamaRequestedQty || 0) : (i.qty || 1),
         parentItemId: i.parentItemId || null
       })),
       total,
@@ -1929,6 +1961,104 @@ async function requestPayment(){
   }
 }
 
+/* ========== 先払い替え玉「呼ぶ」機能 ========== */
+// 先払い替え玉のうち、まだ呼び出されていない数を集計
+function countPendingPaidKaedama(){
+  let total = 0;
+  orderHistory.forEach(h => {
+    if (!h.items) return;
+    h.items.forEach(i => {
+      if (!i.isKaedama) return;
+      if (!i.kaedamaPrepaid) return;
+      const requested = i.kaedamaRequestedQty || 0;
+      total += Math.max(0, (i.qty||1) - requested);
+    });
+  });
+  return total;
+}
+
+function updateCallKaedamaBar(){
+  const bar = $('callKaedamaBar');
+  if (!bar) return;
+  const count = countPendingPaidKaedama();
+  if (count > 0){
+    bar.style.display = 'block';
+    setText('callKaedamaBarLabel', `先払い替え玉×${count} を呼ぶ`);
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function openCallKaedamaModal(){
+  const count = countPendingPaidKaedama();
+  if (count <= 0) return;
+  const wrap = $('callKaedamaButtons');
+  // 1〜count までのボタン
+  let html = '';
+  if (count >= 1){
+    html += `<button onclick="callKaedama(1)" style="width:100%;padding:14px;border-radius:12px;border:2px solid var(--accent);background:#fff;color:var(--accent);font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">1杯呼ぶ</button>`;
+  }
+  if (count >= 2){
+    for (let n = 2; n <= Math.min(count, 5); n++){
+      html += `<button onclick="callKaedama(${n})" style="width:100%;padding:14px;border-radius:12px;border:2px solid var(--accent);background:#fff;color:var(--accent);font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${n}杯呼ぶ</button>`;
+    }
+  }
+  if (count > 1){
+    html += `<button onclick="callKaedama(${count})" style="width:100%;padding:14px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">全部呼ぶ（${count}杯）</button>`;
+  }
+  setHTML('callKaedamaButtons', html);
+  $('callKaedamaModal').classList.add('open');
+}
+
+function maybeCloseCallKaedama(e){
+  if (e && e.target !== $('callKaedamaModal')) return;
+  $('callKaedamaModal').classList.remove('open');
+}
+
+async function callKaedama(qtyToCall){
+  if (!fbReady || qtyToCall <= 0) return;
+  $('callKaedamaModal').classList.remove('open');
+  showLoading(true);
+  try {
+    let remaining = qtyToCall;
+    // 古い注文から順に呼び出す
+    const sorted = [...orderHistory].sort((a,b) => {
+      const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return ta - tb;
+    });
+    for (const h of sorted){
+      if (remaining <= 0) break;
+      if (!h.fbId || !h.items) continue;
+      const newItems = JSON.parse(JSON.stringify(h.items));
+      let changed = false;
+      for (const it of newItems){
+        if (remaining <= 0) break;
+        if (!it.isKaedama || !it.kaedamaPrepaid) continue;
+        const cur = it.kaedamaRequestedQty || 0;
+        const room = (it.qty||1) - cur;
+        if (room <= 0) continue;
+        const inc = Math.min(room, remaining);
+        it.kaedamaRequestedQty = cur + inc;
+        remaining -= inc;
+        changed = true;
+      }
+      if (changed){
+        await window.FB.updateDoc(
+          window.FB.doc(window.FB.db, 'orders', h.fbId),
+          { items: newItems }
+        );
+      }
+    }
+    showValidationMsg('✅ 替え玉を呼びました');
+  } catch(e){
+    console.error('Call kaedama failed:', e);
+    showValidationMsg('⚠️ 通信エラー: ' + e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
 /* ========== KAEDAMA (替え玉) — 食後の追加注文 ========== */
 const KAEDAMA_MENU_ID = 40; // menu-canonical.js の「替え玉（細麺）」ID
 const KAEDAMA_PRICE   = 150;
@@ -2143,6 +2273,8 @@ async function submitKaedamaOrder(){
       isMain: false,
       isAddon: true,
       isKaedama: true,
+      kaedamaPrepaid: false,
+      kaedamaRequestedQty: c.qty,
       kaedamaTarget: c.target,
       parentItemId: null
     }));
