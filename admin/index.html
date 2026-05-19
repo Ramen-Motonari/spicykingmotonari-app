@@ -1079,6 +1079,7 @@ function renderAnalytics() {
       if (canon) {
         if (canon.cat === 'tonkotsu' || canon.cat === 'shouyu') cat = 'ramen';
         else if (canon.cat === 'teishoku') cat = 'teishoku';
+        else if (canon.cat === 'takeout') cat = 'takeout';
         else if (canon.cat === 'drink') cat = 'drink';
         else if (canon.cat === 'topping') cat = 'topping';
         else cat = 'side';
@@ -1088,7 +1089,7 @@ function renderAnalytics() {
       catSales[cat] = (catSales[cat]||0) + (item.price||MOTONARI.getPrice(item.itemId)||0) * (item.qty||0);
     });
   });
-  const catLabels = { ramen: '🍜 ラーメン', teishoku: '🥢 定食', side: '🥟 サイド', drink: '🍺 ドリンク', topping: '⭐ トッピング' };
+  const catLabels = { ramen: '🍜 ラーメン', teishoku: '🥢 定食', takeout: '🥡 テイクアウト', side: '🥟 サイド', drink: '🍺 ドリンク', topping: '⭐ トッピング' };
   const catRanked = Object.entries(catSales).filter(([_,v]) => v > 0).sort((a,b) => b[1]-a[1]);
   const catMax = Math.max(1, ...catRanked.map(c => c[1]));
   const catEl = document.getElementById('cat-ranking');
