@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700;400&display=swap" rel="stylesheet">
 <style>
@@ -38,10 +38,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenContent{display:flex;flex-direction:row;align-items:flex-start;flex-wrap:nowrap;gap:16px;padding:16px;margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
-/* === 替え玉待機バー === */
-.kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:8px 14px;display:flex;align-items:center;gap:14px;z-index:20;height:96px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);transition:transform 0.32s ease,opacity 0.32s ease;backdrop-filter:blur(6px)}
-.kaedama-waiting-bar.empty{transform:translateY(100%);opacity:0;pointer-events:none}
+#kitchenContent{display:grid;grid-template-columns:repeat(2,1fr);align-content:start;gap:14px;padding:14px 14px calc(72px + 14px);margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
+/* === 替え玉待機バー（常時表示・コンパクト） === */
+.kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
+.kaedama-waiting-bar.empty{opacity:0.55}
+.kaedama-waiting-bar.empty .kaedama-bar-tabs::before{content:'待機なし';color:#7a6650;font-size:11px;letter-spacing:1px}
 .kaedama-bar-label{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:2px;color:var(--accent);white-space:nowrap;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #3a2810;padding-right:14px;height:100%}
 .kaedama-bar-label .kbl-icon{font-size:22px;margin-bottom:2px}
 .kaedama-bar-tabs{flex:1;display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;align-items:center;height:100%;padding:2px 0}
@@ -55,8 +56,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .kaedama-tab-label{font-size:11px;color:var(--accent);font-weight:700;margin-top:3px;letter-spacing:0.5px}
 .kaedama-tab-kata{font-size:11px;color:#ffd54f;font-weight:900;margin-top:2px;letter-spacing:0.5px;line-height:1.2;max-width:96px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kaedama-tab-qty{position:absolute;top:-7px;right:-7px;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;border-radius:11px;padding:2px 7px;border:2px solid #1a1008;font-family:'Oswald',sans-serif;letter-spacing:0.5px;line-height:1.2}
-#kitchenContent.with-kaedama-bar{height:calc(100vh - 53px - 96px)}
-.ticket{background:#fff;border:2px solid #e0e0e0;border-radius:20px;width:338px;flex-shrink:0;display:flex;flex-direction:column;white-space:normal;transition:all 0.3s;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+#kitchenContent.with-kaedama-bar{padding-bottom:calc(72px + 14px)}
+.ticket{background:#fff;border:2px solid #e0e0e0;border-radius:18px;width:100%;min-width:0;display:flex;flex-direction:column;white-space:normal;transition:all 0.3s;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
 .ticket.completing{opacity:0;transform:scale(0.9)}
 .ticket-header{padding:10px 12px 8px;border-bottom:2px solid #e0e0e0;background:#fff}
 .ticket-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
@@ -115,6 +116,39 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .tc-name{font-size:20px;font-weight:700;color:#111;line-height:1.2}
 .tc-opts{font-size:14px;color:#666;margin-top:2px;font-weight:600}
 .tc-qty{font-family:'Oswald',sans-serif;font-size:22px;color:#c8860a;font-weight:700;flex-shrink:0}
+/* === レスポンシブ：スマホは伝票1列・文字サイズ縮小 === */
+@media (max-width: 640px){
+  #kitchenContent{grid-template-columns:1fr;gap:10px;padding:10px 10px calc(72px + 10px)}
+  .ticket{border-radius:14px;border-width:1px}
+  .ticket-table{font-size:30px}
+  .ticket-time{font-size:10px}
+  .ticket-section-label{font-size:12px;letter-spacing:0.5px;margin-bottom:4px;padding-bottom:3px}
+  .ticket-section{padding:6px 10px}
+  .item-name-k{font-size:20px;letter-spacing:0.5px}
+  .item-detail{font-size:16px;margin-top:3px;line-height:1.45}
+  .item-qty-k{font-size:22px}
+  .item-check{width:28px;height:28px}
+  .ramen-group-card{padding:8px;margin:6px 8px;border-radius:10px;gap:8px}
+  .ramen-group-card .rg-check{width:28px;height:28px}
+  .rg-main-name{font-size:20px;letter-spacing:0.5px}
+  .rg-main-qty{font-size:18px}
+  .rg-opts{font-size:15px;line-height:1.4}
+  .rg-attached-item{font-size:13px;line-height:1.35}
+  .ra-bullet{font-size:14px}
+  .ra-qty{font-size:12px}
+  .ticket-compact-card{padding:8px 10px;margin:4px 8px}
+  .tc-name{font-size:16px}
+  .tc-opts{font-size:12px}
+  .tc-qty{font-size:18px}
+  .kaedama-waiting-bar{height:62px;padding:5px 10px;gap:8px}
+  .kaedama-bar-label{font-size:10px;padding-right:8px}
+  .kaedama-bar-label .kbl-icon{font-size:16px}
+  .kaedama-tab{min-width:84px;height:52px;padding:4px 10px;border-radius:10px}
+  .kaedama-tab-table{font-size:22px}
+  .kaedama-tab-label{font-size:9px}
+  .kaedama-tab-kata{font-size:9px;max-width:78px}
+  #kitchenContent.with-kaedama-bar{padding-bottom:calc(62px + 10px)}
+}
 .lang-btn{padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.15s;flex-shrink:0}
 .lang-btn:active{transform:scale(0.94)}
 .lang-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -346,6 +380,7 @@ function kitchenCatLabel(item) {
 if (item.cat === 'tonkotsu') return '豚骨';
 if (item.cat === 'shouyu') return '醤油';
 if (item.cat === 'teishoku') return '定食';
+if (item.cat === 'takeout') return 'テイクアウト';
 if (item.cat === 'topping')return 'トッピング';
 if (item.cat === 'drink')return 'ドリンク';
 if (item.night)return '夜限定';
@@ -547,7 +582,7 @@ function closeSoldoutFullPage() { document.getElementById('soldoutFullPage').sty
 
 function renderSoldoutFullList() {
 const ids = getSoldoutIds();
-const catOrderArr = ['豚骨','醤油','定食','トッピング','サイド','夜限定','ドリンク'];
+const catOrderArr = ['豚骨','醤油','定食','テイクアウト','トッピング','サイド','夜限定','ドリンク'];
 let html = '';
 catOrderArr.forEach(cat => {
 const items = allMenuItems.filter(m => m.cat === cat);
@@ -1178,8 +1213,62 @@ function getGroupKey(grp) {
   return 'item:' + (m.itemId || m.id || '');
 }
 
-function buildOptsHtml(opts) {
-  const cleaned = (Array.isArray(opts) ? opts : []).map(stripOptPrice).filter(o => o);
+// === 伝票専用：オプションを常に日本語表記へ正規化 ===
+// チャーシューはカタカナ（ブタ／トリ）、麺はデフォルトなら非表示、無料🎉は削除。
+function ticketOptDict(opt) {
+  const M = {
+    // 麺の硬さ
+    'かため':'かため','Firm':'かため','偏硬':'かため','단단함':'かため',
+    'ふつう':'ふつう','Medium':'ふつう','普通':'ふつう','보통':'ふつう',
+    'やわ':'やわ','Soft':'やわ','偏软':'やわ','부드러움':'やわ',
+    // チャーシュー（カタカナ）
+    '豚':'ブタ','Pork':'ブタ','猪':'ブタ','돼지':'ブタ',
+    '鶏':'トリ','Chicken':'トリ','鸡':'トリ','닭':'トリ',
+    // カレートッピング
+    'とんかつ':'とんかつ','Tonkatsu':'とんかつ','炸猪排':'とんかつ','돈가스':'とんかつ',
+    'チキンカツ':'チキンカツ','Chicken Katsu':'チキンカツ','炸鸡排':'チキンカツ','치킨가스':'チキンカツ',
+    // 0辛
+    '0辛':'0辛','Mild (0)':'0辛','0辣':'0辛','0매움':'0辛'
+  };
+  return M[opt];
+}
+function ticketNoodleOpt(opt, mainItem) {
+  const isThin = /(細麺|Thin|细面|가는면)/i.test(opt);
+  const isFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(opt);
+  const isLarge = /(大盛り|Large|大碗|곱배기)/.test(opt);
+  const isLess = /(少|Less|少量|적게)/.test(opt);
+  const isRegular = /(並|Regular|普通|보통)/.test(opt);
+  const canon = mainItem ? MOTONARI.getMenuById(mainItem.itemId) : null;
+  const cat = canon ? canon.cat : null;
+  const isDefaultNoodle = (cat === 'tonkotsu' && isThin) || (cat === 'shouyu' && isFlat);
+  const parts = [];
+  if (!isDefaultNoodle) {
+    if (isThin) parts.push('細麺');
+    else if (isFlat) parts.push('平打ち麺');
+  }
+  if (isLarge) parts.push('大盛り');
+  else if (isLess) parts.push('少');
+  else if (isRegular) parts.push('並');
+  return parts.join(' ');
+}
+function transformOptForTicket(opt, mainItem) {
+  if (!opt) return '';
+  let s = String(opt).trim();
+  s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉)\s*/g, '').trim();
+  const spicy = s.match(/^(\d+)\s*(辛|Spicy|辣|매움)\s*$/i);
+  if (spicy) return `${spicy[1]}辛`;
+  if (/(細麺|平打ち麺|Thin|Flat|细面|宽面|가는면|넓은면)/i.test(s)) {
+    return ticketNoodleOpt(s, mainItem);
+  }
+  const ja = ticketOptDict(s);
+  return ja || s;
+}
+
+function buildOptsHtml(opts, mainItem) {
+  const cleaned = (Array.isArray(opts) ? opts : [])
+    .map(stripOptPrice)
+    .map(o => transformOptForTicket(o, mainItem))
+    .filter(o => o);
   if (!cleaned.length) return '';
   const spicyOpts = cleaned.filter(o => /^\d+辛/.test(o));
   const others = cleaned.filter(o => !/^\d+辛/.test(o));
@@ -1193,27 +1282,35 @@ function buildOptsHtml(opts) {
   }).join('<span class="opt-sep">/</span>');
 }
 
+// 伝票名は常に日本語（カノニカル）。abbrev辞書もjaキーに合わせて引ける。
+function getAbbrevJa(item) {
+  if (!item) return '';
+  const canon = MOTONARI.getMenuById(item.itemId);
+  const ja = (canon && canon.name && canon.name.ja) || item.name || '';
+  return getAbbrev(ja);
+}
+
 function renderRamenGroupCard(orderId, grp) {
   const main = grp.main;
   const addons = grp.addons || [];
   const allServed = grp.items.every(i => i.served);
   const groupKey = getGroupKey(grp);
-  
-  // メイン名は省略形を使う（既存の getAbbrev がある場合）
-  const mainName = getAbbrev(main.name);
-  
+
+  // メイン名は常に日本語のカノニカル名 → 省略形
+  const mainName = getAbbrevJa(main);
+  const mainNameJa = (MOTONARI.getMenuById(main.itemId)?.name?.ja) || main.name || '';
+
   // メインのオプション（辛さ・麺の硬さ等）+ 0辛デフォルト追加
-  let opts = (Array.isArray(main.opts) ? main.opts : []).map(stripOptPrice).filter(o => o);
-  const spicyOpts = opts.filter(o => /^\d+辛/.test(o));
-  const hasSpicyMenu = main.name.includes('SK') || main.name.includes('カレー');
-  if (hasSpicyMenu && spicyOpts.length === 0) opts = ['0辛', ...opts];
-  const optsHtml = buildOptsHtml(opts);
-  
-  // 付属トッピングHTML
+  let opts = Array.isArray(main.opts) ? main.opts.slice() : [];
+  const hasSpicyMenu = mainNameJa.includes('SK') || mainNameJa.includes('カレー');
+  const hasSpicyOpt = opts.some(o => /(\d+)\s*(辛|Spicy|辣|매움)/i.test(String(o)));
+  if (hasSpicyMenu && !hasSpicyOpt) opts = ['0辛', ...opts];
+  const optsHtml = buildOptsHtml(opts, main);
+
+  // 付属トッピングHTML（"+ TOPPINGS" ラベルは廃止）
   const addonsHtml = addons.length ? `
     <div class="rg-attached">
-      <div class="rg-attached-label">+ TOPPINGS</div>
-      ${addons.map(a => `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrev(a.name)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}</div>`).join('')}
+      ${addons.map(a => `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}</div>`).join('')}
     </div>` : '';
 
   return `<div class="ramen-group-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
@@ -1234,13 +1331,13 @@ function renderCompactGroupCard(orderId, grp) {
   const main = grp.main || grp.items[0];
   const allServed = grp.items.every(i => i.served);
   const groupKey = getGroupKey(grp);
-  const optsHtml = buildOptsHtml(main.opts);
+  const optsHtml = buildOptsHtml(main.opts, main);
   // アドオンが付いている場合（理論上少ないが）はメインの後に追記
-  const subAddons = (grp.addons || []).map(a => `${getAbbrev(a.name)}${a.qty>1?` ×${a.qty}`:''}`).join(' / ');
+  const subAddons = (grp.addons || []).map(a => `${getAbbrevJa(a)}${a.qty>1?` ×${a.qty}`:''}`).join(' / ');
   return `<div class="ticket-compact-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="tc-check"></div>
 <div class="tc-info">
-<div class="tc-name">${getAbbrev(main.name)}</div>
+<div class="tc-name">${getAbbrevJa(main)}</div>
 ${optsHtml || subAddons ? `<div class="tc-opts">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
 </div>
 ${main.qty > 1 ? `<div class="tc-qty">×${main.qty}</div>` : ''}
@@ -1726,7 +1823,7 @@ try {
 }
 
 // 注文変更
-const ORDER_EDIT_CATS = ['豚骨','醤油','定食','トッピング','サイド','夜限定','ドリンク','その他'];
+const ORDER_EDIT_CATS = ['豚骨','醤油','定食','テイクアウト','トッピング','サイド','夜限定','ドリンク','その他'];
 
 function openOrderEdit() {
 if (!selectedTable) return;

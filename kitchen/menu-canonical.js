@@ -13,12 +13,13 @@
 (function (global) {
   'use strict';
 
-  // ===== 席ラベル（15席） =====
+  // ===== 席ラベル（15席 + P1〜P8 別会計/外国人グループ用） =====
   const SEAT_LABELS = [
     'T1','T2','T3','T4','T5','T6',
     'C1','C2','C3','C4',
     'M',
-    'S1','S2','S3','S4'
+    'S1','S2','S3','S4',
+    'P1','P2','P3','P4','P5','P6','P7','P8'
   ];
 
   // URL用エイリアス（旧URL/旧ラベルを新ラベルへ転送）
@@ -29,6 +30,7 @@
     'N2':'S2','n2':'S2',
     'N3':'S3','n3':'S3',
     'N4':'S4','n4':'S4',
+    'p1':'P1','p2':'P2','p3':'P3','p4':'P4','p5':'P5','p6':'P6','p7':'P7','p8':'P8',
     // 旧日本語ラベル（URLエンコード経由）→ 新ラベル
     '丸':'M',
     '中1':'S1','中2':'S2','中3':'S3','中4':'S4',
@@ -64,7 +66,8 @@
     teishoku: { ja:'定食',       en:'Set Meal',  zh:'套餐',     ko:'정식',       icon:'🥟' },
     topping:  { ja:'トッピング', en:'Toppings',  zh:'追加配料', ko:'토핑',       icon:'⭐' },
     side:     { ja:'サイド',     en:'Sides',     zh:'小菜',     ko:'사이드',     icon:'🥟' },
-    drink:    { ja:'ドリンク',   en:'Drinks',    zh:'饮料',     ko:'음료',       icon:'🍺' }
+    drink:    { ja:'ドリンク',   en:'Drinks',    zh:'饮料',     ko:'음료',       icon:'🍺' },
+    takeout:  { ja:'テイクアウト', en:'Takeout',  zh:'外带',     ko:'테이크아웃', icon:'🥡' }
   };
 
   // ===== ステータス定義 =====
@@ -287,7 +290,27 @@
      price:380, spicy:false, night:false, custom:{}},
     {id:92, cat:'drink', img:'🥛',
      name:{ja:'ソイミルクコーヒー', en:'Soy Milk Coffee', zh:'豆浆咖啡', ko:'두유 커피'},
-     price:450, spicy:false, night:false, custom:{}}
+     price:450, spicy:false, night:false, custom:{}},
+
+    // ── テイクアウト（持ち帰り餃子） ──
+    {id:100, cat:'takeout', img:'🥡',
+     name:{ja:'餃子 5個（テイクアウト）', en:'Gyoza ×5 (Takeout)', zh:'饺子5个（外带）', ko:'교자 5개（테이크아웃）'},
+     price:500, spicy:false, night:false, custom:{}},
+    {id:101, cat:'takeout', img:'🥡',
+     name:{ja:'餃子 10個（テイクアウト）', en:'Gyoza ×10 (Takeout)', zh:'饺子10个（外带）', ko:'교자 10개（테이크아웃）'},
+     price:950, spicy:false, night:false, custom:{}},
+    {id:102, cat:'takeout', img:'🥡',
+     name:{ja:'餃子 15個（テイクアウト）', en:'Gyoza ×15 (Takeout)', zh:'饺子15个（外带）', ko:'교자 15개（테이크아웃）'},
+     price:1400, spicy:false, night:false, custom:{}},
+    {id:103, cat:'takeout', img:'🥡',
+     name:{ja:'餃子 20個（テイクアウト）', en:'Gyoza ×20 (Takeout)', zh:'饺子20个（外带）', ko:'교자 20개（테이크아웃）'},
+     price:1800, spicy:false, night:false, custom:{}},
+    {id:104, cat:'takeout', img:'🥡',
+     name:{ja:'餃子 25個（テイクアウト）', en:'Gyoza ×25 (Takeout)', zh:'饺子25个（外带）', ko:'교자 25개（테이크아웃）'},
+     price:2350, spicy:false, night:false, custom:{}},
+    {id:105, cat:'takeout', img:'🥡',
+     name:{ja:'餃子 30個（テイクアウト）', en:'Gyoza ×30 (Takeout)', zh:'饺子30个（外带）', ko:'교자 30개（테이크아웃）'},
+     price:2800, spicy:false, night:false, custom:{}}
   ];
 
   // ===== ヘルパー関数 =====
