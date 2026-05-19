@@ -38,7 +38,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenContent{display:grid;grid-template-columns:1fr;align-content:start;gap:3px;padding:3px 3px calc(72px + 3px);margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
+#kitchenContent{display:grid;grid-template-columns:repeat(2,1fr);align-content:start;gap:3px;padding:3px 3px calc(72px + 3px);margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box}
 /* === 替え玉待機バー（常時表示・コンパクト） === */
 .kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
 .kaedama-waiting-bar.empty{opacity:0.55}
@@ -1259,6 +1259,8 @@ function transformOptForTicket(opt, mainItem) {
   if (!opt) return '';
   let s = String(opt).trim();
   s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉)\s*/g, '').trim();
+  // 単独の「並」（デフォルト量）は伝票非表示
+  if (/^(並|Regular)$/i.test(s)) return '';
   const spicy = s.match(/^(\d+)\s*(辛|Spicy|辣|매움)\s*$/i);
   if (spicy) return `${spicy[1]}辛`;
   if (/(細麺|平打ち麺|Thin|Flat|细面|宽面|가는면|넓은면)/i.test(s)) {
