@@ -650,9 +650,23 @@ function isKaedamaItem(item) {
   return false;
 }
 
+// 替え玉アイテムの「キッチンが今作るべき数」= kaedamaRequestedQty を上限とする
+// 旧データ（kaedamaRequestedQty未設定）は qty が上限（=全部要求済み扱い）
+function effectiveKaedamaQty(item) {
+  if (!item) return 0;
+  if (typeof item.kaedamaRequestedQty === 'number') return item.kaedamaRequestedQty;
+  return item.qty || 1;
+}
+
 function isItemFullyServed(item) {
   if (!item) return false;
   if (item.served) return true;
+  // 替え玉先払いの場合：呼び出された分が全て提供されたら fully served（残りは「呼び待ち」扱いで未表示）
+  if (isKaedamaItem(item)) {
+    const eff = effectiveKaedamaQty(item);
+    const servedCount = Array.isArray(item.servedIndices) ? item.servedIndices.length : 0;
+    return servedCount >= eff;
+  }
   if (Array.isArray(item.servedIndices) && item.qty && item.servedIndices.length >= item.qty) return true;
   return false;
 }
@@ -672,16 +686,14 @@ function countKaedamaPending(order) {
   items.forEach(i => {
     if (!isKaedamaItem(i)) return;
     if (i.served) return;
-    if (Array.isArray(i.servedIndices) && i.qty) {
-      total += Math.max(0, (i.qty || 1) - i.servedIndices.length);
-    } else {
-      total += i.qty || 1;
-    }
+    const eff = effectiveKaedamaQty(i);
+    const servedCount = Array.isArray(i.servedIndices) ? i.servedIndices.length : 0;
+    total += Math.max(0, eff - servedCount);
   });
   return total;
 }
 
-// 替え玉アイテムから麺の硬さを抽出（未提供分のみ）
+// 替え玉アイテムから麺の硬さを抽出（呼び出し済み・未提供分のみ）
 function collectKaedamaKata(order) {
   const KATA_VALUES = ['かため','ふつう','やわ','Firm','Medium','Soft','硬','普通','软','단단히','보통','부드럽게'];
   const items = Array.isArray(order.items) ? order.items : [];
@@ -689,9 +701,9 @@ function collectKaedamaKata(order) {
   items.forEach(i => {
     if (!isKaedamaItem(i)) return;
     if (i.served) return;
-    const unservedQty = (Array.isArray(i.servedIndices) && i.qty)
-      ? Math.max(0, (i.qty || 1) - i.servedIndices.length)
-      : (i.qty || 1);
+    const eff = effectiveKaedamaQty(i);
+    const servedCount = Array.isArray(i.servedIndices) ? i.servedIndices.length : 0;
+    const unservedQty = Math.max(0, eff - servedCount);
     if (unservedQty <= 0) return;
     const opts = Array.isArray(i.opts) ? i.opts : [];
     const kata = opts.find(o => KATA_VALUES.includes(String(o).trim()));
