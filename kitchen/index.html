@@ -2139,7 +2139,9 @@ updateActiveCount();
 }
 
 function updateActiveCount() {
-const count = orders.filter(o => o.status === 'pending' || o.status === 'preparing').length;
+// 替え玉待機中の注文は差し引く（実調理が必要な伝票だけカウント）
+const active = orders.filter(o => o.status === 'pending' || o.status === 'preparing');
+const count = active.filter(o => !isKaedamaWaiting(o)).length;
 const badge = document.getElementById('activeCount');
 if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件'; }
 else badge.style.display = 'none';
