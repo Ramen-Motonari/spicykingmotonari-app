@@ -146,7 +146,7 @@
     // ── トッピング ──
     {id:40, cat:'topping', img:'🍝',
      name:{ja:'替え玉（細麺）', en:'Extra Noodles', zh:'加面', ko:'면 추가'},
-     price:150, spicy:false, night:false, custom:{}},
+     price:150, spicy:false, night:false, custom:{kata:1}},
     {id:43, cat:'topping', img:'🌿',
      name:{ja:'ごぼう', en:'Burdock', zh:'牛蒡', ko:'우엉'},
      price:150, spicy:false, night:false, custom:{}},
