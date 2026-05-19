@@ -38,8 +38,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenContent{display:grid;grid-template-rows:1fr;grid-auto-flow:column;grid-auto-columns:50vw;gap:0;padding:0 0 72px;margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
-#kitchenContent > .ticket{scroll-snap-align:start}
+#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:0;padding:0 0 72px;margin:0;position:absolute;left:0;top:0;height:calc(100vh - 53px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
+#kitchenContent > .ticket{flex:0 0 50vw;width:50vw;max-width:50vw;scroll-snap-align:start}
 /* === 替え玉待機バー（常時表示・コンパクト） === */
 .kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
 .kaedama-waiting-bar.empty{opacity:0.55}
@@ -120,7 +120,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .tc-qty{font-family:'Oswald',sans-serif;font-size:22px;color:#c8860a;font-weight:700;flex-shrink:0}
 /* === レスポンシブ：スマホは伝票1列・文字サイズ縮小 === */
 @media (max-width: 640px){
-  #kitchenContent{grid-auto-columns:calc(100vw - 12px);gap:6px;padding:6px 6px calc(62px + 6px)}
+  #kitchenContent{gap:0;padding:0 0 62px}
+  #kitchenContent > .ticket{flex:0 0 100vw;width:100vw;max-width:100vw}
   .ticket{border-radius:14px;border-width:1px}
   .ticket-table{font-size:30px}
   .ticket-time{font-size:10px}
@@ -1133,12 +1134,11 @@ const tLabel = order.tableLabel || order.table || '?';
 return `<div class="ticket ${allServed?'completing':''}" id="ticket-${order.id}">
 <div class="ticket-header">
 <div class="ticket-top">
+<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
 <div class="ticket-table">${tLabel}</div>
-<div class="ticket-time">${formatOrderTime(order)}</div>
-</div>
-<div style="display:flex;justify-content:space-between;align-items:center">
 <span class="ticket-visit ${visitClass}">${visitLabel}</span>
-<span class="ticket-order-num">#${shortOrderId(order.id)}</span>
+</div>
+<div class="ticket-time">${formatOrderTime(order)}</div>
 </div>
 </div>
 <div style="padding:4px 0 8px">${groupsHtml}</div>
@@ -1291,11 +1291,15 @@ function buildOptsHtml(opts, mainItem) {
 }
 
 // 伝票名は常に日本語（カノニカル）。abbrev辞書もjaキーに合わせて引ける。
+// （…）／(…) 部分は伝票では非表示
+function stripParens(s) {
+  return String(s||'').replace(/[（(][^（()）]*[）)]/g, '').trim();
+}
 function getAbbrevJa(item) {
   if (!item) return '';
   const canon = MOTONARI.getMenuById(item.itemId);
   const ja = (canon && canon.name && canon.name.ja) || item.name || '';
-  return getAbbrev(ja);
+  return stripParens(getAbbrev(ja));
 }
 
 function renderRamenGroupCard(orderId, grp) {
