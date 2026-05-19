@@ -1584,7 +1584,7 @@ function addCart(){
         // 替え玉アドオンの場合は麺硬さを opts に含める
         const isKaedamaAddon = (m.id === 40);
         const addonOpts = isKaedamaAddon && curOpts.addonKaedamaKata
-          ? [curOpts.addonKaedamaKata, '【先払い・後出し】']
+          ? [curOpts.addonKaedamaKata]
           : [];
         const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:isKaedamaAddon, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
         if (isKaedamaAddon){
@@ -2229,8 +2229,8 @@ function renderKaedamaCart(){
   list.innerHTML = kaedamaCart.map((c, i) => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700">替え玉（細麺） × ${c.qty}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.ramenName} / ${c.hardness}${c.wasFree?' / '+t.kaedamaFreeBadge:''}</div>
+        <div style="font-weight:700">${c.wasFree ? '替え玉（無料）' : '替え玉（細麺）'} × ${c.qty}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.ramenName} / ${c.hardness}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent)">¥${c.total}</span>
@@ -2262,8 +2262,8 @@ async function submitKaedamaOrder(){
     const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const items = kaedamaCart.map(c => ({
       itemId: KAEDAMA_MENU_ID,
-      name: `替え玉（細麺）`,
-      opts: [c.hardness, c.wasFree ? '【1杯無料】' : ''].filter(Boolean),
+      name: c.wasFree ? '替え玉（無料）' : '替え玉（細麺）',
+      opts: [c.hardness].filter(Boolean),
       qty: c.qty,
       price: c.unitPrice,
       total: c.total,
