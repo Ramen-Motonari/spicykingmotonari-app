@@ -530,8 +530,14 @@ function getMergedMenu() {
   // canonical メニュー（override適用）
   MOTONARI.MENU_ITEMS.forEach(m => {
     const ov = menuOverrides[String(m.id)] || {};
+    const name = ov.nameOverride ? { ...m.name, ...ov.nameOverride } : m.name;
     merged.push({
       ...m,
+      name,
+      img: ov.imgOverride || m.img,
+      spicy: (typeof ov.spicyOverride === 'boolean') ? ov.spicyOverride : m.spicy,
+      night: (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : m.night,
+      pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : m.pirikara,
       imageUrl: ov.imageUrl || null,
       _hidden: !!ov.hidden,
       _isCanonical: true,
@@ -1326,6 +1332,8 @@ function renderMenuPage() {
 function openAddItemModal() {
   _editingItem = { isNew: true, id: generateNewItemId(), cat: '', name: {ja:'',en:'',zh:'',ko:''}, price: 0, imageUrl: null, custom: {} };
   _pendingImageFile = null;
+  const saveBtn = document.getElementById('itemEditSaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
   document.getElementById('itemEditTitle').textContent = '🍜 新規メニュー追加';
   renderItemEditForm();
   document.getElementById('itemEditOverlay').style.display = 'flex';
@@ -1338,15 +1346,25 @@ function openEditItemModal(editKey) {
     const canon = MOTONARI.getMenuById(id);
     if (!canon) { showToast('メニューが見つかりません', true); return; }
     const ov = menuOverrides[String(id)] || {};
+    const nameOv = ov.nameOverride || {};
     _editingItem = {
       isNew: false, isCanonical: true, id, cat: canon.cat,
-      name: { ja: canon.name.ja, en: canon.name.en || '', zh: canon.name.zh || '', ko: canon.name.ko || '' },
-      price: canon.price,
+      name: {
+        ja: nameOv.ja || canon.name.ja,
+        en: nameOv.en || canon.name.en || '',
+        zh: nameOv.zh || canon.name.zh || '',
+        ko: nameOv.ko || canon.name.ko || ''
+      },
+      price: (typeof ov.priceOverride === 'number') ? ov.priceOverride : canon.price,
+      img: ov.imgOverride || canon.img || '🍜',
       imageUrl: ov.imageUrl || null,
       priceOverride: ov.priceOverride,
       hidden: !!ov.hidden,
       custom: canon.custom || {},
-      spicy: canon.spicy, night: canon.night, pirikara: canon.pirikara, lunchFreeBase: canon.lunchFreeBase
+      spicy: (typeof ov.spicyOverride === 'boolean') ? ov.spicyOverride : !!canon.spicy,
+      night: (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : !!canon.night,
+      pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : !!canon.pirikara,
+      lunchFreeBase: canon.lunchFreeBase
     };
   } else {
     const c = customMenuItems.find(x => x.docId === idOrDoc);
@@ -1362,6 +1380,8 @@ function openEditItemModal(editKey) {
     };
   }
   _pendingImageFile = null;
+  const saveBtn = document.getElementById('itemEditSaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
   document.getElementById('itemEditTitle').textContent = (_editingItem.isCanonical ? '✏️ 編集（基本）' : '✏️ 編集（カスタム）') + ` #${_editingItem.id}`;
   renderItemEditForm();
   document.getElementById('itemEditOverlay').style.display = 'flex';
@@ -1371,6 +1391,8 @@ function closeItemEditModal() {
   document.getElementById('itemEditOverlay').style.display = 'none';
   _editingItem = null;
   _pendingImageFile = null;
+  const saveBtn = document.getElementById('itemEditSaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
 }
 
 function renderItemEditForm() {
@@ -1547,12 +1569,22 @@ async function saveItemEdit() {
       imageUrl = await uploadImageToStorage(_pendingImageFile, key);
     }
     if (it.isCanonical) {
-      // canonical: menuOverrides に保存
-      const overrideData = { imageUrl, hidden };
-      // 価格変更時のみ priceOverride 設定
+      // canonical: menuOverrides に保存（canonical と異なる値のみ override として保存）
       const canon = MOTONARI.getMenuById(it.id);
-      if (canon && price !== canon.price) overrideData.priceOverride = price;
-      else overrideData.priceOverride = null;
+      const overrideData = { imageUrl, hidden };
+      // 価格
+      overrideData.priceOverride = (canon && price !== canon.price) ? price : null;
+      // 名前（4言語のいずれかが異なれば override 保存）
+      const newName = { ja: nameJa, en: nameEn || nameJa, zh: nameZh || nameJa, ko: nameKo || nameJa };
+      const canonName = canon ? canon.name : {};
+      const nameDiffers = ['ja','en','zh','ko'].some(k => (newName[k] || '') !== (canonName[k] || ''));
+      overrideData.nameOverride = nameDiffers ? newName : null;
+      // 絵文字
+      overrideData.imgOverride = (canon && img !== (canon.img || '🍜')) ? img : null;
+      // SPICY / 夜限定 / ピリ辛
+      overrideData.spicyOverride = (canon && spicy !== !!canon.spicy) ? spicy : null;
+      overrideData.nightOverride = (canon && night !== !!canon.night) ? night : null;
+      overrideData.pirikaraOverride = (canon && pirikara !== !!canon.pirikara) ? pirikara : null;
       await saveMenuOverride(it.id, overrideData);
     } else {
       // custom: customMenuItems に保存
