@@ -38,10 +38,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #registerScreen{overflow-y:auto;height:calc(100vh - 53px)}
 .app-screen.active{display:block}
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
-#kitchenCountBar{position:absolute;top:0;left:0;right:0;height:32px;background:linear-gradient(180deg,#231708 0%,#1a1008 100%);border-bottom:1px solid #3a2810;display:flex;align-items:center;justify-content:center;z-index:15;font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:2px;color:var(--accent);font-weight:700}
-#kitchenCountBar #kitchenCountNum{font-size:18px;color:#fff;margin:0 8px;font-weight:900;line-height:1}
-#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 72px;margin:0;position:absolute;left:0;top:32px;height:calc(100vh - 53px - 32px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
-#kitchenContent > .ticket{flex:0 0 calc(50vw - 5px);width:calc(50vw - 5px);max-width:calc(50vw - 5px);scroll-snap-align:start}
+#kitchenCountBar{position:absolute;top:0;left:0;right:0;height:46px;background:linear-gradient(180deg,#231708 0%,#1a1008 100%);border-bottom:1px solid #3a2810;display:flex;align-items:center;justify-content:center;gap:24px;z-index:15;font-family:'Oswald',sans-serif;font-size:18px;letter-spacing:2px;color:var(--accent);font-weight:700}
+#kitchenCountBar .kcb-group{display:flex;align-items:center;gap:6px}
+#kitchenCountBar #kitchenCountNum,#kitchenCountBar #kitchenWaitNum{font-size:28px;color:#fff;margin:0 4px;font-weight:900;line-height:1}
+#kitchenCountBar .kcb-sep{color:#3a2810;font-size:22px;font-weight:400}
+#kitchenCountBar .kcb-icon{font-size:20px;margin-right:2px}
+#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 72px;margin:0;position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
+#kitchenContent > .ticket{flex:0 0 calc(33.333vw - 7px);width:calc(33.333vw - 7px);max-width:calc(33.333vw - 7px);scroll-snap-align:start}
 /* === 替え玉待機バー（常時表示・コンパクト） === */
 .kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
 .kaedama-waiting-bar.empty{opacity:0.55}
@@ -60,7 +63,18 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .kaedama-tab-kata{font-size:11px;color:#ffd54f;font-weight:900;margin-top:2px;letter-spacing:0.5px;line-height:1.2;max-width:96px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kaedama-tab-qty{position:absolute;top:-7px;right:-7px;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;border-radius:11px;padding:2px 7px;border:2px solid #1a1008;font-family:'Oswald',sans-serif;letter-spacing:0.5px;line-height:1.2}
 #kitchenContent.with-kaedama-bar{padding-bottom:calc(72px + 3px)}
-.ticket{background:#fff;border:none;border-radius:0;width:100%;height:100%;min-width:0;min-height:0;display:flex;flex-direction:column;white-space:normal;transition:all 0.3s;overflow:hidden;box-shadow:1px 0 0 #2a2a2a inset,-1px 0 0 #2a2a2a inset}
+.ticket{background:#fff;border:none;border-radius:0;width:100%;height:100%;min-width:0;min-height:0;display:flex;flex-direction:column;white-space:normal;transition:all 0.3s;overflow:hidden;box-shadow:1px 0 0 #2a2a2a inset,-1px 0 0 #2a2a2a inset;position:relative}
+/* 並び替えモード */
+.ticket-reorder{display:none;position:absolute;top:6px;right:6px;z-index:30;gap:6px}
+body.reorder-mode .ticket-reorder{display:flex}
+body.reorder-mode .ticket{outline:3px dashed var(--accent);outline-offset:-3px;box-shadow:1px 0 0 #2a2a2a inset,-1px 0 0 #2a2a2a inset,0 0 18px rgba(200,134,10,0.45)}
+body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-mode .ticket-compact-card{pointer-events:none}
+.tk-reord-btn{background:#1a1008;color:var(--accent);border:2px solid var(--accent);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;cursor:pointer;font-family:'Oswald',sans-serif;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+.tk-reord-btn:active{transform:scale(0.9);background:var(--accent);color:#1a1008}
+.tk-reord-btn:disabled{opacity:0.3;cursor:not-allowed}
+.reorder-toggle-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--accent);background:rgba(200,134,10,0.15);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.reorder-toggle-btn.active{background:var(--accent);color:#1a1008;animation:reorderPulse 1.4s ease-in-out infinite}
+@keyframes reorderPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,134,10,0.6)}50%{box-shadow:0 0 0 6px rgba(200,134,10,0)}}
 .ticket > div:last-child{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .ticket.completing{opacity:0;transform:scale(0.9)}
 .ticket-header{padding:6px 8px 4px;border-bottom:2px solid #e0e0e0;background:#fff}
@@ -250,6 +264,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 </div>
 <div class="header-right" style="display:flex;align-items:center;gap:8px">
 <button class="switch-btn to-register" id="switchBtn" onclick="switchMode()">レジに切り替え ▶</button>
+<button onclick="toggleReorderMode()" class="reorder-toggle-btn" id="reorderToggleBtn">↕ 並び替え</button>
 <button onclick="openSoldoutScreen()" style="padding:6px 12px;border-radius:20px;border:1px solid var(--accent2);background:rgba(192,57,43,0.2);color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif" id="soldoutBtn">🚫 売り切れ</button>
 <span class="order-count-badge" id="activeCount" style="display:none">0件</span>
 <button id="bellBtn" onclick="toggleBellPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px 6px;line-height:1;font-size:22px">🔔<span id="bellDot" style="display:none;position:absolute;top:2px;right:4px;width:9px;height:9px;background:#e74c3c;border-radius:50%;border:1.5px solid #111;animation:bellPulse 1s infinite"></span></button>
@@ -268,7 +283,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 </div>
 
 <div class="app-screen active" id="kitchenScreen">
-<div id="kitchenCountBar">現在の注文 <span id="kitchenCountNum">0</span> 件</div>
+<div id="kitchenCountBar"><span class="kcb-group"><span class="kcb-icon">🍜</span>注文 <span id="kitchenCountNum">0</span> 件</span><span class="kcb-sep">|</span><span class="kcb-group"><span class="kcb-icon">🍝</span>替え玉待機 <span id="kitchenWaitNum">0</span> 件</span></div>
 <div id="kitchenContent"></div>
 <div id="kaedamaWaitingBar" class="kaedama-waiting-bar empty">
 <div class="kaedama-bar-label"><span class="kbl-icon">🍝</span><span>替え玉<br>待機</span></div>
@@ -765,6 +780,74 @@ function expandKaedamaTab(orderId) {
   renderKitchen();
 }
 
+// === 伝票並び替え機能 ===
+const MANUAL_ORDER_KEY = 'kitchenManualOrder_v1';
+let manualOrder = []; // [orderId, ...]
+try { manualOrder = JSON.parse(localStorage.getItem(MANUAL_ORDER_KEY) || '[]'); }
+catch(e) { manualOrder = []; }
+let _reorderIdleTimer = null;
+function saveManualOrder() {
+  try { localStorage.setItem(MANUAL_ORDER_KEY, JSON.stringify(manualOrder)); } catch(e) {}
+}
+function toggleReorderMode() {
+  const body = document.body;
+  const btn = document.getElementById('reorderToggleBtn');
+  const on = body.classList.toggle('reorder-mode');
+  if (btn) {
+    btn.classList.toggle('active', on);
+    btn.textContent = on ? '✓ 完了' : '↕ 並び替え';
+  }
+  if (on) {
+    // 60秒操作なしで自動解除（誤操作防止）
+    armReorderIdleTimer();
+  } else {
+    if (_reorderIdleTimer) { clearTimeout(_reorderIdleTimer); _reorderIdleTimer = null; }
+  }
+}
+function armReorderIdleTimer() {
+  if (_reorderIdleTimer) clearTimeout(_reorderIdleTimer);
+  _reorderIdleTimer = setTimeout(() => {
+    if (document.body.classList.contains('reorder-mode')) toggleReorderMode();
+  }, 60000);
+}
+function moveTicket(orderId, dir) {
+  if (!document.body.classList.contains('reorder-mode')) return;
+  armReorderIdleTimer();
+  // 現在の表示順 (sortedActiveOrderIds) を基に並び替え
+  const visible = (window._sortedActiveOrderIds || []).slice();
+  const idx = visible.indexOf(orderId);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= visible.length) return;
+  // swap
+  [visible[idx], visible[newIdx]] = [visible[newIdx], visible[idx]];
+  // manualOrder を更新（表示中のIDだけ並び順保持）
+  manualOrder = visible.slice();
+  saveManualOrder();
+  renderKitchen();
+}
+function applyManualOrder(orders) {
+  // orders: 現在アクティブな伝票配列
+  if (!manualOrder.length) return orders;
+  const idSet = new Set(orders.map(o => o.id));
+  // manualOrder 内のうち、現在存在するIDだけ抽出
+  const ordered = manualOrder.filter(id => idSet.has(id));
+  // 新規（manualOrderに無い）伝票は末尾に時系列順で追加
+  const orderedSet = new Set(ordered);
+  const newOnes = orders.filter(o => !orderedSet.has(o.id)).sort((a, b) => {
+    const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+    const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+    return ta - tb;
+  });
+  // manualOrder をクリーンアップ（消えた伝票を除外）
+  if (ordered.length !== manualOrder.length) {
+    manualOrder = ordered.concat(newOnes.map(o => o.id));
+    saveManualOrder();
+  }
+  const orderMap = new Map(orders.map(o => [o.id, o]));
+  return ordered.map(id => orderMap.get(id)).filter(Boolean).concat(newOnes);
+}
+
 // Kitchen render (FLIPアニメーションでスムーズな伝票の追加・削除・並び替え)
 function ghostifyAndFade(el, content) {
 if (el.dataset.removing) return;
@@ -844,12 +927,15 @@ return;
 const emptyEl = content.querySelector('.kitchen-empty');
 if (emptyEl) emptyEl.remove();
 
-// 5. アクティブ注文を時系列順に並べる
-const sorted = [...normalActive].sort((a, b) => {
+// 5. アクティブ注文を時系列順に並べる（手動並び替えが存在すればそれを優先）
+let sorted = [...normalActive].sort((a, b) => {
 const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
 const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
 return ta - tb;
 });
+sorted = applyManualOrder(sorted);
+// 並び替え操作で使うために現在の表示順を公開
+window._sortedActiveOrderIds = sorted.map(o => o.id);
 
 // 6. 既存伝票のマップ
 const existingMap = new Map();
@@ -1135,6 +1221,10 @@ const visitLabel = order.visitType === 'first' ? '🌟 初回' : '✅ リピー�
 const tLabel = order.tableLabel || order.table || '?';
 
 return `<div class="ticket ${allServed?'completing':''}" id="ticket-${order.id}">
+<div class="ticket-reorder">
+  <button class="tk-reord-btn" onclick="moveTicket('${order.id}',-1)" aria-label="左に移動">←</button>
+  <button class="tk-reord-btn" onclick="moveTicket('${order.id}',1)" aria-label="右に移動">→</button>
+</div>
 <div class="ticket-header">
 <div class="ticket-top">
 <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
@@ -1266,6 +1356,8 @@ function transformOptForTicket(opt, mainItem) {
   s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉)\s*/g, '').trim();
   // 単独の「並」（デフォルト量）は伝票非表示
   if (/^(並|Regular)$/i.test(s)) return '';
+  // 麺の硬さ「ふつう」はデフォルトなので伝票非表示
+  if (/^(ふつう|普通|Medium|보통)$/i.test(s)) return '';
   const spicy = s.match(/^(\d+)\s*(辛|Spicy|辣|매움)\s*$/i);
   if (spicy) return `${spicy[1]}辛`;
   if (/(細麺|平打ち麺|Thin|Flat|细面|宽面|가는면|넓은면)/i.test(s)) {
@@ -2142,11 +2234,14 @@ function updateActiveCount() {
 // 替え玉待機中の注文は差し引く（実調理が必要な伝票だけカウント）
 const active = orders.filter(o => o.status === 'pending' || o.status === 'preparing');
 const count = active.filter(o => !isKaedamaWaiting(o)).length;
+const waitCount = active.filter(o => isKaedamaWaiting(o)).length;
 const badge = document.getElementById('activeCount');
 if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件'; }
 else badge.style.display = 'none';
 const num = document.getElementById('kitchenCountNum');
 if (num) num.textContent = count;
+const waitNum = document.getElementById('kitchenWaitNum');
+if (waitNum) waitNum.textContent = waitCount;
 }
 function showToast(msg) {
 const el = document.getElementById('toast');
@@ -2270,9 +2365,10 @@ function autoSizeTickets() {
 const screen = document.getElementById('kitchenScreen');
 if (!screen) return;
 const w = screen.offsetWidth || window.innerWidth;
-const gap = 14, pad = 28;
-const ticketW = Math.floor((w - pad - gap*3) / 4);
-const finalW = Math.max(ticketW, 240);
+const gap = 10;
+// 3列レイアウト：3枚分の幅 + ガップ2つ
+const ticketW = Math.floor((w - gap*2) / 3);
+const finalW = Math.max(ticketW, 200);
 document.querySelectorAll('.ticket').forEach(t => { t.style.width = finalW + 'px'; });
 }
 window.addEventListener('resize', autoSizeTickets);
@@ -2301,6 +2397,8 @@ window.testBellSound = testBellSound;
 window.expandKaedamaTab = expandKaedamaTab;
 window.toggleGroupServed = toggleGroupServed;
 window.setDetailLang = setDetailLang;
+window.toggleReorderMode = toggleReorderMode;
+window.moveTicket = moveTicket;
 
 function bootstrap() {
 setConnStatus('connecting', 'CONNECTING...');
