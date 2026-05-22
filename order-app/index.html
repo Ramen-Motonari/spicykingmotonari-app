@@ -1776,7 +1776,8 @@ async function placeOrder(){
   showLoading(true);
 
   try {
-    const total = cart.reduce((s,i)=>s+i.total,0);
+    // 合計金額：必ず有効な数値にする（NaN/undefinedを0扱いに）
+    const total = cart.reduce((s,i)=>s+(Number(i.total)||0),0);
     const orderData = {
       sessionId,
       userId: currentUser?.uid || null,
@@ -1794,8 +1795,8 @@ async function placeOrder(){
           name: nameJa,
           opts: optsJa,
           qty: i.qty,
-          price: i.price || 0,
-          total: i.total,
+          price: Number(i.price) || 0,
+          total: Number(i.total) || 0,
           served: false,
           servedIndices: [],
           // ラーメンとトッピングをキッチン伝票で一括り表示するための紐付け情報
@@ -1861,14 +1862,16 @@ function showPaidScreen(){
 
 /* ========== BOTTOM NAV ========== */
 function switchBottomNav(tab){
-  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
-  $('bnav-'+tab).classList.add('active');
   const cartBtn=$('cartOrderBtn');
   // すべてのサブスクリーンを閉じる（重なって履歴/お会計が見えなくなる事故を防止）
-  closeSubScreen('historyScreen');
-  closeSubScreen('paymentScreen');
-  closeSubScreen('cartModal');
-  closeSubScreen('kaedamaScreen');
+  // closeSubScreen はナビ復帰効果があるので、先にここで全部閉じてから、最後にタブをアクティブ化
+  $('historyScreen').classList.remove('open');
+  $('paymentScreen').classList.remove('open');
+  $('cartModal').classList.remove('open');
+  $('kaedamaScreen').classList.remove('open');
+  // ボトムナビのアクティブ状態をターゲットに切替
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  $('bnav-'+tab).classList.add('active');
   if(tab==='menu'){
     cartBtn.style.display = cart.length?'flex':'none';
   } else if(tab==='cart'){
@@ -1898,13 +1901,41 @@ function closeCartScreen(){
   $('bnav-menu').click();
 }
 
-function closeSubScreen(id){ $(id).classList.remove('open'); }
+function closeSubScreen(id){
+  $(id).classList.remove('open');
+  // ボトムナビのアクティブ状態を「メニュー」に戻す（カートを除く）
+  // ※ closeCartScreen は内部で bnav-menu.click() を別途呼ぶのでここでは触らない
+  if (id === 'historyScreen' || id === 'paymentScreen' || id === 'kaedamaScreen') {
+    document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+    const menuBtn = $('bnav-menu');
+    if (menuBtn) menuBtn.classList.add('active');
+    // カートバーの表示も更新（カート点数があれば表示）
+    if (typeof updateCartBar === 'function') updateCartBar();
+  }
+}
 
 function openHistory(){
   const t=T[lang];
   setText('historyTitle',t.historyTitle);
   $('historyScreen').classList.add('open');
   renderHistory();
+}
+
+// 注文の合計を安全に取得（h.total が無効なら items から再計算）
+function getOrderTotal(h){
+  const saved = Number(h && h.total);
+  if (Number.isFinite(saved) && saved > 0) return saved;
+  const items = (h && Array.isArray(h.items)) ? h.items : [];
+  return items.reduce((s,i) => s + (Number(i && i.total) || 0), 0);
+}
+// アイテムの合計を安全に取得（i.total が無効なら price*qty で計算）
+function getItemTotal(i){
+  if (!i) return 0;
+  const saved = Number(i.total);
+  if (Number.isFinite(saved)) return saved;
+  const p = Number(i.price) || 0;
+  const q = Number(i.qty) || 0;
+  return p * q;
 }
 
 function renderHistory(){
@@ -1919,20 +1950,22 @@ function renderHistory(){
     const num = h.fbId ? h.fbId.slice(-4).toUpperCase() : '----';
     const statusKey = 'status' + (h.status||'pending').charAt(0).toUpperCase() + (h.status||'pending').slice(1);
     const statusLabel = t[statusKey] || h.status;
+    const orderTotal = getOrderTotal(h);
+    const items = Array.isArray(h.items) ? h.items : [];
     return `
     <div class="history-item">
       <div class="history-num">
         <span>#${num} — ${time}</span>
         <span class="history-status ${h.status||'pending'}">${statusLabel}</span>
       </div>
-      ${h.items.map(i=>`
+      ${items.map(i=>`
         <div class="history-row">
           <span>${i.name} × ${i.qty}${(i.opts&&i.opts.length)?' ('+i.opts.map(o=>localizeOptText(o,lang)).join('/')+'）':''}</span>
-          <span>¥${(i.total||0).toLocaleString()}</span>
+          <span>¥${getItemTotal(i).toLocaleString()}</span>
         </div>`).join('')}
       <div class="history-total">
         <span>${t.historySubtotal}</span>
-        <span style="color:var(--accent)">¥${(h.total||0).toLocaleString()}</span>
+        <span style="color:var(--accent)">¥${orderTotal.toLocaleString()}</span>
       </div>
     </div>`;
   }).join('');
@@ -1958,12 +1991,12 @@ function renderPayment(){
   const t=T[lang];
   const merged={};
   orderHistory.flatMap(h=>h.items||[]).forEach(i=>{
-    const key = i.name + '|' + (i.opts||[]).join(',');
+    const key = (i.name||'') + '|' + ((i.opts||[]).join(','));
     if(!merged[key]) merged[key]={name:i.name,opts:i.opts||[],qty:0,total:0};
-    merged[key].qty+=i.qty;
-    merged[key].total+=(i.total||0);
+    merged[key].qty += (Number(i.qty)||0);
+    merged[key].total += getItemTotal(i);
   });
-  const grandTotal = orderHistory.reduce((s,h)=>s+(h.total||0),0);
+  const grandTotal = orderHistory.reduce((s,h)=>s+getOrderTotal(h),0);
   const list=$('paymentOrderList');
   if(!Object.keys(merged).length){
     list.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px 0">${t.noHistory}</div>`;
@@ -1974,7 +2007,7 @@ function renderPayment(){
           <div>${i.name} × ${i.qty}</div>
           ${i.opts.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
         </div>
-        <span>¥${i.total.toLocaleString()}</span>
+        <span>¥${(Number(i.total)||0).toLocaleString()}</span>
       </div>`).join('');
   }
   setText('paymentTotal',`¥${grandTotal.toLocaleString()}`);
