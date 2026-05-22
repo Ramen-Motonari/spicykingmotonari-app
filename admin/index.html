@@ -1321,7 +1321,10 @@ function renderMenuPage() {
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">EN: ${m.name.en || '—'}</div>
         <div style="display:flex;gap:6px">
           <button onclick="openEditItemModal('${editKey}')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️ 編集</button>
-          ${m._isCustom ? `<button onclick="confirmDeleteCustomItem('${m._docId}','${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑</button>` : ''}
+          ${m._isCustom
+            ? `<button onclick="confirmDeleteCustomItem('${m._docId}','${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑 削除</button>`
+            : `<button onclick="confirmHideCanonicalItem(${m.id},'${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑 削除</button>`
+          }
         </div>
       </div>
     </div>`;
@@ -1605,6 +1608,23 @@ async function saveItemEdit() {
   }
 }
 
+// 基本メニュー（canonical）は menuOverrides に hidden:true を立てて削除扱いにする
+async function confirmHideCanonicalItem(itemId, name) {
+  if (!confirm(`「${name}」を削除（非表示）しますか？\n基本メニューはコード定義のため、注文画面から非表示にします。\n編集画面の「非表示」チェックを外せば再表示できます。`)) return;
+  try {
+    const canon = MOTONARI.getMenuById(itemId);
+    const ov = menuOverrides[String(itemId)] || {};
+    await saveMenuOverride(itemId, {
+      ...ov,
+      hidden: true
+    });
+    showToast('削除しました（非表示）');
+  } catch(e) {
+    console.error('hide canonical failed:', e);
+    showToast('削除に失敗しました', true);
+  }
+}
+
 async function confirmDeleteCustomItem(docId, name) {
   if (!confirm(`「${name}」を削除しますか？\nこの操作は取り消せません。`)) return;
   try {
@@ -1820,6 +1840,7 @@ window.openEditItemModal = openEditItemModal;
 window.closeItemEditModal = closeItemEditModal;
 window.saveItemEdit = saveItemEdit;
 window.confirmDeleteCustomItem = confirmDeleteCustomItem;
+window.confirmHideCanonicalItem = confirmHideCanonicalItem;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
