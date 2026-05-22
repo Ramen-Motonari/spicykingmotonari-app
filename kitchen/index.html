@@ -40,29 +40,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #kitchenScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden}
 #kitchenCountBar{position:absolute;top:0;left:0;right:0;height:46px;background:linear-gradient(180deg,#231708 0%,#1a1008 100%);border-bottom:1px solid #3a2810;display:flex;align-items:center;justify-content:center;gap:24px;z-index:15;font-family:'Oswald',sans-serif;font-size:18px;letter-spacing:2px;color:var(--accent);font-weight:700}
 #kitchenCountBar .kcb-group{display:flex;align-items:center;gap:6px}
-#kitchenCountBar #kitchenCountNum,#kitchenCountBar #kitchenWaitNum{font-size:28px;color:#fff;margin:0 4px;font-weight:900;line-height:1}
-#kitchenCountBar .kcb-sep{color:#3a2810;font-size:22px;font-weight:400}
+#kitchenCountBar #kitchenCountNum{font-size:28px;color:#fff;margin:0 4px;font-weight:900;line-height:1}
 #kitchenCountBar .kcb-icon{font-size:20px;margin-right:2px}
-#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 72px;margin:0;position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
+#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 16px;margin:0;position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
 #kitchenContent > .ticket{flex:0 0 calc(33.333vw - 7px);width:calc(33.333vw - 7px);max-width:calc(33.333vw - 7px);scroll-snap-align:start}
-/* === 替え玉待機バー（常時表示・コンパクト） === */
-.kaedama-waiting-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(20,16,8,0.97);border-top:2px solid var(--accent);padding:6px 12px;display:flex;align-items:center;gap:12px;z-index:20;height:72px;box-shadow:0 -6px 20px rgba(0,0,0,0.6);backdrop-filter:blur(6px)}
-.kaedama-waiting-bar.empty{opacity:0.55}
-.kaedama-waiting-bar.empty .kaedama-bar-tabs::before{content:'待機なし';color:#7a6650;font-size:11px;letter-spacing:1px}
-.kaedama-bar-label{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:2px;color:var(--accent);white-space:nowrap;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #3a2810;padding-right:14px;height:100%}
-.kaedama-bar-label .kbl-icon{font-size:22px;margin-bottom:2px}
-.kaedama-bar-tabs{flex:1;display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;align-items:center;height:100%;padding:2px 0}
-.kaedama-bar-tabs::-webkit-scrollbar{height:4px}
-.kaedama-bar-tabs::-webkit-scrollbar-thumb{background:rgba(200,134,10,0.4);border-radius:2px}
-.kaedama-tab{background:linear-gradient(135deg,#3a2410 0%,#1f1408 100%);border:2px solid var(--accent);border-radius:14px;padding:6px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;min-width:104px;height:76px;transition:transform 0.15s ease,box-shadow 0.15s ease,border-color 0.15s ease;position:relative;animation:kaedamaTabIn 0.34s ease backwards}
-@keyframes kaedamaTabIn{from{opacity:0;transform:translateY(20px) scale(0.85)}to{opacity:1;transform:none}}
-.kaedama-tab:active{transform:scale(0.93)}
-.kaedama-tab:hover{box-shadow:0 0 18px rgba(200,134,10,0.5);border-color:#e9a428}
-.kaedama-tab-table{font-family:'Oswald',sans-serif;font-size:30px;color:#fff;font-weight:700;line-height:1}
-.kaedama-tab-label{font-size:11px;color:var(--accent);font-weight:700;margin-top:3px;letter-spacing:0.5px}
-.kaedama-tab-kata{font-size:11px;color:#ffd54f;font-weight:900;margin-top:2px;letter-spacing:0.5px;line-height:1.2;max-width:96px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kaedama-tab-qty{position:absolute;top:-7px;right:-7px;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;border-radius:11px;padding:2px 7px;border:2px solid #1a1008;font-family:'Oswald',sans-serif;letter-spacing:0.5px;line-height:1.2}
-#kitchenContent.with-kaedama-bar{padding-bottom:calc(72px + 3px)}
+/* 追加注文（同一テーブルに後から入った注文）の視覚区別 */
+.suborder{padding:2px 0}
+.suborder + .suborder{margin-top:6px;padding-top:6px;border-top:1px dashed #d0c8b8}
+.suborder-new{border-left:3px solid #e74c3c;background:linear-gradient(90deg,rgba(231,76,60,0.08) 0%,transparent 40%);padding-left:6px}
+.suborder-new-badge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);color:#fff;font-size:12px;font-weight:900;padding:4px 11px;border-radius:8px;margin:4px 8px 4px;animation:newOrderPulse 1.4s ease infinite;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(231,76,60,0.45)}
+@keyframes newOrderPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,0.55)}50%{transform:scale(1.06);box-shadow:0 0 0 5px rgba(231,76,60,0)}}
 .ticket{background:#fff;border:none;border-radius:0;width:100%;height:100%;min-width:0;min-height:0;display:flex;flex-direction:column;white-space:normal;transition:all 0.3s;overflow:hidden;box-shadow:1px 0 0 #2a2a2a inset,-1px 0 0 #2a2a2a inset;position:relative}
 /* 並び替えモード */
 .ticket-reorder{display:none;position:absolute;top:6px;right:6px;z-index:30;gap:6px}
@@ -136,7 +123,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .tc-qty{font-family:'Oswald',sans-serif;font-size:22px;color:#c8860a;font-weight:700;flex-shrink:0}
 /* === レスポンシブ：スマホは伝票1列・文字サイズ縮小 === */
 @media (max-width: 640px){
-  #kitchenContent{gap:0;padding:0 0 62px}
+  #kitchenContent{gap:0;padding:0 0 10px}
   #kitchenContent > .ticket{flex:0 0 100vw;width:100vw;max-width:100vw}
   .ticket{border-radius:14px;border-width:1px}
   .ticket-table{font-size:30px}
@@ -159,14 +146,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .tc-name{font-size:16px}
   .tc-opts{font-size:12px}
   .tc-qty{font-size:18px}
-  .kaedama-waiting-bar{height:62px;padding:5px 10px;gap:8px}
-  .kaedama-bar-label{font-size:10px;padding-right:8px}
-  .kaedama-bar-label .kbl-icon{font-size:16px}
-  .kaedama-tab{min-width:84px;height:52px;padding:4px 10px;border-radius:10px}
-  .kaedama-tab-table{font-size:22px}
-  .kaedama-tab-label{font-size:9px}
-  .kaedama-tab-kata{font-size:9px;max-width:78px}
-  #kitchenContent.with-kaedama-bar{padding-bottom:calc(62px + 10px)}
+  .suborder-new-badge{font-size:10px;padding:3px 8px}
 }
 .lang-btn{padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.15s;flex-shrink:0}
 .lang-btn:active{transform:scale(0.94)}
@@ -283,12 +263,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 </div>
 
 <div class="app-screen active" id="kitchenScreen">
-<div id="kitchenCountBar"><span class="kcb-group"><span class="kcb-icon">🍜</span>注文 <span id="kitchenCountNum">0</span> 件</span><span class="kcb-sep">|</span><span class="kcb-group"><span class="kcb-icon">🍝</span>替え玉待機 <span id="kitchenWaitNum">0</span> 件</span></div>
+<div id="kitchenCountBar"><span class="kcb-group"><span class="kcb-icon">🍜</span>注文件数 <span id="kitchenCountNum">0</span> 件</span></div>
 <div id="kitchenContent"></div>
-<div id="kaedamaWaitingBar" class="kaedama-waiting-bar empty">
-<div class="kaedama-bar-label"><span class="kbl-icon">🍝</span><span>替え玉<br>待機</span></div>
-<div class="kaedama-bar-tabs" id="kaedamaTabs"></div>
-</div>
 </div>
 <div class="app-screen" id="soldoutScreen">
 <div style="padding:16px">
@@ -695,94 +671,9 @@ document.getElementById('modeScreen').style.display = 'flex';
 document.getElementById('staffApp').style.display = 'none';
 }
 
-// === 替え玉待機ロジック ===
-const KAEDAMA_ID = 40; // menu-canonical.js の替え玉（細麺）ID
-const kaedamaExpanded = new Set(); // ユーザーがタップして展開した orderId
-
-function isKaedamaItem(item) {
-  if (!item) return false;
-  if (item.itemId === KAEDAMA_ID || item.id === KAEDAMA_ID) return true;
-  if (typeof item.name === 'string' && item.name.includes('替え玉')) return true;
-  return false;
-}
-
-// 替え玉アイテムの「キッチンが今作るべき数」= kaedamaRequestedQty を上限とする
-// 旧データ（kaedamaRequestedQty未設定）は qty が上限（=全部要求済み扱い）
-function effectiveKaedamaQty(item) {
-  if (!item) return 0;
-  if (typeof item.kaedamaRequestedQty === 'number') return item.kaedamaRequestedQty;
-  return item.qty || 1;
-}
-
-function isItemFullyServed(item) {
-  if (!item) return false;
-  if (item.served) return true;
-  // 替え玉先払いの場合：呼び出された分が全て提供されたら fully served（残りは「呼び待ち」扱いで未表示）
-  if (isKaedamaItem(item)) {
-    const eff = effectiveKaedamaQty(item);
-    const servedCount = Array.isArray(item.servedIndices) ? item.servedIndices.length : 0;
-    return servedCount >= eff;
-  }
-  if (Array.isArray(item.servedIndices) && item.qty && item.servedIndices.length >= item.qty) return true;
-  return false;
-}
-
-// 残ってる未提供がすべて替え玉のみのとき true
-// .served フラグ直接判定（先払いで eff=0 のときも待機扱いにする）
-function isKaedamaWaiting(order) {
-  const items = Array.isArray(order.items) ? order.items : [];
-  if (items.length === 0) return false;
-  // 非替え玉アイテムはすべて .served 済みであること
-  const nonKaedama = items.filter(i => !isKaedamaItem(i));
-  if (nonKaedama.length && !nonKaedama.every(i => i.served)) return false;
-  // 替え玉アイテムが1つ以上あり、そのうち少なくとも1つが未提供
-  const kaedama = items.filter(i => isKaedamaItem(i));
-  if (kaedama.length === 0) return false;
-  return kaedama.some(i => !i.served);
-}
-
-function countKaedamaPending(order) {
-  const items = Array.isArray(order.items) ? order.items : [];
-  let total = 0;
-  items.forEach(i => {
-    if (!isKaedamaItem(i)) return;
-    if (i.served) return;
-    const eff = effectiveKaedamaQty(i);
-    const servedCount = Array.isArray(i.servedIndices) ? i.servedIndices.length : 0;
-    total += Math.max(0, eff - servedCount);
-  });
-  return total;
-}
-
-// 替え玉アイテムから麺の硬さを抽出（呼び出し済み・未提供分のみ）
-function collectKaedamaKata(order) {
-  const KATA_VALUES = ['かため','ふつう','やわ','Firm','Medium','Soft','硬','普通','软','단단히','보통','부드럽게'];
-  const items = Array.isArray(order.items) ? order.items : [];
-  const result = [];
-  items.forEach(i => {
-    if (!isKaedamaItem(i)) return;
-    if (i.served) return;
-    const eff = effectiveKaedamaQty(i);
-    const servedCount = Array.isArray(i.servedIndices) ? i.servedIndices.length : 0;
-    const unservedQty = Math.max(0, eff - servedCount);
-    if (unservedQty <= 0) return;
-    const opts = Array.isArray(i.opts) ? i.opts : [];
-    const kata = opts.find(o => KATA_VALUES.includes(String(o).trim()));
-    if (kata) {
-      for (let n = 0; n < unservedQty; n++) result.push(kata);
-    }
-  });
-  return result;
-}
-
-function expandKaedamaTab(orderId) {
-  kaedamaExpanded.add(orderId);
-  renderKitchen();
-}
-
 // === 伝票並び替え機能 ===
-const MANUAL_ORDER_KEY = 'kitchenManualOrder_v1';
-let manualOrder = []; // [orderId, ...]
+const MANUAL_ORDER_KEY = 'kitchenManualOrder_v2'; // v2: tableLabel ベースに変更
+let manualOrder = []; // [tableLabel, ...]
 try { manualOrder = JSON.parse(localStorage.getItem(MANUAL_ORDER_KEY) || '[]'); }
 catch(e) { manualOrder = []; }
 let _reorderIdleTimer = null;
@@ -810,42 +701,34 @@ function armReorderIdleTimer() {
     if (document.body.classList.contains('reorder-mode')) toggleReorderMode();
   }, 60000);
 }
-function moveTicket(orderId, dir) {
+function moveTicket(tableLabel, dir) {
   if (!document.body.classList.contains('reorder-mode')) return;
   armReorderIdleTimer();
-  // 現在の表示順 (sortedActiveOrderIds) を基に並び替え
-  const visible = (window._sortedActiveOrderIds || []).slice();
-  const idx = visible.indexOf(orderId);
+  // 現在の表示順 (sortedActiveTableLabels) を基に並び替え
+  const visible = (window._sortedActiveTableLabels || []).slice();
+  const idx = visible.indexOf(tableLabel);
   if (idx < 0) return;
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= visible.length) return;
   // swap
   [visible[idx], visible[newIdx]] = [visible[newIdx], visible[idx]];
-  // manualOrder を更新（表示中のIDだけ並び順保持）
   manualOrder = visible.slice();
   saveManualOrder();
   renderKitchen();
 }
-function applyManualOrder(orders) {
-  // orders: 現在アクティブな伝票配列
-  if (!manualOrder.length) return orders;
-  const idSet = new Set(orders.map(o => o.id));
-  // manualOrder 内のうち、現在存在するIDだけ抽出
-  const ordered = manualOrder.filter(id => idSet.has(id));
-  // 新規（manualOrderに無い）伝票は末尾に時系列順で追加
+// テーブル単位の並び順を適用
+function applyManualOrderToTables(tableTickets) {
+  if (!manualOrder.length) return tableTickets;
+  const tlSet = new Set(tableTickets.map(t => t.tableLabel));
+  const ordered = manualOrder.filter(tl => tlSet.has(tl));
   const orderedSet = new Set(ordered);
-  const newOnes = orders.filter(o => !orderedSet.has(o.id)).sort((a, b) => {
-    const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-    const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-    return ta - tb;
-  });
-  // manualOrder をクリーンアップ（消えた伝票を除外）
+  const newOnes = tableTickets.filter(t => !orderedSet.has(t.tableLabel)).sort((a, b) => a._sortKey - b._sortKey);
   if (ordered.length !== manualOrder.length) {
-    manualOrder = ordered.concat(newOnes.map(o => o.id));
+    manualOrder = ordered.concat(newOnes.map(t => t.tableLabel));
     saveManualOrder();
   }
-  const orderMap = new Map(orders.map(o => [o.id, o]));
-  return ordered.map(id => orderMap.get(id)).filter(Boolean).concat(newOnes);
+  const map = new Map(tableTickets.map(t => [t.tableLabel, t]));
+  return ordered.map(tl => map.get(tl)).filter(Boolean).concat(newOnes);
 }
 
 // Kitchen render (FLIPアニメーションでスムーズな伝票の追加・削除・並び替え)
@@ -874,23 +757,25 @@ const active = orders.filter(o => o.status === 'pending' || o.status === 'prepar
 const content = document.getElementById('kitchenContent');
 if (!content) return;
 
-// === 替え玉待機の振り分け ===
-const activeIds = new Set(active.map(o => o.id));
-// 既に展開状態だが既にアクティブから外れたものはクリア
-for (const id of [...kaedamaExpanded]) {
-if (!activeIds.has(id)) kaedamaExpanded.delete(id);
-}
-// 既に展開状態でも、もう替え玉待機状態でなくなっていればクリア（次に同じ伝票がまた替え玉だけ残った時に再度小タブ化させるため）
-for (const id of [...kaedamaExpanded]) {
-const o = active.find(x => x.id === id);
-if (o && !isKaedamaWaiting(o)) kaedamaExpanded.delete(id);
-}
-const isWaiting = (o) => isKaedamaWaiting(o) && !kaedamaExpanded.has(o.id);
-const normalActive = active.filter(o => !isWaiting(o));
-const waitingActive = active.filter(o => isWaiting(o));
-
-// 替え玉待機バーを描画
-renderKaedamaWaitingBar(waitingActive, content);
+// === テーブル単位グループ化 ===
+// 同じテーブル番号のアクティブ注文を1つの伝票にまとめる
+const tableMap = new Map();
+active.forEach(o => {
+  const tl = o.tableLabel || o.table || '?';
+  if (!tableMap.has(tl)) tableMap.set(tl, []);
+  tableMap.get(tl).push(o);
+});
+// 各テーブルの注文を createdAt 昇順に
+const tableTickets = Array.from(tableMap.entries()).map(([tl, list]) => {
+  const sorted = list.slice().sort((a, b) => {
+    const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+    const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+    return ta - tb;
+  });
+  const first = sorted[0];
+  const sortKey = (first.createdAt && first.createdAt.toMillis) ? first.createdAt.toMillis() : 0;
+  return { tableLabel: tl, orders: sorted, _sortKey: sortKey };
+});
 
 // 1. 既存の非ゴースト伝票の現在位置を記録 (FLIP用)
 const oldRects = new Map();
@@ -898,23 +783,20 @@ Array.from(content.querySelectorAll('.ticket:not([data-removing])')).forEach(el 
 oldRects.set(el.id, el.getBoundingClientRect());
 });
 
-// 2. 「アクティブから外れた伝票」をゴースト化してフェードアウト開始（替え玉待機に移行した伝票も含む）
-const normalActiveIdSet = new Set(normalActive.map(o => 'ticket-' + o.id));
+// 2. 「アクティブから外れた伝票」をゴースト化してフェードアウト
+const activeTableIds = new Set(tableTickets.map(t => 'ticket-' + tableIdSafe(t.tableLabel)));
 Array.from(content.querySelectorAll('.ticket:not([data-removing])'))
-.filter(el => !normalActiveIdSet.has(el.id))
+.filter(el => !activeTableIds.has(el.id))
 .forEach(el => ghostifyAndFade(el, content));
 
-// 3. 通常アクティブ注文がない場合: 空状態を表示 (ゴーストはそのままフェードアウト中)
-if (!normalActive.length) {
+// 3. アクティブ注文がない場合: 空状態を表示
+if (!tableTickets.length) {
 const emptyAlready = content.querySelector('.kitchen-empty');
 const hasNonGhost = !!content.querySelector('.ticket:not([data-removing])');
 if (!emptyAlready && !hasNonGhost) {
 const empty = document.createElement('div');
 empty.className = 'kitchen-empty';
-const subText = waitingActive.length > 0
-? '<div style="font-size:12px;color:#888;font-weight:400;margin-top:8px">替え玉待機中：下のタブをタップで展開</div>'
-: '';
-empty.innerHTML = `<div class="empty-icon">🍜</div><div class="empty-text">現在の注文はありません</div>${subText}`;
+empty.innerHTML = `<div class="empty-icon">🍜</div><div class="empty-text">現在の注文はありません</div>`;
 empty.style.opacity = '0';
 empty.style.transition = 'opacity 0.3s ease 0.2s';
 content.appendChild(empty);
@@ -927,15 +809,10 @@ return;
 const emptyEl = content.querySelector('.kitchen-empty');
 if (emptyEl) emptyEl.remove();
 
-// 5. アクティブ注文を時系列順に並べる（手動並び替えが存在すればそれを優先）
-let sorted = [...normalActive].sort((a, b) => {
-const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-return ta - tb;
-});
-sorted = applyManualOrder(sorted);
-// 並び替え操作で使うために現在の表示順を公開
-window._sortedActiveOrderIds = sorted.map(o => o.id);
+// 5. テーブル伝票を時系列順 → 手動並び替え反映
+tableTickets.sort((a, b) => a._sortKey - b._sortKey);
+const finalTickets = applyManualOrderToTables(tableTickets);
+window._sortedActiveTableLabels = finalTickets.map(t => t.tableLabel);
 
 // 6. 既存伝票のマップ
 const existingMap = new Map();
@@ -943,14 +820,13 @@ Array.from(content.querySelectorAll('.ticket:not([data-removing])')).forEach(el 
 existingMap.set(el.id, el);
 });
 
-// 7. ソート順に「既存伝票は内容更新+並び替え」「新規伝票は作成」を行う
+// 7. ソート順に伝票を作成/更新
 let prevEl = null;
-sorted.forEach(order => {
-const id = 'ticket-' + order.id;
+finalTickets.forEach(tt => {
+const id = 'ticket-' + tableIdSafe(tt.tableLabel);
 let el = existingMap.get(id);
-const newOuterHtml = renderTicket(order);
+const newOuterHtml = renderTableTicket(tt);
 if (el) {
-// 内容更新 (中身が変わった場合のみ)
 const tempDiv = document.createElement('div');
 tempDiv.innerHTML = newOuterHtml;
 const newInner = tempDiv.firstElementChild.innerHTML;
@@ -959,14 +835,12 @@ el.innerHTML = newInner;
 el._lastInner = newInner;
 }
 } else {
-// 新規作成
 const tempDiv = document.createElement('div');
 tempDiv.innerHTML = newOuterHtml;
 el = tempDiv.firstElementChild;
 el._lastInner = el.innerHTML;
 el._isNew = true;
 }
-// DOM上の位置を整える (prevEl の直後に来るように)
 if (prevEl === null) {
 if (content.firstChild !== el) content.insertBefore(el, content.firstChild);
 } else {
@@ -975,15 +849,15 @@ if (prevEl.nextSibling !== el) content.insertBefore(el, prevEl.nextSibling);
 prevEl = el;
 });
 
-// 8. ゴーストはDOM末尾へ移動 (位置はabsoluteなので見た目は変わらない、でも tab order 等のため)
+// 8. ゴーストはDOM末尾へ
 Array.from(content.querySelectorAll('.ticket[data-removing]')).forEach(g => {
 if (g.parentNode === content && g !== content.lastChild) content.appendChild(g);
 });
 
-// 9. 伝票の幅をFLIP測定前に確定させる (autoSizeTickets はインラインwidthを設定)
+// 9. 伝票幅確定
 autoSizeTickets();
 
-// 10. FLIPアニメーション (継続伝票) と フェードイン (新規伝票)
+// 10. FLIPアニメーション + 新規フェードイン
 Array.from(content.querySelectorAll('.ticket:not([data-removing])')).forEach(el => {
 if (el._isNew) {
 delete el._isNew;
@@ -1016,76 +890,9 @@ el.style.transform = '';
 });
 }
 
-// === 替え玉待機バーの描画 ===
-function renderKaedamaWaitingBar(waitingOrders, kitchenContentEl) {
-const bar = document.getElementById('kaedamaWaitingBar');
-const tabsEl = document.getElementById('kaedamaTabs');
-if (!bar || !tabsEl) return;
-
-const sorted = [...waitingOrders].sort((a, b) => {
-const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-return ta - tb;
-});
-
-if (sorted.length === 0) {
-bar.classList.add('empty');
-if (kitchenContentEl) kitchenContentEl.classList.remove('with-kaedama-bar');
-} else {
-bar.classList.remove('empty');
-if (kitchenContentEl) kitchenContentEl.classList.add('with-kaedama-bar');
-}
-
-const wantedIds = new Set(sorted.map(o => o.id));
-
-// 不要なタブをフェードアウトで除去
-Array.from(tabsEl.querySelectorAll('.kaedama-tab')).forEach(el => {
-if (!wantedIds.has(el.dataset.orderId)) {
-if (el.dataset.removing) return;
-el.dataset.removing = '1';
-el.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
-el.style.opacity = '0';
-el.style.transform = 'scale(0.85) translateY(8px)';
-setTimeout(() => { if (el.parentNode) el.remove(); }, 240);
-}
-});
-
-// タブを順序通りに配置
-let prevTab = null;
-sorted.forEach(o => {
-const id = o.id;
-const tLabel = o.tableLabel || o.table || '?';
-const qty = countKaedamaPending(o);
-const kataList = collectKaedamaKata(o);
-// 同じ硬さは集約してカウント表示（例: かため×2 / やわ）
-const kataCounts = {};
-kataList.forEach(k => { kataCounts[k] = (kataCounts[k] || 0) + 1; });
-const kataSummary = Object.entries(kataCounts).map(([k,c]) => c > 1 ? `${k}×${c}` : k).join(' / ');
-const kataHtml = kataSummary ? `<div class="kaedama-tab-kata">${kataSummary}</div>` : '';
-const inner = `${qty > 1 ? `<div class="kaedama-tab-qty">×${qty}</div>` : ''}<div class="kaedama-tab-table">${tLabel}</div><div class="kaedama-tab-label">🍝 替え玉</div>${kataHtml}`;
-
-let el = tabsEl.querySelector(`.kaedama-tab[data-order-id="${CSS.escape(id)}"]:not([data-removing])`);
-if (!el) {
-el = document.createElement('div');
-el.className = 'kaedama-tab';
-el.dataset.orderId = id;
-el.innerHTML = inner;
-el._lastInner = inner;
-el.addEventListener('click', () => expandKaedamaTab(id));
-} else {
-if (el._lastInner !== inner) {
-el.innerHTML = inner;
-el._lastInner = inner;
-}
-}
-// 位置整え
-if (prevTab === null) {
-if (tabsEl.firstChild !== el) tabsEl.insertBefore(el, tabsEl.firstChild);
-} else {
-if (prevTab.nextSibling !== el) tabsEl.insertBefore(el, prevTab.nextSibling);
-}
-prevTab = el;
-});
+// DOM ID 用に tableLabel を安全な文字列に変換
+function tableIdSafe(tl) {
+  return String(tl || '').replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
 function formatOrderTime(o) {
@@ -1195,35 +1002,52 @@ function translateNoodleSize(opt) {
   return parts.join(' ') + (price ? ' ' + price : '');
 }
 
-function renderTicket(order) {
-const items = Array.isArray(order.items) ? order.items : [];
-const groups = buildItemGroups(items);
+// 注文ドキュメント1件分のグループHTMLを生成（旧 renderTicket の中身を分離）
+function renderOrderGroupsHtml(order) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const groups = buildItemGroups(items);
+  groups.sort((a, b) => (isRamenGroup(a)?0:1) - (isRamenGroup(b)?0:1));
+  let groupsHtml = '';
+  groups.forEach(grp => {
+    if (isRamenGroup(grp)) {
+      groupsHtml += renderRamenGroupCard(order.id, grp);
+    } else {
+      groupsHtml += renderCompactGroupCard(order.id, grp);
+    }
+  });
+  return groupsHtml;
+}
 
-// グループの並び順：ラーメン/定食を含むグループを先に、それ以外を後に
-groups.sort((a, b) => {
-  const aR = isRamenGroup(a) ? 0 : 1;
-  const bR = isRamenGroup(b) ? 0 : 1;
-  return aR - bR;
-});
+// テーブル単位の伝票（同一テーブルの複数注文を1枚にまとめる）
+function renderTableTicket(tt) {
+  const orderList = tt.orders || [];
+  const first = orderList[0];
+  if (!first) return '';
+  const tLabel = tt.tableLabel;
+  const tIdSafe = tableIdSafe(tLabel);
+  const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
+  const visitLabel = first.visitType === 'first' ? '🌟 初回' : '✅ リピーター';
 
-let groupsHtml = '';
-groups.forEach(grp => {
-  if (isRamenGroup(grp)) {
-    groupsHtml += renderRamenGroupCard(order.id, grp);
-  } else {
-    groupsHtml += renderCompactGroupCard(order.id, grp);
-  }
-});
+  // 各注文をサブセクションとして並べる
+  let subSectionsHtml = '';
+  orderList.forEach((order, orderIdx) => {
+    const isAdditional = orderIdx > 0;
+    const items = Array.isArray(order.items) ? order.items : [];
+    const hasUnserved = items.some(i => !i.served);
+    const showNewBadge = isAdditional && hasUnserved;
+    const groupsHtml = renderOrderGroupsHtml(order);
+    subSectionsHtml += `<div class="suborder${showNewBadge?' suborder-new':''}">${
+      showNewBadge ? '<div class="suborder-new-badge">🆕 新規追加</div>' : ''
+    }${groupsHtml}</div>`;
+  });
 
-const allServed = items.length > 0 && items.every(i => i.served);
-const visitClass = order.visitType === 'first' ? 'visit-first' : 'visit-repeat';
-const visitLabel = order.visitType === 'first' ? '🌟 初回' : '✅ リピーター';
-const tLabel = order.tableLabel || order.table || '?';
+  const allItems = orderList.flatMap(o => o.items || []);
+  const allServed = allItems.length > 0 && allItems.every(i => i.served);
 
-return `<div class="ticket ${allServed?'completing':''}" id="ticket-${order.id}">
+  return `<div class="ticket ${allServed?'completing':''}" id="ticket-${tIdSafe}">
 <div class="ticket-reorder">
-  <button class="tk-reord-btn" onclick="moveTicket('${order.id}',-1)" aria-label="左に移動">←</button>
-  <button class="tk-reord-btn" onclick="moveTicket('${order.id}',1)" aria-label="右に移動">→</button>
+  <button class="tk-reord-btn" onclick="moveTicket('${tLabel}',-1)" aria-label="左に移動">←</button>
+  <button class="tk-reord-btn" onclick="moveTicket('${tLabel}',1)" aria-label="右に移動">→</button>
 </div>
 <div class="ticket-header">
 <div class="ticket-top">
@@ -1231,11 +1055,16 @@ return `<div class="ticket ${allServed?'completing':''}" id="ticket-${order.id}"
 <div class="ticket-table">${tLabel}</div>
 <span class="ticket-visit ${visitClass}">${visitLabel}</span>
 </div>
-<div class="ticket-time">${formatOrderTime(order)}</div>
+<div class="ticket-time">${formatOrderTime(first)}</div>
 </div>
 </div>
-<div style="padding:4px 0 8px">${groupsHtml}</div>
+<div style="padding:4px 0 8px">${subSectionsHtml}</div>
 </div>`;
+}
+
+// 旧 renderTicket（互換のために残す。レジ等他画面が呼び出す場合あり）
+function renderTicket(order) {
+  return renderTableTicket({ tableLabel: order.tableLabel || order.table || '?', orders: [order] });
 }
 
 // === グループ化ロジック ===
@@ -1356,8 +1185,10 @@ function transformOptForTicket(opt, mainItem) {
   s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉)\s*/g, '').trim();
   // 単独の「並」（デフォルト量）は伝票非表示
   if (/^(並|Regular)$/i.test(s)) return '';
-  // 麺の硬さ「ふつう」はデフォルトなので伝票非表示
-  if (/^(ふつう|普通|Medium|보통)$/i.test(s)) return '';
+  // 麺の硬さは カタ/フツウ/やわ で表記
+  if (/^(かため|Firm|偏硬|단단함)$/i.test(s)) return 'カタ';
+  if (/^(ふつう|普通|Medium|보통)$/i.test(s)) return 'フツウ';
+  if (/^(やわ|Soft|偏软|부드러움)$/i.test(s)) return 'やわ';
   const spicy = s.match(/^(\d+)\s*(辛|Spicy|辣|매움)\s*$/i);
   if (spicy) return `${spicy[1]}辛`;
   if (/(細麺|平打ち麺|Thin|Flat|细面|宽面|가는면|넓은면)/i.test(s)) {
@@ -2231,17 +2062,14 @@ updateActiveCount();
 }
 
 function updateActiveCount() {
-// 替え玉待機中の注文は差し引く（実調理が必要な伝票だけカウント）
+// アクティブな注文件数（伝票はテーブル単位でマージされるが、注文ドキュメント数を表示）
 const active = orders.filter(o => o.status === 'pending' || o.status === 'preparing');
-const count = active.filter(o => !isKaedamaWaiting(o)).length;
-const waitCount = active.filter(o => isKaedamaWaiting(o)).length;
+const count = active.length;
 const badge = document.getElementById('activeCount');
 if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件'; }
 else badge.style.display = 'none';
 const num = document.getElementById('kitchenCountNum');
 if (num) num.textContent = count;
-const waitNum = document.getElementById('kitchenWaitNum');
-if (waitNum) waitNum.textContent = waitCount;
 }
 function showToast(msg) {
 const el = document.getElementById('toast');
@@ -2394,7 +2222,6 @@ window.openMergePayment = openMergePayment; window.confirmMerge = confirmMerge;
 window.closeDetail = closeDetail; window.maybeCloseDetail = maybeCloseDetail;
 window.toggleBellPanel = toggleBellPanel; window.toggleBellSound = toggleBellSound;
 window.testBellSound = testBellSound;
-window.expandKaedamaTab = expandKaedamaTab;
 window.toggleGroupServed = toggleGroupServed;
 window.setDetailLang = setDetailLang;
 window.toggleReorderMode = toggleReorderMode;
