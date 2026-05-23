@@ -968,11 +968,13 @@ function subscribeOrders(){
     });
     if($('historyScreen').classList.contains('open')) renderHistory();
     if($('paymentScreen').classList.contains('open')) renderPayment();
-    // Check if all orders are paid → end session
+    // Check if all orders are paid → end session（即時ロック）
     if(orderHistory.length > 0 && orderHistory.every(o => o.status === 'paid')) {
-      sessionActive = false;
-      // Show paid screen after short delay
-      setTimeout(() => { if(!sessionActive) showPaidScreen(); }, 2000);
+      if (sessionActive) {
+        sessionActive = false;
+        // 短いディレイで会計済み画面を表示（即座に閉じてしまうと UX が荒っぽいので最小限）
+        setTimeout(() => { if(!sessionActive) showPaidScreen(); }, 500);
+      }
     }
   }, (err) => {
     console.error('Orders subscribe error:', err);
@@ -1261,6 +1263,8 @@ function renderMenu(){
 
 /* ========== ITEM MODAL ========== */
 function openItem(id){
+  // 会計済みセッションでは商品モーダルを開かせず、会計済み画面へ
+  if(!sessionActive){ showPaidScreen(); return; }
   const item=menu.find(m=>m.id===id);
   if(!item) return;
   if(isItemSoldout(item.id)){ showValidationMsg('🚫 申し訳ございません、この商品は売り切れです'); return; }
@@ -1580,6 +1584,8 @@ function calcTotal(){
 }
 
 function addCart(){
+  // 会計済みセッションでは新規追加を不可
+  if(!sessionActive){ maybeCloseItem(); showPaidScreen(); return; }
   const missing=getMissingFields();
   if(missing.length>0){
     const el=$('field-'+missing[0].key);
@@ -1617,9 +1623,13 @@ function addCart(){
   // キッチンAPPで「ラーメンとそのトッピング」を一括りで表示するため
   const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
 
-  const mainTotal = (curItem.price + (curOpts.spicyPr||0) + calcNoodleExtra()) * curQty;
-  const unitPrice = curItem.price + (curOpts.spicyPr||0) + calcNoodleExtra();
-  cart.push({id:Date.now(), groupId, isMain:true, itemId:curItem.id, name:curItem.name[lang], opts, qty:curQty, price:unitPrice, total:mainTotal});
+  const basePrice = Number(curItem.price) || 0;
+  const spicyExtra = Number(curOpts.spicyPr) || 0;
+  const noodleExtra = Number(calcNoodleExtra()) || 0;
+  const qtySafe = Number(curQty) || 1;
+  const unitPrice = basePrice + spicyExtra + noodleExtra;
+  const mainTotal = unitPrice * qtySafe;
+  cart.push({id:Date.now(), groupId, isMain:true, itemId:curItem.id, name:curItem.name[lang], opts, qty:qtySafe, price:unitPrice, total:mainTotal});
 
   // アドオン（追加トッピング/サイド/ドリンク）— 売り切れはスキップしてユーザーに通知
   const skippedSoldout = [];
@@ -1695,8 +1705,8 @@ function showValidationMsg(msg){
 /* ========== CART BAR ========== */
 function updateCartBar(){
   const bar=$('cartBar');
-  const count=cart.reduce((s,i)=>s+i.qty,0);
-  const total=cart.reduce((s,i)=>s+i.total,0);
+  const count=cart.reduce((s,i)=>s+(Number(i.qty)||0),0);
+  const total=cart.reduce((s,i)=>s+(Number(i.total)||0),0);
   const t=T[lang];
   bar.style.display = $('menuScreen').classList.contains('active') ? 'block' : 'none';
   const cartOrderBtn=$('cartOrderBtn');
@@ -1729,7 +1739,7 @@ function renderCart(){
         <div class="cart-row-name">${i.name} × ${i.qty}${sold?'<span class="soldout-tag">🚫 売切</span>':''}</div>
         ${i.opts.length?`<div class="cart-row-sub">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
       </div>
-      <div class="cart-row-price">¥${i.total.toLocaleString()}</div>
+      <div class="cart-row-price">¥${(Number(i.total)||0).toLocaleString()}</div>
       <button class="remove-btn" onclick="removeCart(${i.id})">${t.removeBtn}</button>
     </div>`;
   }).join('');
@@ -1737,7 +1747,7 @@ function renderCart(){
   if(hasSoldoutInCart){
     list.innerHTML += `<div style="margin-top:12px;padding:12px 14px;background:rgba(192,57,43,0.1);border:1px solid #c0392b;border-radius:10px;color:#c0392b;font-size:12px;font-weight:700;text-align:center">⚠️ 売り切れ商品が含まれています。<br>「✕」で削除してから注文を確定してください。</div>`;
   }
-  setText('cartTotal',`¥${cart.reduce((s,i)=>s+i.total,0).toLocaleString()}`);
+  setText('cartTotal',`¥${cart.reduce((s,i)=>s+(Number(i.total)||0),0).toLocaleString()}`);
 }
 
 function removeCart(id){ cart=cart.filter(i=>i.id!==id); renderCart(); updateCartBar(); }
@@ -1841,6 +1851,7 @@ async function placeOrder(){
 function resetOrder(){ $('successScreen').classList.remove('open'); }
 
 function showPaidScreen(){
+  sessionActive = false;
   $('cartBar').style.display='none';
   $('successScreen').classList.remove('open');
   document.querySelectorAll('.sub-screen.open').forEach(s=>s.classList.remove('open'));
@@ -1848,16 +1859,12 @@ function showPaidScreen(){
   cart=[]; orderHistory=[];
   if(unsubOrders){ unsubOrders(); unsubOrders=null; }
   sessionId=null;
-  // 会計済み = もう復元しない。リロードでも次のお客様の新規セッションになる
+  // 会計済み = もう復元しない。
   clearSessionFromLocal();
   _recoveryAttempted = true;
   $('paidScreen').classList.add('open');
-  setTimeout(()=>{
-    $('paidScreen').classList.remove('open');
-    lang='ja'; currentCat='all';
-    showScreen('langScreen');
-    _recoveryAttempted = false; // 次のお客様用にリセット（ただし会計済みなので逆引きは空振りする）
-  },8000);
+  // ※ 自動でlangScreenへ戻る挙動は廃止。会計済みのままロックする。
+  // 　別のお客様が利用する場合はスタッフが端末をリロードして新セッション開始。
 }
 
 /* ========== BOTTOM NAV ========== */
