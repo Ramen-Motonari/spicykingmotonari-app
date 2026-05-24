@@ -2029,12 +2029,20 @@ function renderHistory(){
   const t=T[lang];
   const list=$('historyList');
   if (!list) { console.warn('[history] historyList element not found'); return; }
-  console.log('[history] render. count=', orderHistory.length);
+  console.log('[history] render. count=', orderHistory.length, 'sessionId=', sessionId, 'fbReady=', fbReady, 'unsubOrders:', !!unsubOrders);
   if(!orderHistory.length){
-    // sessionId が無い場合は再接続を試みる
-    const sub = !sessionId ? '<div style="font-size:11px;color:#999;margin-top:10px">セッション未開始</div>'
-              : (!fbReady ? '<div style="font-size:11px;color:#999;margin-top:10px">接続中…</div>' : '');
-    list.innerHTML=`<div style="text-align:center;padding:60px 20px;color:var(--muted);font-size:14px">${t.noHistory}${sub}</div>`;
+    // 詳細な診断情報を表示
+    const diag = [];
+    if (!sessionId) diag.push('セッション未開始');
+    if (!fbReady) diag.push('Firebase接続待ち');
+    if (sessionId && !unsubOrders) diag.push('購読未開始（再試行中）');
+    const diagText = diag.length ? `<div style="font-size:11px;color:#c0392b;margin-top:10px;font-weight:700">⚠️ ${diag.join(' / ')}</div>` : '';
+    list.innerHTML=`<div style="text-align:center;padding:60px 20px;color:var(--muted);font-size:14px">${t.noHistory}${diagText}</div>`;
+    // 購読が未開始なら再試行
+    if (sessionId && fbReady && !unsubOrders) {
+      console.log('[history] re-attempting subscription');
+      subscribeOrders();
+    }
     return;
   }
   try {
