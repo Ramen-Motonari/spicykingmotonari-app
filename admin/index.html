@@ -131,16 +131,27 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .manual-field input:focus,.weather-select:focus{border-color:var(--accent)}
 .form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none}
 @media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
-/* === ドラッグ＆ドロップで並び替え === */
-.menu-card.sortable-ghost{opacity:0.3;background:rgba(200,134,10,0.15)}
-.menu-card.sortable-chosen{cursor:grabbing}
-.menu-card.sortable-drag{box-shadow:0 8px 24px rgba(0,0,0,0.45);transform:rotate(1deg)}
-.drag-handle{position:absolute;top:6px;left:6px;z-index:5;background:rgba(0,0,0,0.55);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:grab;backdrop-filter:blur(6px);user-select:none;-webkit-user-select:none;touch-action:none}
-.drag-handle:active{cursor:grabbing}
-body.reorder-active .menu-card{outline:2px dashed var(--accent);outline-offset:-2px}
-.reorder-toggle{padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
-.reorder-toggle.active{background:var(--accent);color:#fff;animation:reorderPulseAdmin 1.4s ease-in-out infinite}
-@keyframes reorderPulseAdmin{0%,100%{box-shadow:0 0 0 0 rgba(200,134,10,0.55)}50%{box-shadow:0 0 0 6px rgba(200,134,10,0)}}
+/* === 表示順序ページ === */
+.sortpage-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.sortpage-cat-btn{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
+.sortpage-cat-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sortpage-cat-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.sortpage-list{display:flex;flex-direction:column;gap:8px;max-width:600px}
+.sortpage-row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;transition:background .12s}
+.sortpage-row:hover{border-color:var(--accent);background:var(--surface2)}
+.sortpage-row:active{cursor:grabbing}
+.sortpage-row .sp-handle{font-size:20px;color:#888;flex-shrink:0;line-height:1}
+.sortpage-row .sp-num{font-family:'Oswald',sans-serif;font-size:16px;color:var(--accent);min-width:32px;text-align:center}
+.sortpage-row .sp-name{flex:1;font-size:15px;font-weight:700;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sortpage-row .sp-tags{display:flex;gap:4px;flex-shrink:0}
+.sortpage-row .sp-tag{font-size:9px;padding:2px 6px;border-radius:6px;background:var(--surface3);color:var(--muted);font-weight:700}
+.sortpage-row.sortable-ghost{opacity:0.4;background:rgba(200,134,10,0.2)}
+.sortpage-row.sortable-chosen{background:rgba(200,134,10,0.15);border-color:var(--accent)}
+.sortpage-row.sortable-drag{box-shadow:0 8px 24px rgba(0,0,0,0.5);border-color:var(--accent)}
+.sortpage-save-status{font-size:12px;color:var(--muted);margin-top:8px}
+.sortpage-save-status.saved{color:var(--green)}
+.sortpage-save-status.error{color:var(--accent2)}
+.sortpage-empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
 </style>
 </head>
 <body>
@@ -158,6 +169,7 @@ body.reorder-active .menu-card{outline:2px dashed var(--accent);outline-offset:-
     <div class="nav-item" onclick="switchPage('visits',this)"><span class="nav-icon">👥</span><span>来店分析</span></div>
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
     <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
+    <div class="nav-item" onclick="switchPage('sortorder',this)"><span class="nav-icon">↕️</span><span>表示順序</span></div>
   </div>
   <div class="fb-status">
     <div class="fb-dot connecting" id="fbDot"></div>
@@ -335,6 +347,15 @@ body.reorder-active .menu-card{outline:2px dashed var(--accent);outline-offset:-
     <div class="menu-grid" id="menuGrid"></div>
   </div>
 
+  <!-- 表示順序ページ -->
+  <div class="page" id="page-sortorder">
+    <div class="page-title">↕️ 表示順序</div>
+    <div class="page-sub">カテゴリを選んで商品をドラッグで並び替え。オーダーAPPの表示順に反映されます。</div>
+    <div class="sortpage-cats" id="sortpageCats"></div>
+    <div id="sortpageList" class="sortpage-list"></div>
+    <div class="sortpage-save-status" id="sortpageStatus"></div>
+  </div>
+
   <!-- 商品編集/追加モーダル -->
   <div id="itemEditOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto">
     <div style="background:var(--surface);border-radius:16px;width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease">
@@ -501,6 +522,11 @@ function startMenuOverridesListener() {
     menuOverrides = {};
     snap.forEach(d => { menuOverrides[d.id] = d.data(); });
     if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    // 表示順序ページがアクティブな場合はドラッグ中以外で再描画
+    const sortPage = document.getElementById('page-sortorder');
+    if (sortPage && sortPage.classList.contains('active') && !document.querySelector('.sortpage-row.sortable-chosen')) {
+      renderSortPageList();
+    }
   }, err => console.error('menuOverrides listener:', err));
 }
 function startCustomMenuItemsListener() {
@@ -509,6 +535,10 @@ function startCustomMenuItemsListener() {
     customMenuItems = [];
     snap.forEach(d => { customMenuItems.push({ docId: d.id, ...d.data() }); });
     if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    const sortPage = document.getElementById('page-sortorder');
+    if (sortPage && sortPage.classList.contains('active') && !document.querySelector('.sortpage-row.sortable-chosen')) {
+      renderSortPageList();
+    }
   }, err => console.error('customMenuItems listener:', err));
 }
 function startCustomCategoriesListener() {
@@ -666,6 +696,88 @@ function switchPage(name, btn) {
   if (name === 'soup') renderSoupRanking();
   if (name === 'visits') renderVisits();
   if (name === 'menu') renderMenuPage();
+  if (name === 'sortorder') renderSortOrderPage();
+}
+
+// ────── 表示順序ページ ──────
+let _sortPageCat = null; // 現在選択中のカテゴリ
+let _sortPageSortable = null;
+function renderSortOrderPage() {
+  // カテゴリ一覧（基本＋カスタム、ただし topping/side/drink を含む全て）
+  const mergedCats = getMergedCategories();
+  if (!_sortPageCat && mergedCats.length) _sortPageCat = mergedCats[0].key;
+  // カテゴリボタン描画
+  const catsEl = document.getElementById('sortpageCats');
+  if (catsEl) {
+    catsEl.innerHTML = mergedCats.map(c => `
+      <button class="sortpage-cat-btn ${_sortPageCat===c.key?'active':''}" onclick="setSortPageCat('${c.key}')">${c.icon||''} ${c.name.ja||c.key}</button>
+    `).join('');
+  }
+  renderSortPageList();
+}
+function setSortPageCat(cat) {
+  _sortPageCat = cat;
+  renderSortOrderPage();
+}
+function renderSortPageList() {
+  const listEl = document.getElementById('sortpageList');
+  const statusEl = document.getElementById('sortpageStatus');
+  if (!listEl) return;
+  if (statusEl) statusEl.textContent = '';
+  // 選択中のカテゴリの商品（非表示も含めて並び替え対象とする）
+  let items = getMergedMenu().filter(m => m.cat === _sortPageCat);
+  if (!items.length) {
+    listEl.innerHTML = `<div class="sortpage-empty">このカテゴリには商品がありません</div>`;
+    return;
+  }
+  listEl.innerHTML = items.map((m, idx) => {
+    const editKey = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
+    const tags = [];
+    if (m._hidden) tags.push('<span class="sp-tag" style="background:#444;color:#fff">非表示</span>');
+    if (m._isCustom) tags.push('<span class="sp-tag" style="background:rgba(59,130,246,.25);color:#7eb6ff">CUSTOM</span>');
+    if (m.night) tags.push('<span class="sp-tag">🌙夜</span>');
+    if (m.spicy) tags.push('<span class="sp-tag">🌶</span>');
+    return `<div class="sortpage-row" data-edit-key="${editKey}">
+      <span class="sp-handle">⋮⋮</span>
+      <span class="sp-num">${idx + 1}</span>
+      <span class="sp-name">${m.name.ja || '(無名)'}</span>
+      <span class="sp-tags">${tags.join('')}</span>
+    </div>`;
+  }).join('');
+  // SortableJS 起動
+  if (_sortPageSortable) { _sortPageSortable.destroy(); _sortPageSortable = null; }
+  if (typeof Sortable === 'undefined') return;
+  _sortPageSortable = new Sortable(listEl, {
+    animation: 180,
+    delay: 50,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 4,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    dragClass: 'sortable-drag',
+    onEnd: async (evt) => {
+      if (evt.oldIndex === evt.newIndex) return;
+      // 番号を即座に更新
+      Array.from(listEl.querySelectorAll('.sortpage-row')).forEach((row, i) => {
+        const n = row.querySelector('.sp-num');
+        if (n) n.textContent = i + 1;
+      });
+      if (statusEl) { statusEl.textContent = '保存中…'; statusEl.className = 'sortpage-save-status'; }
+      const updates = Array.from(listEl.querySelectorAll('.sortpage-row')).map((row, i) => ({
+        editKey: row.dataset.editKey,
+        sortOrder: (i + 1) * 10
+      }));
+      try {
+        await saveSortOrders(updates);
+        if (statusEl) { statusEl.textContent = '✅ 並び順を保存しました'; statusEl.className = 'sortpage-save-status saved'; }
+        setTimeout(() => { if (statusEl && statusEl.classList.contains('saved')) statusEl.textContent = ''; }, 2500);
+      } catch (e) {
+        console.error('sort save failed:', e);
+        if (statusEl) { statusEl.textContent = '⚠️ 保存に失敗しました'; statusEl.className = 'sortpage-save-status error'; }
+        renderSortPageList(); // 失敗時は再描画
+      }
+    }
+  });
 }
 
 function switchSession(btn, session, chartId) {
@@ -1317,11 +1429,10 @@ function renderMenuPage() {
       : (m.img || '🍜');
     const displayPrice = (typeof m._overridePrice === 'number') ? m._overridePrice : (m.price || 0);
     return `<div class="menu-card" data-edit-key="${editKey}" data-cat="${m.cat}" style="${isSold||isHidden?'opacity:0.5':''};position:relative">
-      <div class="drag-handle" title="ドラッグして並び替え">⋮⋮</div>
       <div class="menu-card-img" style="position:relative;overflow:hidden">
         ${imgHtml}
         ${isSold ? '<div style="position:absolute;top:8px;right:8px;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🚫 売切</div>' : ''}
-        ${isHidden ? '<div style="position:absolute;top:8px;left:50px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
+        ${isHidden ? '<div style="position:absolute;top:8px;left:8px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
         ${m._isCustom ? '<div style="position:absolute;bottom:8px;left:8px;background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">CUSTOM</div>' : ''}
       </div>
       <div class="menu-card-body">
@@ -1348,50 +1459,7 @@ function renderMenuPage() {
       </div>
     </div>`;
   }).join('');
-  // ドラッグ＆ドロップで並び替えを有効化
-  initSortableMenuGrid();
-}
-
-// ────── ドラッグ＆ドロップ並び替え ──────
-let _sortableInstance = null;
-function initSortableMenuGrid() {
-  const grid = document.getElementById('menuGrid');
-  if (!grid || typeof Sortable === 'undefined') return;
-  if (_sortableInstance) { _sortableInstance.destroy(); _sortableInstance = null; }
-  _sortableInstance = new Sortable(grid, {
-    handle: '.drag-handle',
-    animation: 180,
-    delay: 50,
-    delayOnTouchOnly: true,
-    touchStartThreshold: 4,
-    ghostClass: 'sortable-ghost',
-    chosenClass: 'sortable-chosen',
-    dragClass: 'sortable-drag',
-    onEnd: async (evt) => {
-      // 「すべて」表示中は、同カテゴリ内でしか並び替えない（カテゴリをまたぐ場合は無視）
-      const movedEl = evt.item;
-      const movedCat = movedEl.dataset.cat;
-      // 現在の表示順序を読み取って、各カードに sortOrder を割り当て
-      const cards = Array.from(grid.querySelectorAll('.menu-card[data-edit-key]'));
-      // カテゴリ別に処理：移動した商品と同カテゴリのカード群を抽出
-      const sameCatCards = cards.filter(c => c.dataset.cat === movedCat);
-      // 10刻みで sortOrder を再採番
-      const updates = [];
-      sameCatCards.forEach((card, idx) => {
-        const editKey = card.dataset.editKey;
-        const newOrder = (idx + 1) * 10;
-        updates.push({ editKey, sortOrder: newOrder });
-      });
-      try {
-        await saveSortOrders(updates);
-        showToast('並び順を保存しました');
-      } catch (e) {
-        console.error('sort save failed:', e);
-        showToast('並び順の保存に失敗しました', true);
-        renderMenuPage(); // 失敗時は再描画して元に戻す
-      }
-    }
-  });
+  // ※ 並び替えは「表示順序」ページ（左サイドバー）で行う
 }
 
 // 並び順をFirestoreに一括保存
@@ -1920,6 +1988,7 @@ window.switchSoupSession = switchSoupSession;
 window.switchReportTab = switchReportTab;
 window.setCatFilter = setCatFilter;
 window.filterMenu = filterMenu;
+window.setSortPageCat = setSortPageCat;
 window.copyDailyReport = copyDailyReport;
 // 商品管理
 window.openAddItemModal = openAddItemModal;
