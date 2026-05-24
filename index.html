@@ -984,15 +984,16 @@ function subscribeSoldout(){
   });
 }
 
+let _lastSubscribeError = null;
 function subscribeOrders(){
   if(!fbReady || !sessionId) {
     console.warn('[subscribeOrders] not ready — fbReady:', fbReady, 'sessionId:', sessionId, '→ will retry when ready');
-    // 条件が揃ったら自動で再試行できるようフラグを立てる
     window._pendingSubscribeOrders = true;
     return;
   }
   window._pendingSubscribeOrders = false;
   if(unsubOrders) unsubOrders();
+  _lastSubscribeError = null;
   console.log('[subscribeOrders] start for sessionId:', sessionId);
   const q = window.FB.query(
     window.FB.collection(window.FB.db, 'orders'),
@@ -1013,8 +1014,97 @@ function subscribeOrders(){
     // 全注文が paid になったら即時ロック
     checkAllPaidAndLock();
   }, (err) => {
-    console.error('Orders subscribe error:', err);
+    console.error('[subscribeOrders] Orders subscribe error:', err);
+    _lastSubscribeError = err;
+    // エラー時に履歴/お会計画面が開いていれば再描画してエラーを表示
+    if($('historyScreen').classList.contains('open')) renderHistory();
+    if($('paymentScreen').classList.contains('open')) renderPayment();
   });
+}
+
+// 5秒ごとのポーリング：subscribeOrdersが動いていない場合の保険として常時走らせる
+let _pollingTimer = null;
+function startOrderPolling(){
+  if (_pollingTimer) clearInterval(_pollingTimer);
+  _pollingTimer = setInterval(async () => {
+    // セッション未開始 or 会計済みは停止
+    if (!sessionId || !sessionActive) return;
+    if (!fbReady) return;
+    // 軽量チェック：getDocs で現在の状態を取得して checkAllPaidAndLock を実行
+    try {
+      const q = window.FB.query(
+        window.FB.collection(window.FB.db, 'orders'),
+        window.FB.where('sessionId','==',sessionId)
+      );
+      const snap = await window.FB.getDocs(q);
+      const newHistory = [];
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.paymentType === 'cancelled_by_edit') return;
+        newHistory.push({fbId: d.id, ...data});
+      });
+      // 件数や状態に変化があれば反映
+      const changed = newHistory.length !== orderHistory.length ||
+        newHistory.some((o, i) => !orderHistory[i] || orderHistory[i].status !== o.status);
+      if (changed) {
+        console.log('[polling] change detected, updating orderHistory. old:', orderHistory.length, 'new:', newHistory.length);
+        orderHistory = newHistory;
+        if($('historyScreen').classList.contains('open')) renderHistory();
+        if($('paymentScreen').classList.contains('open')) renderPayment();
+      }
+      // 重要：会計済みチェックは毎回実行（リスナーが動いてなくてもここで検知）
+      checkAllPaidAndLock();
+    } catch(e) {
+      // 静かに無視（次回再試行）
+      console.warn('[polling] error:', e.message);
+    }
+  }, 5000);
+}
+function stopOrderPolling(){
+  if (_pollingTimer) { clearInterval(_pollingTimer); _pollingTimer = null; }
+}
+// 画面が可視状態になった時にも即チェック（iPadスリープ復帰対応）
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && sessionId && sessionActive && fbReady) {
+    manualFetchOrders();
+  }
+});
+window.addEventListener('focus', () => {
+  if (sessionId && sessionActive && fbReady) {
+    manualFetchOrders();
+  }
+});
+
+// 一回限りのフォールバック取得（リスナーが動かない場合に getDocs で直接読み込む）
+async function manualFetchOrders(){
+  if (!fbReady || !sessionId) {
+    console.warn('[manualFetch] not ready');
+    return false;
+  }
+  try {
+    console.log('[manualFetch] fetching orders for sessionId:', sessionId);
+    const q = window.FB.query(
+      window.FB.collection(window.FB.db, 'orders'),
+      window.FB.where('sessionId','==',sessionId),
+      window.FB.orderBy('createdAt','desc')
+    );
+    const snap = await window.FB.getDocs(q);
+    orderHistory = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.paymentType === 'cancelled_by_edit') return;
+      orderHistory.push({fbId: d.id, ...data});
+    });
+    console.log('[manualFetch] fetched:', orderHistory.length);
+    if($('historyScreen').classList.contains('open')) renderHistory();
+    if($('paymentScreen').classList.contains('open')) renderPayment();
+    checkAllPaidAndLock();
+    return true;
+  } catch(e) {
+    console.error('[manualFetch] error:', e);
+    _lastSubscribeError = e;
+    return false;
+  }
 }
 
 // 会計済みロック判定（複数箇所から呼び出し可能）
@@ -1107,6 +1197,7 @@ async function selectVisit(type){
   saveSessionToLocal(type);
   sessionActive = true;
   subscribeOrders();
+  startOrderPolling(); // 5秒ごとの保険ポーリング開始
   buildTabs();
   renderMenu();
   showScreen('menuScreen');
@@ -1274,6 +1365,7 @@ function restoreSession(sid, langR, visitR){
   applyLang();
   saveSessionToLocal(visitR);
   subscribeOrders();
+  startOrderPolling(); // 復元時もポーリング開始
   buildTabs();
   renderMenu();
   showScreen('menuScreen');
@@ -1969,6 +2061,7 @@ function resetOrder(){ $('successScreen').classList.remove('open'); }
 
 function showPaidScreen(){
   sessionActive = false;
+  stopOrderPolling(); // ポーリング停止
   $('cartBar').style.display='none';
   $('successScreen').classList.remove('open');
   document.querySelectorAll('.sub-screen.open').forEach(s=>s.classList.remove('open'));
@@ -2085,23 +2178,38 @@ function renderHistory(){
   const list=$('historyList');
   if (!list) { console.warn('[history] historyList element not found'); return; }
   console.log('[history] render. count=', orderHistory.length, 'sessionId=', sessionId, 'fbReady=', fbReady, 'unsubOrders:', !!unsubOrders);
+  // 上部に診断＋手動更新ボタンを必ず表示（履歴がある時も）
+  const errText = _lastSubscribeError ? `<div style="font-size:11px;color:#c0392b;margin-bottom:6px">⚠️ 通信エラー: ${(_lastSubscribeError.message||_lastSubscribeError).toString().slice(0,80)}</div>` : '';
+  const refreshBar = `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--muted)">注文 ${orderHistory.length}件 ${sessionId ? '🟢' : '🔴 未接続'}</div>
+    <button onclick="manualFetchOrders()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🔄 更新</button>
+  </div>${errText}`;
   if(!orderHistory.length){
-    // 詳細な診断情報を表示
     const diag = [];
     if (!sessionId) diag.push('セッション未開始');
     if (!fbReady) diag.push('Firebase接続待ち');
     if (sessionId && !unsubOrders) diag.push('購読未開始（再試行中）');
     const diagText = diag.length ? `<div style="font-size:11px;color:#c0392b;margin-top:10px;font-weight:700">⚠️ ${diag.join(' / ')}</div>` : '';
-    list.innerHTML=`<div style="text-align:center;padding:60px 20px;color:var(--muted);font-size:14px">${t.noHistory}${diagText}</div>`;
+    list.innerHTML=refreshBar + `<div style="text-align:center;padding:60px 20px;color:var(--muted);font-size:14px">${t.noHistory}${diagText}</div>`;
     // 購読が未開始なら再試行
     if (sessionId && fbReady && !unsubOrders) {
       console.log('[history] re-attempting subscription');
       subscribeOrders();
     }
+    // リスナーが動いていても結果が空ならフォールバック取得を試みる
+    if (sessionId && fbReady && unsubOrders) {
+      // 3秒後にもまだ空ならフォールバック取得
+      setTimeout(() => {
+        if (orderHistory.length === 0 && $('historyScreen').classList.contains('open')) {
+          console.log('[history] still empty after 3s, trying manual fetch');
+          manualFetchOrders();
+        }
+      }, 3000);
+    }
     return;
   }
   try {
-    list.innerHTML = orderHistory.map(h=>{
+    list.innerHTML = refreshBar + orderHistory.map(h=>{
       try {
         const time = h.createdAt?.toDate ? formatTime(h.createdAt.toDate()) : '—';
         const num = h.fbId ? h.fbId.slice(-4).toUpperCase() : '----';
