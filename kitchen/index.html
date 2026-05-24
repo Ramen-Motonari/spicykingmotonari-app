@@ -68,9 +68,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .ticket-table{font-family:'Oswald',sans-serif;font-size:42px;color:#111;font-weight:700}
 .ticket-time{font-size:11px;color:#666}
-.ticket-visit{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px}
-.visit-first{background:rgba(234,179,8,0.3);color:#fbbf24;border:1px solid #fbbf24}
-.visit-repeat{background:rgba(34,197,94,0.3);color:#4ade80;border:1px solid #4ade80}
+.ticket-visit{display:inline-block;font-size:13px;font-weight:900;padding:4px 12px;border-radius:8px;letter-spacing:1px}
+.visit-first{background:#f59e0b;color:#1a1008;border:2px solid #fbbf24;text-shadow:none}
+.visit-repeat{background:#10b981;color:#0a1a0e;border:2px solid #34d399;text-shadow:none}
 .ticket-order-num{font-size:10px;color:#666}
 .ticket-section{padding:8px 14px}
 .ticket-section-label{font-size:15px;font-weight:700;letter-spacing:1px;color:#555;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e0e0e0}
@@ -753,29 +753,45 @@ setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 460);
 }
 
 function renderKitchen() {
-const active = orders.filter(o => o.status === 'pending' || o.status === 'preparing');
+// 表示候補：pending / preparing / served（servedは追加注文の文脈保持用、後で除外する）
+const allNotPaid = orders.filter(o =>
+  o.status !== 'paid' &&
+  o.paymentType !== 'cancelled_by_edit' &&
+  (o.status === 'pending' || o.status === 'preparing' || o.status === 'served')
+);
 const content = document.getElementById('kitchenContent');
 if (!content) return;
 
 // === テーブル単位グループ化 ===
-// 同じテーブル番号のアクティブ注文を1つの伝票にまとめる
 const tableMap = new Map();
-active.forEach(o => {
+allNotPaid.forEach(o => {
   const tl = o.tableLabel || o.table || '?';
   if (!tableMap.has(tl)) tableMap.set(tl, []);
   tableMap.get(tl).push(o);
 });
-// 各テーブルの注文を createdAt 昇順に
-const tableTickets = Array.from(tableMap.entries()).map(([tl, list]) => {
-  const sorted = list.slice().sort((a, b) => {
+// テーブル表示条件：
+//   そのテーブルに「未提供アイテムを持つ pending または preparing の注文」が1件以上ある
+// → 1件目を全提供してもまだ追加注文に未提供があれば伝票は残る
+// → 全注文が served（または全アイテム提供済）になったら伝票は消える（空伝票化を防止）
+const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
+  return list.some(o => {
+    if (o.status !== 'pending' && o.status !== 'preparing') return false;
+    const items = Array.isArray(o.items) ? o.items : [];
+    if (items.length === 0) return false; // 空注文はスキップ
+    return items.some(i => !i.served);
+  });
+}).map(([tl, list]) => {
+  // 表示用：'served' 状態の過去注文は伝票内からも除外（pending/preparing のみ表示）
+  const visibleOrders = list.filter(o => o.status === 'pending' || o.status === 'preparing');
+  const sorted = visibleOrders.slice().sort((a, b) => {
     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
     const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
     return ta - tb;
   });
   const first = sorted[0];
-  const sortKey = (first.createdAt && first.createdAt.toMillis) ? first.createdAt.toMillis() : 0;
+  const sortKey = (first && first.createdAt && first.createdAt.toMillis) ? first.createdAt.toMillis() : 0;
   return { tableLabel: tl, orders: sorted, _sortKey: sortKey };
-});
+}).filter(tt => tt.orders.length > 0); // 念のため空伝票ガード
 
 // 1. 既存の非ゴースト伝票の現在位置を記録 (FLIP用)
 const oldRects = new Map();
@@ -1026,7 +1042,7 @@ function renderTableTicket(tt) {
   const tLabel = tt.tableLabel;
   const tIdSafe = tableIdSafe(tLabel);
   const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
-  const visitLabel = first.visitType === 'first' ? '🌟 初回' : '✅ リピーター';
+  const visitLabel = first.visitType === 'first' ? '初回' : 'リピーター';
 
   // 各注文をサブセクションとして並べる
   let subSectionsHtml = '';
@@ -2062,9 +2078,16 @@ updateActiveCount();
 }
 
 function updateActiveCount() {
-// アクティブな注文件数（伝票はテーブル単位でマージされるが、注文ドキュメント数を表示）
+// 伝票の枚数（テーブル数）でカウント — renderKitchen の表示条件と一致させる
 const active = orders.filter(o => o.status === 'pending' || o.status === 'preparing');
-const count = active.length;
+const visibleTables = new Set();
+active.forEach(o => {
+  const items = Array.isArray(o.items) ? o.items : [];
+  if (items.length > 0 && items.some(i => !i.served)) {
+    visibleTables.add(o.tableLabel || o.table || '?');
+  }
+});
+const count = visibleTables.size;
 const badge = document.getElementById('activeCount');
 if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件'; }
 else badge.style.display = 'none';
