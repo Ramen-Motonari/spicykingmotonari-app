@@ -2118,7 +2118,6 @@ el._t = setTimeout(() => el.style.display = 'none', 4000);
 // ベル（autoplay policy 対策・ctx 再生成対応版）
 let bellEnabled = true, bellUnread = 0, audioCtx = null, audioUnlocked = false;
 function getAudioCtx() {
-  // closed / 失効した context は捨てて作り直す
   if (audioCtx && audioCtx.state === 'closed') audioCtx = null;
   if (!audioCtx) {
     try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
@@ -2128,32 +2127,52 @@ function getAudioCtx() {
 }
 // 初回ユーザー操作時に音声をアンロック（autoplay policy 対策）
 async function unlockAudio() {
-  if (audioUnlocked) return;
   const ctx = getAudioCtx();
   if (!ctx) return;
   try {
-    if (ctx.state === 'suspended') await ctx.resume();
-    // 無音バッファを1回鳴らして iOS Safari でも以後の再生を許可させる
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buf; src.connect(ctx.destination); src.start(0);
-    audioUnlocked = true;
-    console.log('[bell] audio unlocked, state=', ctx.state);
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') await ctx.resume();
+    if (!audioUnlocked) {
+      // 無音バッファを1回鳴らして iOS Safari でも以後の再生を許可させる
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf; src.connect(ctx.destination); src.start(0);
+      audioUnlocked = true;
+      console.log('[bell] audio unlocked, state=', ctx.state);
+    }
   } catch(e) { console.warn('[bell] unlock failed:', e); }
 }
-// 任意のユーザー操作時に呼ばれるよう document に1度だけ仕込む
-['click','touchstart','keydown'].forEach(ev => {
-  document.addEventListener(ev, unlockAudio, { once:false, passive:true });
+// ユーザー操作のたびに呼ばれるよう document に仕込む（passive=true でスクロール阻害なし）
+['click','touchstart','touchend','keydown','pointerdown'].forEach(ev => {
+  document.addEventListener(ev, unlockAudio, { passive:true });
 });
+// タブがバックグラウンドから戻ってきた時・フォーカス時にも resume を試みる（iPad のスリープ復帰対策）
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
+    audioCtx.resume().catch(()=>{});
+  }
+});
+window.addEventListener('focus', () => {
+  if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
+    audioCtx.resume().catch(()=>{});
+  }
+});
+// 定期的に AudioContext をキープアライブ（15秒ごとに状態確認、suspended なら resume を試みる）
+setInterval(() => {
+  if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
+    audioCtx.resume().catch(()=>{});
+  }
+}, 15000);
+
 async function playBellSound() {
   const ctx = getAudioCtx();
   if (!ctx) { console.warn('[bell] no ctx'); return; }
   try {
     if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
-      await ctx.resume();
+      try { await ctx.resume(); } catch(_) {}
     }
     if (ctx.state !== 'running') {
-      console.warn('[bell] ctx not running after resume, state=', ctx.state);
+      console.warn('[bell] ctx not running after resume, state=', ctx.state, '→ trying HTML5 audio fallback');
+      playBellFallback();
       return;
     }
     const partials = [{freq:1047,gain:0.6,decay:2.8},{freq:2093,gain:0.25,decay:2.0},{freq:2960,gain:0.12,decay:1.4},{freq:4186,gain:0.06,decay:0.9}];
@@ -2169,7 +2188,44 @@ async function playBellSound() {
       osc.start(now);
       osc.stop(now+decay);
     });
-  } catch(e) { console.warn('[bell] play failed:', e); }
+  } catch(e) { console.warn('[bell] play failed:', e); playBellFallback(); }
+}
+
+// HTML5 Audio フォールバック（Web Audio が動かない時の保険）
+// 短いシンプルなビープ音を data URL から再生
+let _fallbackAudio = null;
+function playBellFallback() {
+  try {
+    if (!_fallbackAudio) {
+      // 0.4秒のWAVチャイム（base64エンコード済み・1047Hz サイン波相当）
+      const wav = generateBellWavDataUrl();
+      _fallbackAudio = new Audio(wav);
+      _fallbackAudio.volume = 0.5;
+    }
+    _fallbackAudio.currentTime = 0;
+    const p = _fallbackAudio.play();
+    if (p && p.catch) p.catch(e => console.warn('[bell] fallback play failed:', e));
+  } catch(e) { console.warn('[bell] fallback setup failed:', e); }
+}
+// 簡易WAV生成（チャイム音をdata URLで作成）
+function generateBellWavDataUrl() {
+  const sr = 22050, dur = 0.7, samples = Math.floor(sr * dur);
+  const buf = new ArrayBuffer(44 + samples * 2);
+  const v = new DataView(buf);
+  // WAV ヘッダ
+  const wstr = (o, s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  wstr(0,'RIFF'); v.setUint32(4, 36+samples*2, true); wstr(8,'WAVE'); wstr(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); wstr(36,'data'); v.setUint32(40,samples*2,true);
+  // 1047Hz + 2093Hz チャイム＋指数減衰
+  for (let i=0;i<samples;i++) {
+    const t = i/sr;
+    const env = Math.exp(-t*3);
+    const s = (Math.sin(2*Math.PI*1047*t)*0.6 + Math.sin(2*Math.PI*2093*t)*0.25) * env * 0.5;
+    v.setInt16(44+i*2, Math.max(-32768, Math.min(32767, Math.floor(s*32767))), true);
+  }
+  // base64
+  let bin = ''; const bytes = new Uint8Array(buf);
+  for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+  return 'data:audio/wav;base64,' + btoa(bin);
 }
 function testBellSound() { document.getElementById('bellPanel').style.display='none'; playBellSound(); shakeBellIcon(); }
 function shakeBellIcon() { const btn = document.getElementById('bellBtn'); btn.style.animation = 'bellShake 0.6s ease'; setTimeout(()=>{btn.style.animation='';}, 700); }
