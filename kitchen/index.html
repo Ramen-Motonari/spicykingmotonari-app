@@ -781,8 +781,12 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
     return items.some(i => !i.served);
   });
 }).map(([tl, list]) => {
-  // 表示用：'served' 状態の過去注文は伝票内からも除外（pending/preparing のみ表示）
-  const visibleOrders = list.filter(o => o.status === 'pending' || o.status === 'preparing');
+  // 表示用：pending / preparing / served の全注文を含める
+  // → 既存注文を提供済みにしても伝票には残り、新規追加とは別セクションで「提供済み」状態で表示
+  // → テーブルの全アイテムが提供済みになったら、上のfilter条件で伝票全体が除外される
+  const visibleOrders = list.filter(o =>
+    o.status === 'pending' || o.status === 'preparing' || o.status === 'served'
+  );
   const sorted = visibleOrders.slice().sort((a, b) => {
     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
     const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
