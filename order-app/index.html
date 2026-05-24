@@ -14,6 +14,8 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html{background:var(--bg)}
 html.dark-bg,html.dark-bg body{background:#111}
+/* 会計済みロック：paidScreen 以外のすべての要素を操作不能に */
+body.paid-locked > *:not(#paidScreen){pointer-events:none !important}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;max-width:480px;margin:0 auto;padding-bottom:120px}
 body.dark-bg{background:#111}
 
@@ -30,7 +32,7 @@ body.dark-bg{background:#111}
 .screen.active{display:flex;flex-direction:column}
 
 /* Connection indicator */
-.fb-status{position:fixed;top:8px;right:8px;z-index:1000;display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(0,0,0,.6);color:#fff;backdrop-filter:blur(8px)}
+.fb-status{display:none}
 .fb-dot{width:6px;height:6px;border-radius:50%;background:#888}
 .fb-dot.online{background:#10b981;box-shadow:0 0 6px #10b981}
 .fb-dot.offline{background:#e74c3c}
@@ -280,7 +282,7 @@ body.dark-bg{background:#111}
 <div class="screen" id="menuScreen">
   <header class="header">
     <div class="header-top">
-      <button onclick="leaveMenu()" style="background:none;border:none;color:var(--muted);font-size:26px;cursor:pointer;padding:0;line-height:1;margin-right:4px">‹</button>
+      <!-- セッション破壊の戻るボタンは削除（誤タップで履歴消失を防止）。スタッフが端末リセットしたい場合はブラウザリロード。 -->
       <div class="logo" style="font-size:15px;letter-spacing:2px">SPICY KING <span>MOTONARI</span></div>
       <div class="table-badge">Table <b id="tableNum">—</b></div>
     </div>
@@ -1008,17 +1010,29 @@ function subscribeOrders(){
     console.log('[subscribeOrders] snapshot received — orderHistory.length=', orderHistory.length);
     if($('historyScreen').classList.contains('open')) renderHistory();
     if($('paymentScreen').classList.contains('open')) renderPayment();
-    // Check if all orders are paid → end session（即時ロック）
-    if(orderHistory.length > 0 && orderHistory.every(o => o.status === 'paid')) {
-      if (sessionActive) {
-        sessionActive = false;
-        // 短いディレイで会計済み画面を表示（即座に閉じてしまうと UX が荒っぽいので最小限）
-        setTimeout(() => { if(!sessionActive) showPaidScreen(); }, 500);
-      }
-    }
+    // 全注文が paid になったら即時ロック
+    checkAllPaidAndLock();
   }, (err) => {
     console.error('Orders subscribe error:', err);
   });
+}
+
+// 会計済みロック判定（複数箇所から呼び出し可能）
+function checkAllPaidAndLock() {
+  if (!sessionActive) return; // すでにロック済み
+  if (orderHistory.length === 0) return; // 注文がないので何もしない
+  const allPaid = orderHistory.every(o => o.status === 'paid');
+  if (!allPaid) return;
+  // 全注文が paid → 即座にロック
+  console.log('[paid-lock] all orders paid, locking immediately');
+  sessionActive = false;
+  // localStorage に「この端末は会計済み」フラグを保存（リロード後も復元時にロック画面表示）
+  try {
+    localStorage.setItem('motonari_paid_lock_v1', JSON.stringify({
+      sessionId, table: tableNum, paidAt: Date.now()
+    }));
+  } catch(e) {}
+  showPaidScreen();
 }
 
 /* ========== LANGUAGE ========== */
@@ -1063,6 +1077,12 @@ function selectLang(l){
 }
 
 async function selectVisit(type){
+  // 会計済みロック中なら新規セッション開始も阻止（誤って戻ってきた場合の保険）
+  if (checkDeviceLockedByPayment()) {
+    sessionActive = false;
+    showPaidScreen();
+    return;
+  }
   stats[type]++;
   window._currentVisitType = type;
   applyLang();
@@ -1112,6 +1132,27 @@ function clearSessionFromLocal(){
   try { localStorage.removeItem(SESSION_LS_KEY); } catch(e) {}
 }
 
+// 会計済みロックフラグの有効期限（30分）。スタッフが新規顧客のためにリロードすればクリア可能
+const PAID_LOCK_MAX_AGE_MS = 30 * 60 * 1000;
+function checkDeviceLockedByPayment() {
+  try {
+    const raw = localStorage.getItem('motonari_paid_lock_v1');
+    if (!raw) return false;
+    const lock = JSON.parse(raw);
+    if (lock.table !== tableNum) {
+      // 別テーブル → 関係なし
+      localStorage.removeItem('motonari_paid_lock_v1');
+      return false;
+    }
+    if ((Date.now() - (lock.paidAt||0)) > PAID_LOCK_MAX_AGE_MS) {
+      // 期限切れ → 解除
+      localStorage.removeItem('motonari_paid_lock_v1');
+      return false;
+    }
+    return true;
+  } catch(e) { return false; }
+}
+
 let _recoveryAttempted = false;
 async function tryStartRecovery(){
   if(_recoveryAttempted) return;
@@ -1123,6 +1164,14 @@ async function tryStartRecovery(){
   if(!tableNum || tableNum === '?') {
     console.log('[recovery] no tableNum in URL — skip');
     _recoveryAttempted = true;
+    return;
+  }
+  // 会計済みロックチェック（リロードでも解除させない）
+  if (checkDeviceLockedByPayment()) {
+    console.log('[recovery] device is paid-locked, showing paidScreen');
+    _recoveryAttempted = true;
+    sessionActive = false;
+    showPaidScreen();
     return;
   }
   // 既にメニュー画面に居る（=selectVisit済み）ならスキップ
@@ -1924,13 +1973,19 @@ function showPaidScreen(){
   $('successScreen').classList.remove('open');
   document.querySelectorAll('.sub-screen.open').forEach(s=>s.classList.remove('open'));
   document.querySelectorAll('.modal-overlay.open').forEach(s=>s.classList.remove('open'));
+  document.querySelectorAll('.fullscreen-overlay.open').forEach(s=>{
+    if (s.id !== 'paidScreen') s.classList.remove('open');
+  });
   cart=[]; orderHistory=[];
   if(unsubOrders){ unsubOrders(); unsubOrders=null; }
   sessionId=null;
-  // 会計済み = もう復元しない。
+  // セッション復元用localStorageはクリア、会計済みロック用localStorageは保持
   clearSessionFromLocal();
   _recoveryAttempted = true;
   $('paidScreen').classList.add('open');
+  // 全画面ロック（body スクロール禁止、その他クリック貫通防止）
+  document.body.style.overflow = 'hidden';
+  document.body.classList.add('paid-locked');
   // ※ 自動でlangScreenへ戻る挙動は廃止。会計済みのままロックする。
   // 　別のお客様が利用する場合はスタッフが端末をリロードして新セッション開始。
 }
