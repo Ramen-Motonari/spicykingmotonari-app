@@ -917,6 +917,12 @@ window.addEventListener('fb-auth-changed', async (e) => {
     console.log('[fb-auth-changed] retrying subscribeOrders');
     subscribeOrders();
   }
+  // fb-ready が先に発火していた場合、tryStartRecovery は currentUser が無くて諦めて終わっている
+  // → ここで再度トライ（リロード時のセッション復元の最重要保険）
+  if (fbReady && !_recoveryAttempted) {
+    console.log('[fb-auth-changed] retrying tryStartRecovery');
+    tryStartRecovery();
+  }
   // Check if this user is in the admins collection
   if (!currentUser.isAnonymous && fbReady) {
     try {
@@ -1109,34 +1115,54 @@ function clearSessionFromLocal(){
 let _recoveryAttempted = false;
 async function tryStartRecovery(){
   if(_recoveryAttempted) return;
-  if(!fbReady || !currentUser) return;
-  if(!tableNum || tableNum === '?') return;
+  console.log('[recovery] tryStartRecovery — fbReady:', fbReady, 'currentUser:', !!currentUser, 'tableNum:', tableNum);
+  if(!fbReady || !currentUser) {
+    console.log('[recovery] not ready, will retry on next event');
+    return;
+  }
+  if(!tableNum || tableNum === '?') {
+    console.log('[recovery] no tableNum in URL — skip');
+    _recoveryAttempted = true;
+    return;
+  }
   // 既にメニュー画面に居る（=selectVisit済み）ならスキップ
-  if($('menuScreen').classList.contains('active')) return;
+  if($('menuScreen').classList.contains('active')) {
+    console.log('[recovery] menuScreen already active — skip');
+    _recoveryAttempted = true;
+    return;
+  }
   _recoveryAttempted = true;
-  try { await attemptSessionRecovery(); } catch(e){ console.warn('Recovery error:', e); }
+  try {
+    const result = await attemptSessionRecovery();
+    console.log('[recovery] result:', result);
+  } catch(e){ console.warn('Recovery error:', e); }
 }
 
 async function attemptSessionRecovery(){
   // ── 1. localStorageから復元を試みる ──
   try {
     const raw = localStorage.getItem(SESSION_LS_KEY);
+    console.log('[recovery] localStorage:', raw ? 'found' : 'empty');
     if(raw){
       const saved = JSON.parse(raw);
-      if(saved && saved.table === tableNum &&
-         (Date.now() - (saved.savedAt||0)) < SESSION_MAX_AGE_MS){
+      const ageMs = Date.now() - (saved.savedAt||0);
+      console.log('[recovery] saved:', saved, 'ageMs:', ageMs, 'maxAge:', SESSION_MAX_AGE_MS);
+      if(saved && saved.table === tableNum && ageMs < SESSION_MAX_AGE_MS){
         const sessDoc = await window.FB.getDoc(
           window.FB.doc(window.FB.db, 'sessions', saved.sessionId)
         );
+        console.log('[recovery] sessDoc exists:', sessDoc.exists(), 'active:', sessDoc.exists() && sessDoc.data().active);
         if(sessDoc.exists() && sessDoc.data().active !== false){
           // セッション内に未会計の注文が残っているか軽くチェック
           const stillOpen = await hasUnpaidOrdersForSession(saved.sessionId);
+          console.log('[recovery] stillOpen:', stillOpen);
           if(stillOpen){
             return restoreSession(saved.sessionId, saved.lang||'ja', saved.visitType||'first');
           }
         }
       }
       // 期限切れ or テーブル違い or 全paid → クリア
+      console.log('[recovery] localStorage recovery failed — clearing');
       clearSessionFromLocal();
     }
   } catch(e){ console.warn('localStorage recovery skipped:', e); }
@@ -1870,6 +1896,8 @@ async function placeOrder(){
       console.log('[placeOrder] starting subscription after order placement');
       subscribeOrders();
     }
+    // localStorage のタイムスタンプを更新（リロード時のセッション復元期限を伸ばす）
+    saveSessionToLocal(window._currentVisitType || 'first');
 
     setText('successMsg', t.successMsg);
     setText('successTitle', t.successTitle);
