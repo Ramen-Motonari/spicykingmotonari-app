@@ -131,10 +131,21 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .manual-field input:focus,.weather-select:focus{border-color:var(--accent)}
 .form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none}
 @media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
+/* === ドラッグ＆ドロップで並び替え === */
+.menu-card.sortable-ghost{opacity:0.3;background:rgba(200,134,10,0.15)}
+.menu-card.sortable-chosen{cursor:grabbing}
+.menu-card.sortable-drag{box-shadow:0 8px 24px rgba(0,0,0,0.45);transform:rotate(1deg)}
+.drag-handle{position:absolute;top:6px;left:6px;z-index:5;background:rgba(0,0,0,0.55);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:grab;backdrop-filter:blur(6px);user-select:none;-webkit-user-select:none;touch-action:none}
+.drag-handle:active{cursor:grabbing}
+body.reorder-active .menu-card{outline:2px dashed var(--accent);outline-offset:-2px}
+.reorder-toggle{padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.reorder-toggle.active{background:var(--accent);color:#fff;animation:reorderPulseAdmin 1.4s ease-in-out infinite}
+@keyframes reorderPulseAdmin{0%,100%{box-shadow:0 0 0 0 rgba(200,134,10,0.55)}50%{box-shadow:0 0 0 6px rgba(200,134,10,0)}}
 </style>
 </head>
 <body>
 <script src="./menu-canonical.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <nav class="sidebar">
   <div class="sidebar-logo">
@@ -528,7 +539,7 @@ function getMergedCategories() {
 function getMergedMenu() {
   const merged = [];
   // canonical メニュー（override適用）
-  MOTONARI.MENU_ITEMS.forEach(m => {
+  MOTONARI.MENU_ITEMS.forEach((m, idx) => {
     const ov = menuOverrides[String(m.id)] || {};
     const name = ov.nameOverride ? { ...m.name, ...ov.nameOverride } : m.name;
     merged.push({
@@ -541,11 +552,12 @@ function getMergedMenu() {
       imageUrl: ov.imageUrl || null,
       _hidden: !!ov.hidden,
       _isCanonical: true,
-      _overridePrice: ov.priceOverride
+      _overridePrice: ov.priceOverride,
+      _sortOrder: (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1)
     });
   });
   // custom メニュー
-  customMenuItems.forEach(c => {
+  customMenuItems.forEach((c, idx) => {
     merged.push({
       id: c.id,
       cat: c.cat,
@@ -559,8 +571,14 @@ function getMergedMenu() {
       imageUrl: c.imageUrl || null,
       _hidden: !!c.hidden,
       _isCustom: true,
-      _docId: c.docId
+      _docId: c.docId,
+      _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
     });
+  });
+  // カテゴリ内で sortOrder 昇順にソート
+  merged.sort((a, b) => {
+    if (a.cat !== b.cat) return 0;
+    return (a._sortOrder || 0) - (b._sortOrder || 0);
   });
   return merged;
 }
@@ -1298,11 +1316,12 @@ function renderMenuPage() {
       ? `<img src="${m.imageUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
       : (m.img || '🍜');
     const displayPrice = (typeof m._overridePrice === 'number') ? m._overridePrice : (m.price || 0);
-    return `<div class="menu-card" style="${isSold||isHidden?'opacity:0.5':''};position:relative">
+    return `<div class="menu-card" data-edit-key="${editKey}" data-cat="${m.cat}" style="${isSold||isHidden?'opacity:0.5':''};position:relative">
+      <div class="drag-handle" title="ドラッグして並び替え">⋮⋮</div>
       <div class="menu-card-img" style="position:relative;overflow:hidden">
         ${imgHtml}
         ${isSold ? '<div style="position:absolute;top:8px;right:8px;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🚫 売切</div>' : ''}
-        ${isHidden ? '<div style="position:absolute;top:8px;left:8px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
+        ${isHidden ? '<div style="position:absolute;top:8px;left:50px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
         ${m._isCustom ? '<div style="position:absolute;bottom:8px;left:8px;background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">CUSTOM</div>' : ''}
       </div>
       <div class="menu-card-body">
@@ -1329,6 +1348,74 @@ function renderMenuPage() {
       </div>
     </div>`;
   }).join('');
+  // ドラッグ＆ドロップで並び替えを有効化
+  initSortableMenuGrid();
+}
+
+// ────── ドラッグ＆ドロップ並び替え ──────
+let _sortableInstance = null;
+function initSortableMenuGrid() {
+  const grid = document.getElementById('menuGrid');
+  if (!grid || typeof Sortable === 'undefined') return;
+  if (_sortableInstance) { _sortableInstance.destroy(); _sortableInstance = null; }
+  _sortableInstance = new Sortable(grid, {
+    handle: '.drag-handle',
+    animation: 180,
+    delay: 50,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 4,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    dragClass: 'sortable-drag',
+    onEnd: async (evt) => {
+      // 「すべて」表示中は、同カテゴリ内でしか並び替えない（カテゴリをまたぐ場合は無視）
+      const movedEl = evt.item;
+      const movedCat = movedEl.dataset.cat;
+      // 現在の表示順序を読み取って、各カードに sortOrder を割り当て
+      const cards = Array.from(grid.querySelectorAll('.menu-card[data-edit-key]'));
+      // カテゴリ別に処理：移動した商品と同カテゴリのカード群を抽出
+      const sameCatCards = cards.filter(c => c.dataset.cat === movedCat);
+      // 10刻みで sortOrder を再採番
+      const updates = [];
+      sameCatCards.forEach((card, idx) => {
+        const editKey = card.dataset.editKey;
+        const newOrder = (idx + 1) * 10;
+        updates.push({ editKey, sortOrder: newOrder });
+      });
+      try {
+        await saveSortOrders(updates);
+        showToast('並び順を保存しました');
+      } catch (e) {
+        console.error('sort save failed:', e);
+        showToast('並び順の保存に失敗しました', true);
+        renderMenuPage(); // 失敗時は再描画して元に戻す
+      }
+    }
+  });
+}
+
+// 並び順をFirestoreに一括保存
+async function saveSortOrders(updates) {
+  const { doc, setDoc, serverTimestamp } = window.fbApi;
+  const promises = updates.map(({ editKey, sortOrder }) => {
+    const [type, idOrDoc] = editKey.split(':');
+    if (type === 'canonical') {
+      // menuOverrides に sortOrder を merge
+      return setDoc(
+        doc(window.fb.db, 'menuOverrides', String(idOrDoc)),
+        { sortOrder, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+    } else {
+      // customMenuItems に sortOrder を merge
+      return setDoc(
+        doc(window.fb.db, 'customMenuItems', idOrDoc),
+        { sortOrder, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+    }
+  });
+  await Promise.all(promises);
 }
 
 // ────── 商品編集モーダル ──────
