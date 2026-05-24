@@ -6,7 +6,7 @@
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700;400&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;--surface3:#262626;--accent:#c8860a;--accent2:#c0392b;--green:#22c55e;--blue:#3b82f6;--purple:#a855f7;--yellow:#eab308;--text:#f0ece4;--muted:#666;--border:#2a2a2a}
+:root{--bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;--surface3:#262626;--accent:#c8860a;--accent2:#c0392b;--green:#22c55e;--blue:#3b82f6;--purple:#a855f7;--yellow:#eab308;--text:#f0ece4;--muted:#b8b8b8;--border:#2a2a2a}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;overflow-x:hidden;text-align:left}
 #modeScreen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:48px 24px 60px;text-align:center;background:radial-gradient(ellipse at 50% 0%,rgba(200,134,10,0.15) 0%,transparent 60%);overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -168,7 +168,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 @keyframes pulse{0%,100%{box-shadow:0 0 0 2px var(--accent2)}50%{box-shadow:0 0 0 4px rgba(192,57,43,0.4)}}
 .table-num{font-family:'Oswald',sans-serif;font-size:28px;margin-bottom:4px;color:#fff}
 .table-status{font-size:10px;font-weight:700;margin-bottom:8px}
-.status-empty{color:#555}
+.status-empty{color:#a8a8a8}
 .status-ordering{color:#e8a020;font-weight:700}
 .status-payment{color:#e74c3c;font-weight:700}
 .status-paid{color:#22c55e;font-weight:700}
@@ -180,17 +180,17 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .detail-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:16px auto 0}
 .detail-header{padding:16px 20px;border-bottom:1px solid var(--border)}
 .detail-table-num{font-family:'Oswald',sans-serif;font-size:28px;margin-bottom:4px}
-.detail-visit{font-size:12px;color:var(--muted)}
+.detail-visit{font-size:13px;color:#d0d0d0;font-weight:700}
 .order-history{padding:12px 20px}
 .order-block{margin-bottom:16px}
-.order-block-time{font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:700}
-.order-line{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)}
+.order-block-time{font-size:12px;color:#d8d8d8;margin-bottom:8px;font-weight:700}
+.order-line{display:flex;justify-content:space-between;font-size:17px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;gap:10px}
 .order-line:last-child{border-bottom:none}
-.order-line-name{flex:1}
-.order-line-sub{font-size:10px;color:var(--muted)}
-.order-line-price{font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent)}
+.order-line-name{flex:1;color:#f5f5f5;font-weight:700}
+.order-line-sub{font-size:13px;color:#b8b8b8;margin-top:3px;font-weight:600}
+.order-line-price{font-family:'Oswald',sans-serif;font-size:17px;color:var(--accent);font-weight:700;white-space:nowrap}
 .detail-total{margin:0 20px 16px;padding:20px 24px;background:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;gap:6px;border:none}
-.detail-total-label{font-size:12px;font-weight:700;color:#555;letter-spacing:2px;text-transform:uppercase}
+.detail-total-label{font-size:13px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase}
 .detail-total-price{font-family:'Oswald',sans-serif;font-size:64px;color:#e74c3c;line-height:1;font-weight:700;letter-spacing:2px}
 .detail-actions{padding:0 20px;display:flex;flex-direction:column;gap:10px}
 .btn-complete{width:100%;padding:16px;border-radius:14px;border:none;background:var(--green);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
@@ -338,7 +338,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div class="detail-total-price" id="detailTotal">¥0</div>
 </div>
 <div class="detail-actions">
-<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')">✅ 会計完了</button>
+<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')">💰 会計に進む</button>
 <button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--blue)">👥 別会計</button>
 <button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--purple)">🔗 他テーブルと合算</button>
 <button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:var(--accent)">✏️ 注文変更</button>
@@ -1448,7 +1448,7 @@ ${(Array.isArray(item.opts)&&item.opts.length)?`<div class="order-line-sub">${it
 });
 document.getElementById('orderHistory').innerHTML = historyHtml || '<div style="color:var(--muted);font-size:13px;padding:12px 0">注文履歴なし</div>';
 document.getElementById('detailTotal').textContent = `¥${t.total.toLocaleString()}`;
-document.getElementById('btnComplete').textContent = '✅ 会計完了';
+document.getElementById('btnComplete').textContent = '💰 会計に進む';
 document.getElementById('btnComplete').disabled = false;
 document.getElementById('btnSeparate').style.display = 'block';
 document.getElementById('btnMerge').style.display = 'block';
@@ -1670,10 +1670,10 @@ remaining.forEach(item => {
 const isSel = item._selected;
 itemsHtml += `<div onclick="toggleBetsuItem(${item._idx})" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'rgba(59,130,246,0.18)':'transparent'};transition:background 0.15s">
 <div style="display:flex;align-items:center;gap:12px">
-<div style="width:26px;height:26px;border-radius:50%;border:2px solid ${isSel?'var(--blue)':'#555'};background:${isSel?'var(--blue)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isSel?'<span style="color:#fff;font-size:14px;font-weight:900">✓</span>':''}</div>
-<span style="font-size:14px;color:${isSel?'#fff':'#ccc'};font-weight:${isSel?'700':'500'}">${item.name}</span>
+<div style="width:26px;height:26px;border-radius:50%;border:2px solid ${isSel?'var(--blue)':'#888'};background:${isSel?'var(--blue)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isSel?'<span style="color:#fff;font-size:14px;font-weight:900">✓</span>':''}</div>
+<span style="font-size:17px;color:${isSel?'#fff':'#f0f0f0'};font-weight:700">${item.name}</span>
 </div>
-<span style="font-family:'Oswald',sans-serif;font-size:15px;color:${isSel?'var(--blue)':'var(--muted)'}">¥${item.unitPrice.toLocaleString()}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:${isSel?'#e74c3c':'#d8d8d8'}">¥${item.unitPrice.toLocaleString()}</span>
 </div>`;
 });
 }
@@ -1684,11 +1684,11 @@ const cardInnerHtml = `
 <div style="padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
 <div>
 <div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--blue)">👥 別会計</div>
-<div style="font-size:11px;color:var(--muted);margin-top:2px">${selectedTable} ${allDone?'— 完了':`— ${personLabel}`}</div>
+<div style="font-size:13px;color:#e8e8e8;margin-top:2px;font-weight:700">${selectedTable} ${allDone?'— 完了':`— ${personLabel}`}</div>
 </div>
 <div style="text-align:right">
-<div style="font-size:10px;color:var(--muted)">残り <span style="font-family:'Oswald',sans-serif;color:#fff;font-size:13px">${remaining.length}</span>点</div>
-<div style="font-size:10px;color:var(--muted)">完了 <span style="font-family:'Oswald',sans-serif;color:#fff;font-size:13px">${paidLog.length}</span>人</div>
+<div style="font-size:12px;color:#d8d8d8;font-weight:700">残り <span style="font-family:'Oswald',sans-serif;color:#fff;font-size:15px">${remaining.length}</span>点</div>
+<div style="font-size:12px;color:#d8d8d8;font-weight:700">完了 <span style="font-family:'Oswald',sans-serif;color:#fff;font-size:15px">${paidLog.length}</span>人</div>
 </div>
 </div>
 ${(paidCash > 0 || paidCard > 0) ? `<div style="display:flex;gap:8px;padding:8px 20px;background:rgba(0,0,0,0.3);border-bottom:1px solid var(--border);font-size:11px">
@@ -1698,15 +1698,15 @@ ${(paidCash > 0 || paidCard > 0) ? `<div style="display:flex;gap:8px;padding:8px
 <div style="overflow-y:auto;flex:1" data-betsu-scroll>${logHtml}${itemsHtml}</div>
 ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-<span style="font-size:12px;color:var(--muted);font-weight:700">${personLabel} 小計</span>
-<span style="font-family:'Oswald',sans-serif;font-size:30px;color:${selected.length>0?'var(--blue)':'#444'}">¥${selectedTotal.toLocaleString()}</span>
+<span style="font-size:13px;color:#e8e8e8;font-weight:700">${personLabel} 小計</span>
+<span style="font-family:'Oswald',sans-serif;font-size:34px;color:${selected.length>0?'#e74c3c':'#666'};font-weight:700">¥${selectedTotal.toLocaleString()}</span>
 </div>
 <div style="font-size:11px;color:${selected.length>0?'var(--blue)':'var(--muted)'};font-weight:700;letter-spacing:1px;margin-bottom:6px">${selected.length>0?'STEP 2 — お支払い方法を選択':'まず商品を選んでください'}</div>
 <div style="display:flex;gap:8px">
 <button onclick="confirmOnePersonPay('cash')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-size:22px">💴</span>現金で会計</button>
 <button onclick="confirmOnePersonPay('card')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--blue)':'#333'};background:${selected.length>0?'#0d2240':'#1a1a1a'};color:${selected.length>0?'var(--blue)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-size:22px">💳</span>カードで会計</button>
 </div>
-<button onclick="document.getElementById('betsuOverlay').remove()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">中断する</button>
+<button onclick="document.getElementById('betsuOverlay').remove()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">‹ 戻る</button>
 </div>` : `<div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <button onclick="finishAllBetsu()" style="width:100%;padding:18px;border-radius:14px;border:none;background:var(--green);color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✅ 全員会計完了 — オーダーを確定</button>
 </div>`}
@@ -1796,14 +1796,15 @@ overlay.innerHTML = `<div style="background:var(--surface);border-bottom:1px sol
 </div>
 <button onclick="closeOrderEdit()" style="background:none;border:none;color:var(--muted);font-size:28px;cursor:pointer;line-height:1;padding:0">×</button>
 </div>
-<div style="background:var(--surface2);padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:8px">現在の注文</div>
+<div style="background:var(--surface2);padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+<div style="font-size:16px;color:#ffffff;font-weight:900;letter-spacing:1.5px;margin-bottom:10px">現在の注文</div>
 <div id="editCurrentList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
 </div>
 <div style="display:flex;overflow-x:auto;padding:10px 16px 8px;gap:6px;flex-shrink:0;scrollbar-width:none;border-bottom:1px solid var(--border)" id="editCatTabs"></div>
-<div style="flex:1;overflow-y:auto;padding:8px 16px 100px" id="editMenuList"></div>
-<div style="position:fixed;bottom:0;left:0;right:0;padding:12px 16px 32px;background:var(--surface);border-top:1px solid var(--border)">
+<div style="flex:1;overflow-y:auto;padding:8px 16px 160px" id="editMenuList"></div>
+<div style="position:fixed;bottom:0;left:0;right:0;padding:12px 16px 32px;background:var(--surface);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
 <button onclick="saveOrderEdit()" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✅ 変更を保存する</button>
+<button onclick="closeOrderEdit()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ 戻る</button>
 </div>`;
 document.body.appendChild(overlay);
 
@@ -1834,9 +1835,9 @@ function renderEditCurrentList() {
 const el = document.getElementById('editCurrentList');
 if (!el) return;
 const items = window._editItems;
-if (!items.length) { el.innerHTML = `<span style="font-size:12px;color:var(--muted)">注文なし</span>`; return; }
-el.innerHTML = items.map(item => `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:5px 8px;border:1px solid var(--border)">
-<span style="font-size:12px;color:#fff">${item.name}</span>
+if (!items.length) { el.innerHTML = `<span style="font-size:14px;color:#d8d8d8;font-weight:700">注文なし</span>`; return; }
+el.innerHTML = items.map(item => `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
+<span style="font-size:14px;color:#fff;font-weight:700">${item.name}</span>
 <div style="display:flex;align-items:center;gap:4px">
 <button onclick="changeEditQty(${item._eid},-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
 <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);min-width:16px;text-align:center">${item.qty}</span>
