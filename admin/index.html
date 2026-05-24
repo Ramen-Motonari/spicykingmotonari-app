@@ -1471,6 +1471,8 @@ function renderMenuPage() {
 }
 
 // 並び順をFirestoreに一括保存（per-item エラー対応版）
+// カスタム商品はFirestoreルールで全フィールド検証されている可能性があるため、
+// 既存データをローカルから取得してマージ → 全フィールドsetDocで書き戻す
 async function saveSortOrders(updates) {
   const { doc, setDoc, updateDoc, serverTimestamp } = window.fbApi;
   const promises = updates.map(async ({ editKey, sortOrder }) => {
@@ -1480,20 +1482,28 @@ async function saveSortOrders(updates) {
     }
     try {
       if (type === 'canonical') {
+        // menuOverrides は sortOrder と updatedAt のみで merge:true で OK
         await setDoc(
           doc(window.fb.db, 'menuOverrides', String(idOrDoc)),
           { sortOrder, updatedAt: serverTimestamp() },
           { merge: true }
         );
       } else {
-        // customMenuItems: 既存ドキュメントへの updateDoc を試行→失敗時は setDoc(merge) にフォールバック
-        try {
-          await updateDoc(
+        // customMenuItems: ローカルのカスタム配列から該当ドキュメントの全フィールドを取得
+        const existing = (customMenuItems || []).find(c => c.docId === idOrDoc);
+        if (existing) {
+          // 全フィールド + sortOrder で setDoc（ルール検証対策）
+          // docId は Firestore のメタ情報なので含めない
+          const { docId, createdAt, updatedAt, ...rest } = existing;
+          const fullData = { ...rest, sortOrder, updatedAt: serverTimestamp() };
+          await setDoc(
             doc(window.fb.db, 'customMenuItems', idOrDoc),
-            { sortOrder, updatedAt: serverTimestamp() }
+            fullData,
+            { merge: false }  // 完全な書き戻し
           );
-        } catch (updErr) {
-          console.warn('[sortOrder] updateDoc failed, trying setDoc(merge):', updErr, editKey);
+        } else {
+          // ローカルに存在しない（同期遅延）→ merge:true で sortOrder のみ書き込み
+          console.warn('[sortOrder] custom item not in local cache, using merge save:', idOrDoc);
           await setDoc(
             doc(window.fb.db, 'customMenuItems', idOrDoc),
             { sortOrder, updatedAt: serverTimestamp() },
@@ -1501,6 +1511,7 @@ async function saveSortOrders(updates) {
           );
         }
       }
+      console.log('[sortOrder] ok:', editKey, '→', sortOrder);
       return { editKey, ok: true };
     } catch (e) {
       console.error('[sortOrder] save failed for', editKey, e);
