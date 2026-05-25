@@ -1568,7 +1568,14 @@ function renderModal(){
   if(c.chashu)     h+=optGrpReq(t.optChashu,'chashu',chashuOpts[lang],missing);
   if(c.top)        h+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
   if(c.kata && !c.noodleSize) h+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
-  if(c.noodleSize) h+=optGrpReq(t.addonNoodleLabel,'noodleSize',getNoodleSizeOpts(lang, curItem&&curItem.cat),missing);
+  if(c.noodleSize) {
+    // 平日ランチのとんこつでは「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
+    let noodleOpts = getNoodleSizeOpts(lang, curItem&&curItem.cat);
+    if (isLunchWeekday() && curItem && curItem.cat === 'tonkotsu') {
+      noodleOpts = noodleOpts.filter(o => !/無料|FREE|免费|무료/i.test(o));
+    }
+    h+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
+  }
   // 平日ランチ特典：替え玉無料 / 大盛り無料（麺サイズの直下に配置）
   if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu')){
     const choice = curOpts.lunchFreeChoice || '';
@@ -1579,10 +1586,10 @@ function renderModal(){
     const lblTitle = isTonkotsu
       ? ({ja:'🎉 平日ランチ特典：どちらか1つ無料',en:'🎉 Weekday Lunch: pick ONE free',zh:'🎉 工作日午餐：任选1份免费',ko:'🎉 평일 런치：1개 무료'}[lang] || '')
       : ({ja:'🎉 平日ランチ特典：替え玉（細麺）無料',en:'🎉 Weekday Lunch: Extra Noodles (Thin) FREE',zh:'🎉 工作日午餐：加面（细面）免费',ko:'🎉 평일 런치：면 추가(가는면) 무료'}[lang] || '');
-    const lblOomori = {ja:'細麺 大盛り 無料',en:'Thin Large FREE',zh:'细面大碗 免费',ko:'가는면 곱배기 무료'}[lang] || '大盛り無料';
+    const lblOomori = {ja:'大盛り無料 (細麺)',en:'Large FREE (Thin)',zh:'大碗免费 (细面)',ko:'곱배기 무료 (가는면)'}[lang] || '大盛り無料 (細麺)';
     const lblKaedama = isTonkotsu
-      ? ({ja:'替え玉 無料',en:'Extra Noodles FREE',zh:'加面 免费',ko:'면 추가 무료'}[lang] || '替え玉無料')
-      : ({ja:'替え玉（細麺）無料を希望する',en:'Order FREE Extra Noodles (Thin)',zh:'要免费加面（细面）',ko:'면 추가(가는면) 무료 주문'}[lang] || '替え玉無料');
+      ? ({ja:'替え玉無料 (細麺)',en:'Extra Noodles FREE (Thin)',zh:'加面免费 (细面)',ko:'면 추가 무료 (가는면)'}[lang] || '替え玉無料 (細麺)')
+      : ({ja:'替え玉無料 (細麺) を希望する',en:'Order FREE Extra Noodles (Thin)',zh:'要免费加面 (细面)',ko:'면 추가 (가는면) 무료 주문'}[lang] || '替え玉無料 (細麺)');
     const lblFlatNote = {ja:'※平打ち麺選択中は大盛り無料は対象外です',en:'※ Free Large not available with Flat noodles',zh:'※ 选择宽面时大碗免费不适用',ko:'※ 넓은면 선택 시 곱배기 무료 대상 외'}[lang] || '';
     const btnBase = 'flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:900;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;transition:all 0.15s;line-height:1.3';
     const btnOn = 'background:#e65100;color:#fff;border:2px solid #e65100;box-shadow:0 2px 8px rgba(230,81,0,0.35)';
