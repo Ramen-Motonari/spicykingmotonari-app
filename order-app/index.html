@@ -995,10 +995,11 @@ function subscribeOrders(){
   if(unsubOrders) unsubOrders();
   _lastSubscribeError = null;
   console.log('[subscribeOrders] start for sessionId:', sessionId);
+  // orderBy('createdAt') を外し、where のみで取得（複合インデックス不要化）
+  // ソートは JS 側で実行
   const q = window.FB.query(
     window.FB.collection(window.FB.db, 'orders'),
-    window.FB.where('sessionId','==',sessionId),
-    window.FB.orderBy('createdAt','desc')
+    window.FB.where('sessionId','==',sessionId)
   );
   unsubOrders = window.FB.onSnapshot(q, (snap) => {
     orderHistory = [];
@@ -1007,6 +1008,12 @@ function subscribeOrders(){
       // ✨ Kitchenの注文変更でキャンセル扱いになったオーダーを除外
       if (data.paymentType === 'cancelled_by_edit') return;
       orderHistory.push({fbId: d.id, ...data});
+    });
+    // クライアント側で createdAt 降順にソート
+    orderHistory.sort((a, b) => {
+      const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+      const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+      return tb - ta;
     });
     console.log('[subscribeOrders] snapshot received — orderHistory.length=', orderHistory.length);
     if($('historyScreen').classList.contains('open')) renderHistory();
@@ -1083,10 +1090,10 @@ async function manualFetchOrders(){
   }
   try {
     console.log('[manualFetch] fetching orders for sessionId:', sessionId);
+    // orderBy を外してインデックス不要化、JS側でソート
     const q = window.FB.query(
       window.FB.collection(window.FB.db, 'orders'),
-      window.FB.where('sessionId','==',sessionId),
-      window.FB.orderBy('createdAt','desc')
+      window.FB.where('sessionId','==',sessionId)
     );
     const snap = await window.FB.getDocs(q);
     orderHistory = [];
@@ -1094,6 +1101,11 @@ async function manualFetchOrders(){
       const data = d.data();
       if (data.paymentType === 'cancelled_by_edit') return;
       orderHistory.push({fbId: d.id, ...data});
+    });
+    orderHistory.sort((a, b) => {
+      const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+      const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+      return tb - ta;
     });
     console.log('[manualFetch] fetched:', orderHistory.length);
     if($('historyScreen').classList.contains('open')) renderHistory();
@@ -1308,17 +1320,28 @@ async function attemptSessionRecovery(){
   } catch(e){ console.warn('localStorage recovery skipped:', e); }
 
   // ── 2. Firestoreから「このテーブル × 未会計」の最新注文を逆引き ──
+  // 複合インデックス回避のため where のみで取得、JS側で絞り込み＆ソート
   try {
     const q = window.FB.query(
       window.FB.collection(window.FB.db, 'orders'),
-      window.FB.where('table','==', tableNum),
-      window.FB.where('status','in', ['pending','preparing','served']),
-      window.FB.orderBy('createdAt','desc'),
-      window.FB.limit(1)
+      window.FB.where('table','==', tableNum)
     );
     const snap = await window.FB.getDocs(q);
-    if(!snap.empty){
-      const order = snap.docs[0].data();
+    // JS側で status と createdAt の絞り込み・ソート
+    const candidates = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (['pending','preparing','served'].includes(data.status)) {
+        candidates.push(data);
+      }
+    });
+    candidates.sort((a, b) => {
+      const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+      const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+    if(candidates.length > 0){
+      const order = candidates[0];
       if(order.sessionId){
         let langR = 'ja', visitR = 'first';
         try {
@@ -1345,15 +1368,19 @@ async function attemptSessionRecovery(){
 }
 
 async function hasUnpaidOrdersForSession(sid){
+  // 複合インデックス回避のため where のみで取得、JS側で絞り込み
   try {
     const q = window.FB.query(
       window.FB.collection(window.FB.db, 'orders'),
-      window.FB.where('sessionId','==', sid),
-      window.FB.where('status','in', ['pending','preparing','served']),
-      window.FB.limit(1)
+      window.FB.where('sessionId','==', sid)
     );
     const snap = await window.FB.getDocs(q);
-    return !snap.empty;
+    let hasUnpaid = false;
+    snap.forEach(d => {
+      const data = d.data();
+      if (['pending','preparing','served'].includes(data.status)) hasUnpaid = true;
+    });
+    return hasUnpaid;
   } catch(e){ return true; /* 不明なら復元側に倒す */ }
 }
 
