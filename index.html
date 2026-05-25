@@ -229,6 +229,18 @@ body.dark-bg{background:#111}
 </head>
 <body class="dark-bg">
 <script>document.documentElement.classList.add('dark-bg');</script>
+<script>
+  // テストモードバナー（?test=1 でアクセス時に画面上部に表示）
+  if (new URLSearchParams(location.search).get('test')==='1') {
+    document.addEventListener('DOMContentLoaded', () => {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:linear-gradient(90deg,#7c3aed,#a855f7);color:#fff;font-size:11px;font-weight:900;text-align:center;padding:4px 8px;letter-spacing:1px;box-shadow:0 2px 8px rgba(124,58,237,0.4)';
+      banner.textContent = '🧪 TEST MODE — テストモード（売上集計に含まれません）';
+      document.body.appendChild(banner);
+      document.body.style.paddingTop = '24px';
+    });
+  }
+</script>
 
 <!-- Canonical menu data (3アプリ共通) -->
 <script src="./menu-canonical.js"></script>
@@ -766,6 +778,9 @@ function normalizeTable(raw) {
 
 const tableNum = normalizeTable(new URLSearchParams(location.search).get('table'));
 const isAdminMode = new URLSearchParams(location.search).get('admin')==='1';
+// テストモード：?test=1 でアクセス。注文は通常通り送信されるが testMode: true フラグが付き売上分析から除外
+const isTestMode = new URLSearchParams(location.search).get('test')==='1';
+if (isTestMode) console.log('[TEST MODE] Orders will be flagged as testMode=true');
 
 /* Auth state */
 let currentUser = null;
@@ -2051,6 +2066,7 @@ async function placeOrder(){
       status: 'pending',
       paymentMethod: null,
       paymentType: null,
+      testMode: isTestMode || false,
       createdAt: window.FB.serverTimestamp()
     };
 
@@ -2624,6 +2640,7 @@ async function submitKaedamaOrder(){
       paymentMethod: null,
       paymentType: null,
       isKaedamaOrder: true,
+      testMode: isTestMode || false,
       createdAt: window.FB.serverTimestamp()
     };
     await window.FB.addDoc(
