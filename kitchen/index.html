@@ -52,9 +52,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 /* 3層構成（ラーメン／ミドル／ドリンク） */
 .tk-tier{padding:2px 0}
 .tk-tier + .tk-tier{margin-top:4px;padding-top:6px;border-top:2px dashed #d4c8a8}
-/* 新規追加アイテム強調 */
+/* 新規追加アイテム強調：赤枠のみ（個別🆕バッジは廃止） */
 .tk-item-new{position:relative}
-.tk-item-new::before{content:'🆕';position:absolute;top:2px;right:8px;z-index:20;font-size:13px;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);color:#fff;padding:2px 6px;border-radius:6px;font-weight:900;letter-spacing:0.5px;box-shadow:0 2px 6px rgba(231,76,60,0.5);animation:newOrderPulse 1.4s ease infinite}
 .tk-item-new .ramen-group-card,
 .tk-item-new .ticket-compact-card{border-color:#e74c3c !important;box-shadow:0 0 0 1.5px #e74c3c,0 2px 8px rgba(231,76,60,0.25) !important}
 /* 伝票ヘッダーの新規追加フラグ */
@@ -142,6 +141,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .tc-name{font-size:20px;font-weight:700;color:#111;line-height:1.2}
 .tc-opts{font-size:14px;color:#666;margin-top:2px;font-weight:600}
 .tc-qty{font-family:'Oswald',sans-serif;font-size:22px;color:#c8860a;font-weight:700;flex-shrink:0}
+.tc-qty-multi{color:#e74c3c !important;font-weight:900 !important}
+.tc-qty-added{color:#e74c3c !important;font-weight:900 !important;font-size:16px !important;font-family:'Noto Sans JP','Oswald',sans-serif !important;background:rgba(231,76,60,0.12);border:1.5px solid #e74c3c;padding:2px 8px;border-radius:8px;letter-spacing:0.5px}
 /* === レスポンシブ：スマホは伝票1列・文字サイズ縮小 === */
 @media (max-width: 640px){
   #kitchenContent{gap:0;padding:0 0 10px}
@@ -172,14 +173,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .tc-qty{font-size:18px}
   .suborder-new-badge{font-size:10px;padding:3px 8px}
   .ticket-new-flag{font-size:9px;padding:2px 6px}
-  .tk-item-new::before{font-size:10px;padding:1px 4px}
   /* スマホ用：伝票を2列にし縦領域を確保 */
   #kitchenContent > .ticket{flex:0 0 calc(50vw - 4px);width:calc(50vw - 4px);max-width:calc(50vw - 4px)}
-  #helpScreen .ticket{flex:0 0 calc(50vw - 4px);width:calc(50vw - 4px);max-width:calc(50vw - 4px)}
-  .hlp-sec-title{font-size:11px}
-  .hlp-row{font-size:14px}
-  .hlp-row .hlp-count{font-size:18px}
-  .hlp-side-item{font-size:12px;padding:5px 6px}
   /* スマホ用：ヘッダーボタンを絵文字のみに縮約（縦領域を最大化） */
   .staff-header{padding:6px 8px;gap:4px}
   .header-title{font-size:13px}
@@ -284,32 +279,6 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .switch-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s}
 .switch-btn.to-register{background:rgba(59,130,246,0.2);color:var(--blue);border:1px solid var(--blue)}
 .switch-btn.to-kitchen{background:rgba(200,134,10,0.2);color:var(--accent);border:1px solid var(--accent)}
-.switch-btn.to-help{background:rgba(231,76,60,0.18);color:#e74c3c;border:1px solid #e74c3c}
-.switch-btn.to-help.active{background:#e74c3c;color:#fff}
-/* ヘルプ画面の伝票内セクション */
-/* ヘルプ画面：app-screen の display:none を保ちつつ active 時のみ flex で表示 */
-#helpScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden;flex-direction:column}
-#helpScreen.active{display:flex !important}
-#helpContent{flex:1;display:flex;flex-wrap:wrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;align-items:stretch}
-#helpScreen .ticket{flex:0 0 calc(33.333vw - 7px);width:calc(33.333vw - 7px);max-width:calc(33.333vw - 7px);scroll-snap-align:start}
-.hlp-sec{padding:8px 10px;border-bottom:1.5px dashed #d4c8a8}
-.hlp-sec:last-child{border-bottom:none}
-.hlp-sec-title{font-size:13px;font-weight:900;color:#a37915;letter-spacing:1.5px;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #e8d9b8}
-.hlp-sub-title{font-size:11px;color:#666;font-weight:700;margin:4px 0 2px}
-.hlp-note{font-size:10px;color:#888;font-style:italic;margin-bottom:4px}
-.hlp-row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 2px;font-size:18px;font-weight:800;color:#222}
-.hlp-row .hlp-label{flex:1}
-.hlp-row .hlp-count{font-family:'Oswald',sans-serif;font-size:22px;color:#1a1008;font-weight:900}
-.hlp-row .hlp-old{font-family:'Oswald',sans-serif;font-size:16px;color:#999;text-decoration:line-through}
-.hlp-row .hlp-new{color:#e74c3c}
-.hlp-row .hlp-diff-arrow{color:#e74c3c;font-size:18px;margin:0 4px}
-.hlp-row .hlp-diff-add{color:#e74c3c;font-weight:900;font-size:14px;margin-left:6px}
-.hlp-row .hlp-detail{font-size:11px;color:#777;font-weight:500;margin-left:6px}
-.hlp-side-list{display:flex;flex-direction:column;gap:4px}
-.hlp-side-item{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;font-weight:700;color:#222}
-.hlp-side-item.is-new{border-color:#e74c3c;background:#fff5f5;color:#e74c3c}
-.hlp-side-item .hlp-side-qty{font-family:'Oswald',sans-serif;font-size:18px;font-weight:900;color:#c8860a}
-.hlp-side-item.is-new .hlp-side-qty{color:#e74c3c}
 @keyframes bellPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:0.5}}
 @keyframes bellShake{0%,100%{transform:rotate(0deg)}15%{transform:rotate(-22deg)}30%{transform:rotate(22deg)}45%{transform:rotate(-14deg)}60%{transform:rotate(14deg)}75%{transform:rotate(-8deg)}90%{transform:rotate(8deg)}}
 @keyframes newOrderGlow{0%,100%{box-shadow:0 0 0px rgba(46,204,113,0)}50%{box-shadow:0 0 18px rgba(46,204,113,0.6)}}
@@ -339,7 +308,6 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <span class="header-badge" id="headerBadge">キッチン</span>
 </div>
 <div class="header-right" style="display:flex;align-items:center;gap:8px">
-<button class="switch-btn to-help" id="helpBtn" onclick="toggleHelpView()"><span class="ico">🆘</span><span class="lbl">ヘルプ</span></button>
 <button class="switch-btn to-register" id="switchBtn" onclick="switchMode()"><span class="ico">💰</span><span class="lbl">レジに切り替え ▶</span></button>
 <button onclick="toggleReorderMode()" class="reorder-toggle-btn" id="reorderToggleBtn"><span class="ico">↕</span><span class="lbl"> 並び替え</span></button>
 <button onclick="openSoldoutScreen()" style="padding:6px 12px;border-radius:20px;border:1px solid var(--accent2);background:rgba(192,57,43,0.2);color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif" id="soldoutBtn"><span class="ico">🚫</span><span class="lbl"> 売り切れ</span></button>
@@ -363,10 +331,6 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div id="kitchenCountBar"><span class="kcb-group"><span class="kcb-icon">🍜</span>注文件数 <span id="kitchenCountNum">0</span> 件</span></div>
 <div id="kitchenContent"></div>
 </div>
-<div class="app-screen" id="helpScreen">
-<div id="helpCountBar" style="background:#1a1008;color:#e2a14b;padding:8px 14px;font-size:12px;letter-spacing:1px;font-weight:700;border-bottom:1px solid #2a2a2a"><span class="kcb-group">🆘 キッチンヘルプ — 注文件数 <span id="helpCountNum">0</span> 件</span></div>
-<div id="helpContent"></div>
-</div>
 <div class="app-screen" id="soldoutScreen">
 <div style="padding:16px">
 <div style="font-family:'Oswald',sans-serif;font-size:18px;letter-spacing:2px;margin-bottom:4px">🚫 売り切れ管理</div>
@@ -377,10 +341,11 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 </div>
 <div class="app-screen" id="registerScreen">
 <div class="reg-tabs">
-<button class="reg-tab active" onclick="filterReg(this,'all')">すべて</button>
-<button class="reg-tab" onclick="filterReg(this,'ordering')">注文中</button>
-<button class="reg-tab" onclick="filterReg(this,'payment')">🔔 会計待ち</button>
-<button class="reg-tab" onclick="openUndoPayment()" style="margin-left:auto;background:rgba(192,57,43,0.15);border-color:var(--accent2);color:var(--accent2);font-weight:900">↩️ 会計取消</button>
+<button class="reg-tab active" onclick="filterReg(this,'all')" data-regI18n="tabAll">すべて</button>
+<button class="reg-tab" onclick="filterReg(this,'ordering')" data-regI18n="tabOrdering">注文中</button>
+<button class="reg-tab" onclick="filterReg(this,'payment')" data-regI18n="tabPayment">🔔 会計待ち</button>
+<button class="reg-tab" onclick="toggleRegLang()" id="regLangBtn" style="margin-left:auto;background:rgba(200,134,10,0.15);border-color:var(--accent);color:var(--accent);font-weight:900">🌐 EN</button>
+<button class="reg-tab" onclick="openUndoPayment()" style="background:rgba(192,57,43,0.15);border-color:var(--accent2);color:var(--accent2);font-weight:900" data-regI18n="undoPayment">↩️ 会計取消</button>
 </div>
 <div class="table-grid" id="tableGrid"></div>
 </div>
@@ -441,12 +406,12 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div class="detail-total-price" id="detailTotal">¥0</div>
 </div>
 <div class="detail-actions">
-<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')">💰 会計に進む</button>
-<button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--blue)">👥 別会計</button>
-<button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--purple)">🔗 他テーブルと合算</button>
-<button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:var(--accent)">✏️ 注文変更</button>
-<button class="btn-complete" id="btnService" onclick="completeService()" style="background:#7c3aed">🎁 サービス（全額無料）</button>
-<button class="btn-close-detail" onclick="closeDetail()">閉じる</button>
+<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')"><span data-regI18n="btnProceedPay">💰 会計に進む</span></button>
+<button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--blue)"><span data-regI18n="btnSeparate">👥 別会計</span></button>
+<button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--purple)"><span data-regI18n="btnMerge">🔗 他テーブルと合算</span></button>
+<button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:var(--accent)"><span data-regI18n="btnEdit">✏️ 注文変更</span></button>
+<button class="btn-complete" id="btnService" onclick="completeService()" style="background:#7c3aed"><span data-regI18n="btnService">🎁 サービス（全額無料）</span></button>
+<button class="btn-close-detail" onclick="closeDetail()" data-regI18n="closeBtn">閉じる</button>
 </div>
 </div>
 </div>
@@ -577,6 +542,52 @@ const catLabel = {ramen:'🍜 ラーメン', teishoku:'🥟 定食', side:'🥟 
 
 let orders = [], tables = {}, soldoutIds = [];
 let currentMode = 'kitchen', selectedTable = null, regFilter = 'all';
+// レジ画面スタッフ向け言語（ja / en）。お客様も見るメニュー名・合計金額は変更しない。
+let regLang = (function() {
+  try { return localStorage.getItem('motonari_reg_lang') || 'ja'; } catch(e) { return 'ja'; }
+})();
+const REG_I18N = {
+  ja: {
+    tabAll: 'すべて', tabOrdering: '注文中', tabPayment: '🔔 会計待ち', undoPayment: '↩️ 会計取消',
+    paySelectTitle: 'お支払い方法を選択', paySelectAfterMsg: '⚠️ お会計終了後にタップ',
+    payCash: '現金', payCard: 'クレジットカード', cancel: 'キャンセル',
+    statusEmpty: '空席', statusOrdering: '注文中', statusPayment: '🔔 会計リクエスト',
+    btnProceedPay: '💰 会計に進む', btnSeparate: '👥 別会計', btnMerge: '🔗 他テーブルと合算',
+    btnEdit: '✏️ 注文変更', btnService: '🎁 サービス（全額無料）', closeBtn: '閉じる',
+    headerRegister: 'レジ', back: '戻る', confirm: '確定', total: '合計'
+  },
+  en: {
+    tabAll: 'All', tabOrdering: 'Ordering', tabPayment: '🔔 Payment Req.', undoPayment: '↩️ Undo Payment',
+    paySelectTitle: 'Select Payment Method', paySelectAfterMsg: '⚠️ Tap AFTER payment completed',
+    payCash: 'Cash', payCard: 'Credit Card', cancel: 'Cancel',
+    statusEmpty: 'Empty', statusOrdering: 'Ordering', statusPayment: '🔔 Payment Request',
+    btnProceedPay: '💰 Proceed to Payment', btnSeparate: '👥 Split Bill', btnMerge: '🔗 Merge with Other Tables',
+    btnEdit: '✏️ Edit Order', btnService: '🎁 Service (Free)', closeBtn: 'Close',
+    headerRegister: 'Register', back: 'Back', confirm: 'Confirm', total: 'Total'
+  }
+};
+function regT(key) { return (REG_I18N[regLang] && REG_I18N[regLang][key]) || (REG_I18N.ja[key] || key); }
+function applyRegI18n() {
+  document.querySelectorAll('[data-regI18n]').forEach(el => {
+    const k = el.getAttribute('data-regI18n');
+    if (k) el.textContent = regT(k);
+  });
+  // 言語切替ボタン
+  const btn = document.getElementById('regLangBtn');
+  if (btn) btn.textContent = regLang === 'ja' ? '🌐 EN' : '🌐 日本語';
+}
+function toggleRegLang() {
+  regLang = regLang === 'ja' ? 'en' : 'ja';
+  try { localStorage.setItem('motonari_reg_lang', regLang); } catch(e) {}
+  applyRegI18n();
+  // 動的に生成された UI を再描画
+  if (currentMode === 'register') {
+    if (document.getElementById('registerScreen').classList.contains('active')) renderRegister();
+    // テーブル詳細モーダルが開いていれば
+    const detailOverlay = document.getElementById('detailOverlay');
+    if (detailOverlay && detailOverlay.classList.contains('open') && typeof refreshDetailModal === 'function') refreshDetailModal();
+  }
+}
 let isInitialOrdersLoad = true;
 const prevItemsCount = new Map();
 let paidOrders = [];
@@ -627,7 +638,6 @@ if (o.status === 'paid' && o.paymentType !== 'cancelled_by_edit' && !o.deleted) 
 isInitialOrdersLoad = false;
 rebuildTables();
 if (currentMode === 'kitchen' && document.getElementById('kitchenScreen').classList.contains('active')) renderKitchen();
-if (currentMode === 'help' && document.getElementById('helpScreen').classList.contains('active')) renderKitchenHelp();
 if (currentMode === 'register' && document.getElementById('registerScreen').classList.contains('active')) renderRegister();
 if (document.getElementById('historyFullPage').style.display === 'block') renderHistoryList();
 if (selectedTable && document.getElementById('detailOverlay').classList.contains('open')) refreshDetailModal();
@@ -662,8 +672,7 @@ function startCustomMenuListener() {
     rebuildAllMenuItems();
     // 名前変更を画面に即時反映
     if (currentMode === 'kitchen' && document.getElementById('kitchenScreen').classList.contains('active')) renderKitchen();
-    if (currentMode === 'help' && document.getElementById('helpScreen').classList.contains('active')) renderKitchenHelp();
-    if (currentMode === 'register' && document.getElementById('registerScreen').classList.contains('active')) renderRegister();
+        if (currentMode === 'register' && document.getElementById('registerScreen').classList.contains('active')) renderRegister();
   }, err => console.error('customMenuItems listener:', err));
 }
 
@@ -676,8 +685,7 @@ function startMenuOverridesListener() {
     rebuildAllMenuItems();
     // 名前変更を画面に即時反映
     if (currentMode === 'kitchen' && document.getElementById('kitchenScreen').classList.contains('active')) renderKitchen();
-    if (currentMode === 'help' && document.getElementById('helpScreen').classList.contains('active')) renderKitchenHelp();
-    if (currentMode === 'register' && document.getElementById('registerScreen').classList.contains('active')) renderRegister();
+        if (currentMode === 'register' && document.getElementById('registerScreen').classList.contains('active')) renderRegister();
     // テーブル詳細モーダルが開いていれば再描画
     const detailModal = document.getElementById('tableDetailModal');
     if (detailModal && detailModal.style.display !== 'none' && typeof refreshDetailModal === 'function') {
@@ -1283,7 +1291,7 @@ function renderTableTicket(tt) {
     const cardsHtml = list.map(e => {
       const cardHtml = isRamenGroup(e.grp)
         ? renderRamenGroupCard(e.order.id, e.grp)
-        : renderCompactGroupCard(e.order.id, e.grp);
+        : renderCompactGroupCard(e.order.id, e.grp, e.isNewOrder);
       // 新規追加アイテムは赤枠＋NEWバッジで強調
       return e.isNewOrder
         ? `<div class="tk-item-new">${cardHtml}</div>`
@@ -1326,316 +1334,6 @@ function renderTicket(order) {
   return renderTableTicket({ tableLabel: order.tableLabel || order.table || '?', orders: [order] });
 }
 
-// =============================================================
-// ヘルプ画面：ラーメントッピング・揚げ物・サイド集計
-// =============================================================
-// 揚げ物・チャーシュー判定用のヘルパー
-const HELP_GYOZA_PIECES_BY_ID = {
-  24: 2,   // 餃子 2個
-  25: 4,   // 餃子 4個
-  28: 8,   // 餃子 8個
-  26: 4,   // ヤンニョム餃子（4個）
-  27: 4,   // メキシカン餃子（4個）
-  65: 2,   // 餃子2個＋半ライスセット
-  66: 3,   // 3種餃子セット（3種類×1）
-  67: 4,   // 餃子定食（標準4個）
-  90: 5, 91: 10, 92: 15, 93: 20, 94: 25, 95: 30  // テイクアウト（推定ID範囲）
-};
-const HELP_KARAAGE_IDS = [21]; // からあげ（3個）
-const HELP_TONKATSU_ITEM_ID = 48; // とんかつ単品
-const HELP_CHICKENKATSU_ITEM_ID = 49; // チキンカツ単品
-const HELP_CHASHU_ADDON_ID = 62; // チャーシュー3枚
-
-// 1ラーメン注文内のオプションを解析（簡易版）
-function helpExtractRamenOpts(item) {
-  const opts = Array.isArray(item.opts) ? item.opts : [];
-  const r = { tonkatsu: false, chickenkatsu: false, chashu: '' };
-  opts.forEach(rawOpt => {
-    const s = stripOptPrice(String(rawOpt)).trim();
-    if (/^(とんかつ|Tonkatsu|炸猪排|돈가스)$/i.test(s)) r.tonkatsu = true;
-    if (/^(チキンカツ|Chicken\s*Katsu|炸鸡排|치킨가스)$/i.test(s)) r.chickenkatsu = true;
-    if (/^(豚|Pork|猪|돼지)$/i.test(s)) r.chashu = 'ブタ';
-    if (/^(鶏|Chicken|鸡|닭)$/i.test(s)) r.chashu = 'トリ';
-  });
-  return r;
-}
-
-// 1つの注文を集計
-function helpAccumulateOrder(order, agg) {
-  const items = Array.isArray(order.items) ? order.items : [];
-  items.forEach(it => {
-    const id = it.itemId;
-    const qty = it.qty || 0;
-    const canon = MOTONARI.getMenuById(id);
-    const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(it.name);
-
-    // ラーメン/定食：opts からトッピング情報を取得
-    if (logical === 'ramen' || logical === 'teishoku') {
-      const r = helpExtractRamenOpts(it);
-      if (r.tonkatsu) agg.tonkatsu += qty;
-      if (r.chickenkatsu) agg.chickenkatsu += qty;
-      if (r.chashu === 'ブタ') {
-        const slices = isSpSeries(it) ? 3 : 1;
-        agg.butaChashu += qty * slices;
-      }
-      if (r.chashu === 'トリ') {
-        const slices = isSpSeries(it) ? 3 : 1;
-        agg.toriChashu += qty * slices;
-      }
-      return;
-    }
-
-    // 単品 とんかつ / チキンカツ（addon）
-    if (id === HELP_TONKATSU_ITEM_ID) { agg.tonkatsu += qty; return; }
-    if (id === HELP_CHICKENKATSU_ITEM_ID) { agg.chickenkatsu += qty; return; }
-    // 単品 チャーシュー3枚（addon）
-    if (id === HELP_CHASHU_ADDON_ID) { agg.butaChashu += qty * 3; return; }
-
-    // 餃子（サイド）
-    if (HELP_GYOZA_PIECES_BY_ID[id]) {
-      const pieces = HELP_GYOZA_PIECES_BY_ID[id] * qty;
-      agg.gyozaTotal += pieces;
-      agg.gyozaBreakdown.push({ name: getCurrentItemName(it) || it.name || '餃子', qty, pieces });
-    }
-    // からあげ
-    if (HELP_KARAAGE_IDS.includes(id)) {
-      const pieces = 3 * qty;
-      agg.karaageTotal += pieces;
-      agg.karaageBreakdown.push({ name: getCurrentItemName(it) || it.name || 'からあげ', qty, pieces });
-    }
-    // サイド一覧（cat='side'）
-    if (canon && canon.cat === 'side') {
-      const name = getCurrentItemName(it) || it.name || '?';
-      agg.sideItems.push({ name, qty, id });
-    } else if (!canon) {
-      // customMenuItem の場合
-      const custom = _kitchenCustomMenuItems.find(c => c.id === id);
-      if (custom && custom.cat === 'side') {
-        const name = getCurrentItemName(it) || it.name || '?';
-        agg.sideItems.push({ name, qty, id });
-      }
-    }
-  });
-}
-
-// 1テーブル分の集計：既存（base）と新規追加（new）を分けて返す
-function helpAggregateTable(tt) {
-  const makeAgg = () => ({
-    tonkatsu: 0, chickenkatsu: 0, butaChashu: 0, toriChashu: 0,
-    gyozaTotal: 0, gyozaBreakdown: [],
-    karaageTotal: 0, karaageBreakdown: [],
-    sideItems: []
-  });
-  const base = makeAgg();
-  const added = makeAgg();
-  const orderList = tt.orders || [];
-  orderList.forEach((order, orderIdx) => {
-    const items = Array.isArray(order.items) ? order.items : [];
-    const hasUnserved = items.some(i => !i.served);
-    const isNewBlock = (orderIdx > 0) && hasUnserved;
-    if (isNewBlock) {
-      helpAccumulateOrder(order, added);
-    } else {
-      helpAccumulateOrder(order, base);
-    }
-  });
-  return { base, added };
-}
-
-// 各行のレンダリング（差分付き）
-function helpRowHTML(label, baseCount, addedCount, unit, detail) {
-  const total = baseCount + addedCount;
-  if (total === 0) return '';
-  const detailHtml = detail ? `<span class="hlp-detail">${detail}</span>` : '';
-  if (addedCount > 0 && baseCount > 0) {
-    return `<div class="hlp-row">
-      <span class="hlp-label">${label}${detailHtml}</span>
-      <span><span class="hlp-old">✖️${baseCount}${unit}</span><span class="hlp-diff-arrow">▶</span><span class="hlp-count hlp-new">✖️${total}${unit}</span><span class="hlp-diff-add">(${addedCount}${unit}追加)</span></span>
-    </div>`;
-  }
-  if (addedCount > 0 && baseCount === 0) {
-    return `<div class="hlp-row">
-      <span class="hlp-label">${label}${detailHtml}</span>
-      <span><span class="hlp-count hlp-new">✖️${total}${unit}</span><span class="hlp-diff-add">(新規${addedCount}${unit})</span></span>
-    </div>`;
-  }
-  return `<div class="hlp-row">
-    <span class="hlp-label">${label}${detailHtml}</span>
-    <span class="hlp-count">✖️${total}${unit}</span>
-  </div>`;
-}
-
-function renderHelpTicket(tt) {
-  const orderList = tt.orders || [];
-  const first = orderList[0];
-  if (!first) return '';
-  const tLabel = tt.tableLabel;
-  const tIdSafe = tableIdSafe(tLabel);
-  const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
-  const visitLabel = first.visitType === 'first' ? '初回' : 'リピーター';
-
-  const { base, added } = helpAggregateTable(tt);
-
-  // ─ Section 1: ラーメントッピング ─
-  let s1Rows = '';
-  // 揚げ物（チキンカツは ×2 で表示）
-  let agePart = '';
-  agePart += helpRowHTML('とんかつ', base.tonkatsu, added.tonkatsu, '枚');
-  // チキンカツは注文数×2
-  const ck_base_disp = base.chickenkatsu * 2;
-  const ck_added_disp = added.chickenkatsu * 2;
-  agePart += helpRowHTML('チキンカツ', ck_base_disp, ck_added_disp, '枚',
-    (base.chickenkatsu + added.chickenkatsu) > 0 ? '（注文数×2）' : '');
-  // チャーシュー
-  let chashuPart = '';
-  chashuPart += helpRowHTML('ブタ', base.butaChashu, added.butaChashu, '枚');
-  chashuPart += helpRowHTML('トリ', base.toriChashu, added.toriChashu, '枚');
-
-  let s1Html = '';
-  if (agePart || chashuPart) {
-    s1Html = `<div class="hlp-sec">
-      <div class="hlp-sec-title">○ラーメントッピング</div>
-      <div class="hlp-note">（以下枚数は参考として記載）</div>
-      ${agePart ? `<div class="hlp-sub-title">《揚げ物》</div>${agePart}` : ''}
-      ${chashuPart ? `<div class="hlp-sub-title">《チャーシュー》</div>${chashuPart}` : ''}
-    </div>`;
-  }
-
-  // ─ Section 2: サイド揚げ物個数 ─
-  let s2Rows = '';
-  // 餃子集計の内訳テキスト生成
-  const gyozaDetailMap = new Map();
-  base.gyozaBreakdown.concat(added.gyozaBreakdown).forEach(g => {
-    if (!gyozaDetailMap.has(g.name)) gyozaDetailMap.set(g.name, 0);
-    gyozaDetailMap.set(g.name, gyozaDetailMap.get(g.name) + g.qty);
-  });
-  const gyozaDetail = gyozaDetailMap.size ? '（' + Array.from(gyozaDetailMap.entries()).map(([n,q]) => `${n}${q}`).join('・') + '）' : '';
-  s2Rows += helpRowHTML('餃子', base.gyozaTotal, added.gyozaTotal, '個', gyozaDetail);
-
-  const karaageDetailMap = new Map();
-  base.karaageBreakdown.concat(added.karaageBreakdown).forEach(g => {
-    if (!karaageDetailMap.has(g.name)) karaageDetailMap.set(g.name, 0);
-    karaageDetailMap.set(g.name, karaageDetailMap.get(g.name) + g.qty);
-  });
-  const karaageDetail = karaageDetailMap.size ? '（1注文3個）' : '';
-  s2Rows += helpRowHTML('からあげ', base.karaageTotal, added.karaageTotal, '個', karaageDetail);
-
-  const s2Html = s2Rows ? `<div class="hlp-sec">
-    <div class="hlp-sec-title">○サイド揚げ物個数</div>
-    ${s2Rows}
-  </div>` : '';
-
-  // ─ Section 3: サイド（通常表示） ─
-  // 各サイドを集約：同じIDは合算。新規分は別フラグ。
-  const sideMap = new Map(); // id -> { name, qty, isNew }
-  base.sideItems.forEach(it => {
-    if (!sideMap.has(it.id)) sideMap.set(it.id, { name: it.name, qty: 0, isNew: false });
-    sideMap.get(it.id).qty += it.qty;
-  });
-  added.sideItems.forEach(it => {
-    if (!sideMap.has(it.id)) sideMap.set(it.id, { name: it.name, qty: 0, isNew: true });
-    else { sideMap.get(it.id).qty += it.qty; sideMap.get(it.id).isNew = true; }
-    sideMap.get(it.id).qty += 0; // already added above
-  });
-  // 上のロジック簡素化
-  const sideList = [];
-  base.sideItems.forEach(it => {
-    let e = sideList.find(x => x.id === it.id);
-    if (!e) { e = { id: it.id, name: it.name, qty: 0, addedQty: 0 }; sideList.push(e); }
-    e.qty += it.qty;
-  });
-  added.sideItems.forEach(it => {
-    let e = sideList.find(x => x.id === it.id);
-    if (!e) { e = { id: it.id, name: it.name, qty: 0, addedQty: 0 }; sideList.push(e); }
-    e.addedQty += it.qty;
-  });
-
-  const sideHtml = sideList.length ? `<div class="hlp-sec">
-    <div class="hlp-sec-title">○サイド注文</div>
-    <div class="hlp-side-list">
-      ${sideList.map(s => {
-        const isNew = s.addedQty > 0;
-        const totalQty = s.qty + s.addedQty;
-        const qtyText = totalQty > 1 ? `×${totalQty}` : '';
-        const newBadge = isNew && s.qty > 0 ? `<span style="font-size:10px;color:#e74c3c;margin-left:4px">(+${s.addedQty}追加)</span>` : '';
-        return `<div class="hlp-side-item ${isNew?'is-new':''}">
-          <span>・${s.name}${newBadge}</span>
-          ${qtyText ? `<span class="hlp-side-qty">${qtyText}</span>` : ''}
-        </div>`;
-      }).join('')}
-    </div>
-  </div>` : '';
-
-  // セクションが全部空ならカードは表示しない
-  if (!s1Html && !s2Html && !sideHtml) return '';
-
-  return `<div class="ticket" id="help-ticket-${tIdSafe}">
-<div class="ticket-header">
-<div class="ticket-top">
-<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
-<div class="ticket-table">${tLabel}</div>
-<span class="ticket-visit ${visitClass}">${visitLabel}</span>
-</div>
-<div class="ticket-time">${formatOrderTime(first)}</div>
-</div>
-</div>
-<div style="padding:4px 0 8px">
-${s1Html}
-${s2Html}
-${sideHtml}
-</div>
-</div>`;
-}
-
-function renderKitchenHelp() {
-  const allNotPaid = orders.filter(o =>
-    o.status !== 'paid' &&
-    o.paymentType !== 'cancelled_by_edit' &&
-    (o.status === 'pending' || o.status === 'preparing' || o.status === 'served')
-  );
-  const content = document.getElementById('helpContent');
-  if (!content) return;
-
-  const tableMap = new Map();
-  allNotPaid.forEach(o => {
-    const tl = o.tableLabel || o.table || '?';
-    if (!tableMap.has(tl)) tableMap.set(tl, []);
-    tableMap.get(tl).push(o);
-  });
-
-  const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
-    return list.some(o => {
-      if (o.status !== 'pending' && o.status !== 'preparing') return false;
-      const items = Array.isArray(o.items) ? o.items : [];
-      if (items.length === 0) return false;
-      return items.some(i => !i.served);
-    });
-  }).map(([tl, list]) => {
-    // 全アイテム提供済みの注文は除外
-    const visibleOrders = list.filter(o => {
-      const items = Array.isArray(o.items) ? o.items : [];
-      if (items.length === 0) return false;
-      return items.some(i => !i.served);
-    });
-    const sorted = visibleOrders.slice().sort((a, b) => {
-      const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-      const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-      return ta - tb;
-    });
-    return { tableLabel: tl, orders: sorted };
-  }).filter(tt => tt.orders.length > 0);
-
-  // カウント表示更新
-  const cn = document.getElementById('helpCountNum');
-  if (cn) cn.textContent = tableTickets.length;
-
-  if (!tableTickets.length) {
-    content.innerHTML = `<div class="kitchen-empty" style="padding:40px"><div class="empty-icon">🆘</div><div class="empty-text" style="color:#aaa;text-align:center;padding-top:10px">現在ヘルプ対象の注文はありません</div></div>`;
-    return;
-  }
-
-  content.innerHTML = tableTickets.map(tt => renderHelpTicket(tt)).filter(x=>x).join('');
-}
 // オーダーAPP側で addCart のたびに同じ groupId が振られる。
 // ラーメン+トッピングが一括りで送信される設計。
 // 古い注文（groupIdなし）は各itemを単独グループとして扱う（後方互換）。
@@ -1814,8 +1512,19 @@ function isSpSeries(mainItem) {
   const abbrev = getAbbrev(stripParens(nameJa));
   return /SP/.test(abbrev);
 }
+// チャーシュー枚数:
+//   カレースペシャル系 → 2枚（例外）
+//   その他のSP系（スペシャル系） → 3枚
+//   通常メニュー → 1枚
 function getChashuCount(mainItem) {
-  return isSpSeries(mainItem) ? 3 : 1;
+  if (!mainItem) return 1;
+  const canon = MOTONARI.getMenuById(mainItem.itemId);
+  const nameJa = (canon && canon.name && canon.name.ja) || mainItem.name || '';
+  // カレー + スペシャル の組み合わせは 2枚
+  if (/カレー/.test(nameJa) && /スペシャル/.test(nameJa)) return 2;
+  // 一般 SP 系（スペシャル / 名前または abbrev にSP）→ 3枚
+  if (isSpSeries(mainItem)) return 3;
+  return 1;
 }
 
 // ラーメンのオプションを項目別にパース
@@ -1851,23 +1560,34 @@ function parseRamenOpts(opts, mainItem) {
     if (/^(ふつう|普通|Medium|보통)$/i.test(s)) { result.firmness = 'フツウ'; return; }
     if (/^(やわ|Soft|偏软|부드러움)$/i.test(s)) { result.firmness = 'やわ'; return; }
 
-    // 麺の種類（変更判定）
-    if (/(細麺|Thin|细面|가는면)/i.test(s)) {
-      result.noodleType = '細麺';
-      // 醤油（デフォ平打ち）→細麺に変更
-      result.noodleChanged = (cat === 'shouyu');
-      return;
-    }
-    if (/(平打ち麺|Flat|宽面|넓은면)/i.test(s)) {
-      result.noodleType = '平打ち麺';
-      // 豚骨（デフォ細麺）→平打ちに変更
-      result.noodleChanged = (cat === 'tonkotsu');
+    // 麺の種類＋量（noodleSize オプションは「平打ち麺 大盛り +250円」のように1文字列で来る）
+    // 麺タイプと量の両方を同じ文字列から抽出
+    const hasThin = /(細麺|Thin|细面|가는면)/i.test(s);
+    const hasFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(s);
+    const hasLarge = /(大盛り|大盛|Large|大碗|곱배기)/i.test(s);
+    const hasLess = /(少盛|少量|^少|\s少|少 |Less|적게)/i.test(s);
+    const hasRegular = /(並|Regular|普通)/i.test(s);
+
+    if (hasThin || hasFlat) {
+      if (hasThin) {
+        result.noodleType = '細麺';
+        // 醤油デフォは平打ち → 細麺は変更扱い
+        result.noodleChanged = (cat === 'shouyu');
+      } else {
+        result.noodleType = '平打ち';
+        // 豚骨デフォは細麺 → 平打ちは変更扱い
+        result.noodleChanged = (cat === 'tonkotsu');
+      }
+      // 量を抽出（大 / 小 / 並）
+      if (hasLarge) result.qty = '大';
+      else if (hasLess) result.qty = '小';
+      else if (hasRegular) result.qty = '並';
       return;
     }
 
-    // 量
-    if (/(大盛り|Large|大碗|곱배기)/i.test(s)) { result.qty = '大盛り'; return; }
-    if (/(少|Less|少量|적게)/i.test(s)) { result.qty = '少'; return; }
+    // 量だけのオプション（旧データ・大盛り単独等）
+    if (hasLarge) { result.qty = '大'; return; }
+    if (hasLess) { result.qty = '小'; return; }
 
     // チャーシュー選択
     if (/^(豚|Pork|猪|돼지)$/i.test(s)) { result.chashu = 'ブタ'; return; }
@@ -1909,13 +1629,22 @@ function renderRamenGroupCard(orderId, grp) {
   </div>`;
 
   // ━━━ Section 2: 麺種 / 量 / 硬さ ━━━
+  // 表示ルール:
+  //   - 麺タイプが変更されている場合（豚骨→平打ち、醤油→細麺）：麺名＋量（並含む）を必ず表示
+  //   - 麺タイプがデフォルト：量は「大」or「小」のときのみ表示、「並」は省略
   const noodleParts = [];
   if (p.noodleType && p.noodleChanged) {
     noodleParts.push(`<span class="rg-noodle-change">${p.noodleType}</span>`);
-  } else if (p.noodleType && !p.noodleChanged) {
-    // デフォルトと同じ場合は表示しない（細麺→細麺、平打ち→平打ち）
   }
-  if (p.qty) noodleParts.push(`<span class="rg-qty">${p.qty}</span>`);
+  if (p.qty) {
+    if (p.noodleChanged) {
+      // 変更時は並も含めて表示
+      noodleParts.push(`<span class="rg-qty">${p.qty}</span>`);
+    } else if (p.qty === '大' || p.qty === '小') {
+      // デフォルトのときは大/小のみ表示
+      noodleParts.push(`<span class="rg-qty">${p.qty}</span>`);
+    }
+  }
   if (p.firmness) noodleParts.push(`<span class="rg-firm">${p.firmness}</span>`);
   const noodleHtml = noodleParts.length
     ? `<div class="rg-sec rg-sec-noodle">${noodleParts.join('<span class="rg-sep">/</span>')}</div>`
@@ -1927,7 +1656,11 @@ function renderRamenGroupCard(orderId, grp) {
     const cnt = getChashuCount(main);
     chashuParts.push(`<span class="rg-chashu">${p.chashu}<span class="rg-chashu-cnt">${cnt}枚</span></span>`);
   }
-  if (p.curryTopping) {
+  if (p.curryTopping === 'とんかつ') {
+    chashuParts.push(`<span class="rg-curry">とんかつ（1枚）</span>`);
+  } else if (p.curryTopping === 'チキンカツ') {
+    chashuParts.push(`<span class="rg-curry">チキンカツ（2枚）</span>`);
+  } else if (p.curryTopping) {
     chashuParts.push(`<span class="rg-curry">${p.curryTopping}</span>`);
   }
   const chashuHtml = chashuParts.length
@@ -1956,7 +1689,7 @@ ${addonsHtml}
 </div>`;
 }
 
-function renderCompactGroupCard(orderId, grp) {
+function renderCompactGroupCard(orderId, grp, isNewOrder) {
   // メインがラーメンでないグループ（単独ドリンク・サイド・トッピング単体など）
   const main = grp.main || grp.items[0];
   const allServed = grp.items.every(i => i.served);
@@ -1964,13 +1697,26 @@ function renderCompactGroupCard(orderId, grp) {
   const optsHtml = buildOptsHtml(main.opts, main);
   // アドオンが付いている場合（理論上少ないが）はメインの後に追記
   const subAddons = (grp.addons || []).map(a => `${getAbbrevJa(a)}${a.qty>1?` ×${a.qty}`:''}`).join(' / ');
+  const qty = main.qty || 1;
+  // 数量表示：
+  //   - 追加注文 (isNewOrder): 「＋N追加」表記（赤）
+  //   - 通常注文かつ qty>1: 「✖️N」表記（赤）
+  //   - 通常注文かつ qty=1: 表示なし
+  let qtyHtml = '';
+  if (isNewOrder) {
+    qtyHtml = qty > 1
+      ? `<div class="tc-qty tc-qty-added">＋${qty}追加</div>`
+      : `<div class="tc-qty tc-qty-added">追加</div>`;
+  } else if (qty > 1) {
+    qtyHtml = `<div class="tc-qty tc-qty-multi">✖️${qty}</div>`;
+  }
   return `<div class="ticket-compact-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="tc-check"></div>
 <div class="tc-info">
 <div class="tc-name">${getAbbrevJa(main)}</div>
 ${optsHtml || subAddons ? `<div class="tc-opts">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
 </div>
-${main.qty > 1 ? `<div class="tc-qty">×${main.qty}</div>` : ''}
+${qtyHtml}
 </div>`;
 }
 
@@ -2059,6 +1805,7 @@ if (allServed) showToast(`${order.tableLabel || order.table || '?'} 全品提供
 
 // Register
 function renderRegister() {
+applyRegI18n();
 const grid = document.getElementById('tableGrid');
 grid.innerHTML = SEAT_LABELS.map(label => {
 const t = tables[label] || { label, orderIds: [], status: 'empty', total: 0, visitType: null, paymentRequested: false };
@@ -2067,9 +1814,9 @@ const displayStatus = t.status;
 if (label.startsWith('P') && displayStatus === 'empty') return '';
 if (regFilter === 'ordering' && displayStatus !== 'ordering') return '';
 if (regFilter === 'payment' && displayStatus !== 'payment') return '';
-let statusClass = '', statusLabel = '空席';
-if (displayStatus === 'ordering') { statusClass='status-ordering'; statusLabel='注文中'; }
-if (displayStatus === 'payment') { statusClass='status-payment'; statusLabel='🔔 会計リクエスト'; }
+let statusClass = '', statusLabel = regT('statusEmpty');
+if (displayStatus === 'ordering') { statusClass='status-ordering'; statusLabel=regT('statusOrdering'); }
+if (displayStatus === 'payment') { statusClass='status-payment'; statusLabel=regT('statusPayment'); }
 const cardClass = displayStatus==='payment' ? 'payment-req' : displayStatus==='ordering' ? 'has-order' : '';
 const totalToShow = t.total;
 return `<div class="table-card ${cardClass}" onclick="openTable('${label}')">
@@ -2101,6 +1848,7 @@ document.getElementById('detailOverlay').classList.add('open');
 
 function refreshDetailModal() {
 if (!selectedTable) return;
+applyRegI18n();
 const t = tables[selectedTable];
 if (!t) return;
 document.getElementById('detailTableNum').textContent = selectedTable;
@@ -2314,15 +2062,17 @@ overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-in
 overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:360px;padding:28px 24px;text-align:center">
 <div style="font-size:13px;color:var(--muted);margin-bottom:4px">${tableDisp}</div>
 <div style="font-family:'Oswald',sans-serif;font-size:40px;color:var(--accent);margin-bottom:6px">¥${total.toLocaleString()}</div>
-<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:24px">お支払い方法を選択</div>
+<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:14px">お支払い方法を選択</div>
+<div data-regI18n="paySelectAfterMsg" style="background:rgba(231,76,60,0.15);border:2px solid #e74c3c;color:#ff9a90;font-size:14px;font-weight:900;padding:10px 12px;border-radius:10px;margin-bottom:18px;line-height:1.4;animation:newOrderPulse 1.8s ease infinite">⚠️ お会計終了後にタップ</div>
 <div style="display:flex;flex-direction:column;gap:12px">
-<button onclick="finalizePayment('${type}','cash',${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💴</span> 現金</button>
-<button onclick="finalizePayment('${type}','card',${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💳</span> クレジットカード</button>
-<button onclick="document.getElementById('payMethodOverlay').remove()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px">キャンセル</button>
+<button onclick="finalizePayment('${type}','cash',${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💴</span> <span data-regI18n="payCash">現金</span></button>
+<button onclick="finalizePayment('${type}','card',${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💳</span> <span data-regI18n="payCard">クレジットカード</span></button>
+<button onclick="document.getElementById('payMethodOverlay').remove()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px" data-regI18n="cancel">キャンセル</button>
 </div>
 </div>`;
 if (mergeData) window._pendingMergeData = mergeData;
 document.body.appendChild(overlay);
+applyRegI18n();
 }
 
 async function finalizePayment(type, payMethod, mergeFlag) {
@@ -2939,17 +2689,14 @@ function maybeCloseDetail(e) { if (e.target === document.getElementById('detailO
 
 function switchMode() {
 document.querySelectorAll('.app-screen').forEach(s=>s.classList.remove('active'));
-if (currentMode === 'kitchen' || currentMode === 'help') {
+if (currentMode === 'kitchen') {
 currentMode = 'register';
 document.getElementById('headerTitle').textContent = 'REGISTER';
 document.getElementById('headerBadge').textContent = 'レジ';
 document.getElementById('headerBadge').className = 'header-badge badge-register';
 document.getElementById('switchBtn').innerHTML = '<span class="ico">🍳</span><span class="lbl">キッチンに切り替え ▶</span>';
 document.getElementById('switchBtn').className = 'switch-btn to-kitchen';
-const helpBtn = document.getElementById('helpBtn');
-if (helpBtn) helpBtn.style.display = 'none';
 document.getElementById('kitchenScreen').classList.remove('active');
-document.getElementById('helpScreen').classList.remove('active');
 document.getElementById('registerScreen').classList.add('active');
 renderRegister();
 } else {
@@ -2959,43 +2706,11 @@ document.getElementById('headerBadge').textContent = 'キッチン';
 document.getElementById('headerBadge').className = 'header-badge badge-kitchen';
 document.getElementById('switchBtn').innerHTML = '<span class="ico">💰</span><span class="lbl">レジに切り替え ▶</span>';
 document.getElementById('switchBtn').className = 'switch-btn to-register';
-const helpBtn = document.getElementById('helpBtn');
-if (helpBtn) helpBtn.style.display = '';
 document.getElementById('registerScreen').classList.remove('active');
-document.getElementById('helpScreen').classList.remove('active');
 document.getElementById('kitchenScreen').classList.add('active');
 renderKitchen();
 }
 updateActiveCount();
-}
-
-// キッチン⇄ヘルプ ワンタップ切替
-function toggleHelpView() {
-  document.querySelectorAll('.app-screen').forEach(s=>s.classList.remove('active'));
-  if (currentMode === 'help') {
-    // ヘルプ → キッチン
-    currentMode = 'kitchen';
-    document.getElementById('headerTitle').textContent = 'KITCHEN';
-    document.getElementById('headerBadge').textContent = 'キッチン';
-    document.getElementById('headerBadge').className = 'header-badge badge-kitchen';
-    const helpBtn = document.getElementById('helpBtn');
-    helpBtn.innerHTML = '<span class="ico">🆘</span><span class="lbl">ヘルプ</span>';
-    helpBtn.classList.remove('active');
-    document.getElementById('kitchenScreen').classList.add('active');
-    renderKitchen();
-  } else {
-    // キッチン → ヘルプ
-    currentMode = 'help';
-    document.getElementById('headerTitle').textContent = 'KITCHEN HELP';
-    document.getElementById('headerBadge').textContent = 'ヘルプ';
-    document.getElementById('headerBadge').className = 'header-badge badge-kitchen';
-    const helpBtn = document.getElementById('helpBtn');
-    helpBtn.innerHTML = '<span class="ico">🍜</span><span class="lbl">通常</span>';
-    helpBtn.classList.add('active');
-    document.getElementById('helpScreen').classList.add('active');
-    renderKitchenHelp();
-  }
-  updateActiveCount();
 }
 
 function updateActiveCount() {
@@ -3208,7 +2923,7 @@ window.addEventListener('resize', autoSizeTickets);
 
 // グローバル公開
 window.startMode = startMode; window.goBack = goBack; window.switchMode = switchMode;
-window.toggleHelpView = toggleHelpView;
+window.toggleRegLang = toggleRegLang;
 window.openSoldoutScreen = openSoldoutScreen; window.openSoldoutFullPage = openSoldoutFullPage;
 window.closeSoldoutFullPage = closeSoldoutFullPage; window.toggleSoldout = toggleSoldout;
 window.confirmSoldout = confirmSoldout; window.closeSoldoutModal = closeSoldoutModal;
