@@ -74,6 +74,17 @@ body.dark-bg{background:#111}
 .logo span{color:var(--text)}
 .table-badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--muted)}
 .table-badge b{color:var(--text)}
+/* 言語切替ボタン */
+.lang-switch-btn{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;line-height:1;height:28px}
+.lang-switch-btn:active{transform:scale(0.96)}
+.lang-switch-caret{font-size:10px;color:var(--muted);margin-left:2px}
+.lang-switch-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:2px;animation:langMenuOpen 0.18s ease-out}
+@keyframes langMenuOpen{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.lang-opt{display:flex;align-items:center;gap:10px;background:transparent;border:none;color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:background 0.12s}
+.lang-opt:hover{background:var(--surface2)}
+.lang-opt.current{background:var(--surface2);color:var(--accent);font-weight:700}
+.lang-opt .lf{font-size:18px;line-height:1}
+.lang-opt .ln{font-size:13px;font-weight:600}
 .tabs{display:flex;overflow-x:auto;padding:0 16px 12px;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex-shrink:0;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .2s;margin-right:8px}
@@ -296,7 +307,19 @@ body.dark-bg{background:#111}
     <div class="header-top">
       <!-- セッション破壊の戻るボタンは削除（誤タップで履歴消失を防止）。スタッフが端末リセットしたい場合はブラウザリロード。 -->
       <div class="logo" style="font-size:15px;letter-spacing:2px">SPICY KING <span>MOTONARI</span></div>
-      <div class="table-badge">Table <b id="tableNum">—</b></div>
+      <div style="display:flex;align-items:center;gap:8px;position:relative">
+        <button type="button" class="lang-switch-btn" id="langSwitchBtn" onclick="toggleLangMenu(event)" aria-label="Language">
+          <span id="langSwitchFlag">🇯🇵</span>
+          <span class="lang-switch-caret">▾</span>
+        </button>
+        <div class="lang-switch-menu" id="langSwitchMenu" style="display:none">
+          <button type="button" class="lang-opt" onclick="changeLang('ja')"><span class="lf">🇯🇵</span><span class="ln">日本語</span></button>
+          <button type="button" class="lang-opt" onclick="changeLang('en')"><span class="lf">🇺🇸</span><span class="ln">English</span></button>
+          <button type="button" class="lang-opt" onclick="changeLang('zh')"><span class="lf">🇨🇳</span><span class="ln">中文</span></button>
+          <button type="button" class="lang-opt" onclick="changeLang('ko')"><span class="lf">🇰🇷</span><span class="ln">한국어</span></button>
+        </div>
+        <div class="table-badge">Table <b id="tableNum">—</b></div>
+      </div>
     </div>
     <div class="tabs" id="tabsEl"></div>
   </header>
@@ -585,12 +608,12 @@ const noodleSizeOptsWeekend = {
   zh:['细面普通','细面大碗+¥100','宽面少量+¥150','宽面普通+¥150','宽面大碗+¥250'],
   ko:['가는면 보통','가는면 곱배기+¥100','넓은면 적게+¥150','넓은면 보통+¥150','넓은면 곱배기+¥250']
 };
-// 麺サイズ選択（醤油）：平打ち麺のみ、大盛りは時間帯問わず+150
+// 麺サイズ選択（醤油）：平打ち麺のみ、小は料金変動なし、大盛りは時間帯問わず+150
 const noodleSizeOptsShouyu = {
-  ja:['平打ち麺 並','平打ち麺 大盛り +150円'],
-  en:['Flat Regular','Flat Large +¥150'],
-  zh:['宽面普通','宽面大碗+¥150'],
-  ko:['넓은면 보통','넓은면 곱배기+¥150']
+  ja:['平打ち麺 小','平打ち麺 並','平打ち麺 大盛り +150円'],
+  en:['Flat Small','Flat Regular','Flat Large +¥150'],
+  zh:['宽面少量','宽面普通','宽面大碗+¥150'],
+  ko:['넓은면 적게','넓은면 보통','넓은면 곱배기+¥150']
 };
 function getNoodleSizeOpts(l, cat){
   if (cat === 'shouyu') return noodleSizeOptsShouyu[l];
@@ -1176,6 +1199,7 @@ function applyLang(){
   setText('kaedamaModalTitle',t.kaedamaModalTitle);
   setText('kaedamaCartTitle',t.kaedamaCartTitle);
   setText('kaedamaSubmitBtn',t.kaedamaSubmitBtn);
+  if(typeof updateLangSwitchFlag === 'function') updateLangSwitchFlag();
   if(fbReady) setFbStatus('online', t.connected);
   else if(fbError) setFbStatus('offline', t.offline);
   else setFbStatus('connecting', t.connecting);
@@ -1191,6 +1215,50 @@ function selectLang(l){
   setText('lblRepeat',t.lblRepeat);
   setText('subRepeat',t.subRepeat);
   showScreen('visitScreen');
+}
+
+// メニュー画面の言語切替アコーディオン
+const LANG_FLAGS = { ja:'🇯🇵', en:'🇺🇸', zh:'🇨🇳', ko:'🇰🇷' };
+function toggleLangMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('langSwitchMenu');
+  if (!menu) return;
+  const open = menu.style.display === 'flex';
+  menu.style.display = open ? 'none' : 'flex';
+  if (!open) {
+    menu.querySelectorAll('.lang-opt').forEach(b => {
+      b.classList.toggle('current', b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${lang}'`));
+    });
+    setTimeout(() => {
+      document.addEventListener('click', closeLangMenuOnOutside, { once: true });
+    }, 0);
+  }
+}
+function closeLangMenuOnOutside(e) {
+  const menu = document.getElementById('langSwitchMenu');
+  const btn = document.getElementById('langSwitchBtn');
+  if (!menu || !btn) return;
+  if (menu.contains(e.target) || btn.contains(e.target)) {
+    document.addEventListener('click', closeLangMenuOnOutside, { once: true });
+    return;
+  }
+  menu.style.display = 'none';
+}
+function changeLang(l) {
+  lang = l;
+  const flag = document.getElementById('langSwitchFlag');
+  if (flag) flag.textContent = LANG_FLAGS[l] || '🌐';
+  const menu = document.getElementById('langSwitchMenu');
+  if (menu) menu.style.display = 'none';
+  applyLang();
+  if (typeof renderMenu === 'function') renderMenu();
+  if (typeof renderCart === 'function') renderCart();
+  if (typeof renderHistory === 'function') renderHistory();
+  if (typeof renderPayment === 'function') renderPayment();
+}
+function updateLangSwitchFlag() {
+  const flag = document.getElementById('langSwitchFlag');
+  if (flag) flag.textContent = LANG_FLAGS[lang] || '🌐';
 }
 
 async function selectVisit(type){
