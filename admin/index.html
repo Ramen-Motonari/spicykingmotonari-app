@@ -827,11 +827,13 @@ function getMergedCategories() {
   return [...canonical, ...custom];
 }
 // canonical + customMenuItems + overrides 適用済みのメニューを返す
+// 完全削除（deleted:true）された canonical はスキップ
 function getMergedMenu() {
   const merged = [];
-  // canonical メニュー（override適用）
+  // canonical メニュー（override適用 / 完全削除はスキップ）
   MOTONARI.MENU_ITEMS.forEach((m, idx) => {
     const ov = menuOverrides[String(m.id)] || {};
+    if (ov.deleted) return; // 完全削除済みは表示しない
     const name = ov.nameOverride ? { ...m.name, ...ov.nameOverride } : m.name;
     merged.push({
       ...m,
@@ -1620,7 +1622,7 @@ function getVisibleMenuItems() {
   if (typeof MOTONARI !== 'undefined' && MOTONARI.MENU_ITEMS) {
     MOTONARI.MENU_ITEMS.forEach((m, idx) => {
       const ov = menuOverrides[String(m.id)] || {};
-      if (ov.hidden) return;
+      if (ov.hidden || ov.deleted) return;
       const nameJa = (ov.nameOverride && ov.nameOverride.ja) || m.name.ja;
       items.push({
         id: m.id,
@@ -2107,11 +2109,12 @@ function renderMenuPage() {
           ${m.ghost ? '<span class="meta-tag" style="background:#1a1a3a;color:#a78bfa">👻 GHOST</span>' : ''}
         </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px">EN: ${m.name.en || '—'}</div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button onclick="openEditItemModal('${editKey}')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️ 編集</button>
           ${m._isCustom
             ? `<button onclick="confirmDeleteCustomItem('${m._docId}','${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑 削除</button>`
-            : `<button onclick="confirmHideCanonicalItem(${m.id},'${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑 削除</button>`
+            : `<button onclick="confirmHideCanonicalItem(${m.id},'${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:#444;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🚫 非表示</button>
+               <button onclick="confirmDeleteCanonicalItem(${m.id},'${(m.name.ja||'').replace(/'/g,"\\'")}')" style="padding:7px 10px;border-radius:8px;border:none;background:var(--accent2);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑 完全削除</button>`
           }
         </div>
       </div>
@@ -2123,7 +2126,7 @@ function renderMenuPage() {
 // 並び順を1件ずつ順番に保存（並列だと一つ失敗で全体停止するので逐次に変更）
 // 戻り値: { ok: [...], failed: [...] }
 async function saveSortOrders(updates) {
-  const { doc, setDoc, serverTimestamp } = window.fbApi;
+  const { doc, setDoc, updateDoc, serverTimestamp } = window.fbApi;
   const result = { ok: [], failed: [] };
   for (const { editKey, sortOrder } of updates) {
     const [type, idOrDoc] = editKey.split(':');
@@ -2134,14 +2137,49 @@ async function saveSortOrders(updates) {
     }
     const collName = (type === 'canonical') ? 'menuOverrides' : 'customMenuItems';
     const docRef = doc(window.fb.db, collName, String(idOrDoc));
+    let saved = false;
+    let lastError = null;
+    // 試行1: setDoc(merge:true)
     try {
-      // setDoc(merge:true) は最もシンプルかつ確実
       await setDoc(docRef, { sortOrder, updatedAt: serverTimestamp() }, { merge: true });
-      console.log('[sortOrder] ✓', editKey, '→', sortOrder);
-      result.ok.push(editKey);
+      saved = true;
+      console.log('[sortOrder] ✓ (setDoc merge)', editKey, '→', sortOrder);
     } catch (e) {
-      console.error('[sortOrder] ✗', editKey, e);
-      result.failed.push({ editKey, error: e });
+      lastError = e;
+      console.warn('[sortOrder] setDoc merge failed for', editKey, e.message || e);
+    }
+    // 試行2: updateDoc（既存docの場合）
+    if (!saved && updateDoc) {
+      try {
+        await updateDoc(docRef, { sortOrder, updatedAt: serverTimestamp() });
+        saved = true;
+        console.log('[sortOrder] ✓ (updateDoc fallback)', editKey, '→', sortOrder);
+      } catch (e) {
+        lastError = e;
+        console.warn('[sortOrder] updateDoc failed for', editKey, e.message || e);
+      }
+    }
+    // 試行3: setDoc（merge無し）- 最終手段（custom item のみ・既存データを保持しつつ書き直し）
+    if (!saved && type === 'custom') {
+      try {
+        const existing = customMenuItems.find(c => c.docId === idOrDoc);
+        if (existing) {
+          const { docId, ...rest } = existing;
+          await setDoc(docRef, { ...rest, sortOrder, updatedAt: serverTimestamp() });
+          saved = true;
+          console.log('[sortOrder] ✓ (setDoc full rewrite)', editKey, '→', sortOrder);
+        }
+      } catch (e) {
+        lastError = e;
+        console.warn('[sortOrder] full rewrite failed for', editKey, e.message || e);
+      }
+    }
+
+    if (saved) {
+      result.ok.push(editKey);
+    } else {
+      console.error('[sortOrder] ✗ all attempts failed for', editKey, lastError);
+      result.failed.push({ editKey, error: lastError || new Error('保存失敗') });
     }
   }
   return result;
@@ -2431,6 +2469,13 @@ async function saveItemEdit() {
         price, imageUrl, hidden, spicy, night, pirikara,
         custom: it.custom || {}
       };
+      // 新規追加（docIdなし）の場合は、同カテゴリの最大sortOrder+10 を初期値に設定
+      // これで「新規追加直後でも sortOrder を持つので並び順変更が確実に動く」
+      if (!it.docId) {
+        const sameCatItems = getMergedMenu().filter(m => m.cat === cat);
+        const maxSort = sameCatItems.reduce((mx, m) => Math.max(mx, m._sortOrder || 0), 0);
+        data.sortOrder = maxSort + 10;
+      }
       await saveCustomMenuItem(it.docId, data);
     }
     showToast('保存しました');
@@ -2455,6 +2500,24 @@ async function confirmHideCanonicalItem(itemId, name) {
     showToast('削除しました（非表示）');
   } catch(e) {
     console.error('hide canonical failed:', e);
+    showToast('削除に失敗しました', true);
+  }
+}
+
+// 基本メニュー（canonical）の完全削除：hidden+deleted フラグを立て、管理画面・並び替え・伝票から完全に除外
+async function confirmDeleteCanonicalItem(itemId, name) {
+  if (!confirm(`「${name}」を完全削除しますか？\n商品管理ページから消え、新規注文不可となります。\n（復元には Firestore の menuOverrides を直接編集する必要があります）`)) return;
+  if (!confirm(`⚠️ 最終確認：「${name}」を完全削除します。続行してOKですか？`)) return;
+  try {
+    const ov = menuOverrides[String(itemId)] || {};
+    await saveMenuOverride(itemId, {
+      ...ov,
+      hidden: true,
+      deleted: true
+    });
+    showToast('完全削除しました');
+  } catch(e) {
+    console.error('delete canonical failed:', e);
     showToast('削除に失敗しました', true);
   }
 }
@@ -2794,6 +2857,7 @@ window.closeItemEditModal = closeItemEditModal;
 window.saveItemEdit = saveItemEdit;
 window.confirmDeleteCustomItem = confirmDeleteCustomItem;
 window.confirmHideCanonicalItem = confirmHideCanonicalItem;
+window.confirmDeleteCanonicalItem = confirmDeleteCanonicalItem;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
