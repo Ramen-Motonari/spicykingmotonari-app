@@ -152,9 +152,130 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .sortpage-save-status.saved{color:var(--green)}
 .sortpage-save-status.error{color:var(--accent2)}
 .sortpage-empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
+/* === ログイン画面 === */
+#adminLoginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a0a 0%,#1a1008 100%);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;flex-direction:column}
+#adminLoginScreen.hidden{display:none}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,0.5)}
+.login-logo{font-family:'Oswald',sans-serif;font-size:28px;letter-spacing:3px;color:var(--accent);text-align:center;margin-bottom:6px}
+.login-sub{font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:3px;color:var(--muted);text-align:center;margin-bottom:28px}
+.login-label{font-size:12px;font-weight:700;color:#fff;margin-bottom:8px;letter-spacing:1px}
+.login-input{width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);color:#fff;font-size:15px;font-weight:700;font-family:'Noto Sans JP',sans-serif;box-sizing:border-box}
+.login-input:focus{outline:none;border-color:var(--accent)}
+.login-btn{width:100%;padding:14px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:16px;letter-spacing:1px}
+.login-btn:hover{background:#e9a428}
+.login-error{font-size:12px;color:var(--accent2);margin-top:10px;text-align:center;font-weight:700;min-height:18px}
+.login-remember{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+.login-remember input{cursor:pointer}
+/* ログアウトボタン（サイドバー下部） */
+.logout-btn{margin:14px;padding:10px 12px;border-radius:8px;background:transparent;color:var(--muted);border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;gap:6px;justify-content:center}
+.logout-btn:hover{border-color:var(--accent2);color:var(--accent2)}
 </style>
 </head>
 <body>
+<!-- ログイン画面（最初に表示・認証成功で非表示化） -->
+<div id="adminLoginScreen">
+  <div class="login-box">
+    <div class="login-logo">🌶 SPICY KING</div>
+    <div class="login-sub">MOTONARI ADMIN</div>
+    <div class="login-label">パスワード</div>
+    <input type="password" id="adminLoginPw" class="login-input" placeholder="管理者パスワードを入力" autocomplete="current-password">
+    <label class="login-remember">
+      <input type="checkbox" id="adminLoginRemember" checked>
+      <span>このブラウザに記憶する（30日間）</span>
+    </label>
+    <button class="login-btn" id="adminLoginBtn">🔓 ログイン</button>
+    <div class="login-error" id="adminLoginError"></div>
+  </div>
+</div>
+<script>
+// 認証ガード：パスワードを SHA-256 で比較
+// パスワード変更時は↓のハッシュを置き換えてください（コマンド: echo -n 'NEWPW' | shasum -a 256）
+const ADMIN_PW_HASH = 'c14ff4e2f06d22f8fc0785c85fcf3dc43fca528c7785ae0ad8670f0416db6b7c';
+const ADMIN_AUTH_KEY = 'motonari_admin_auth_v1';
+const ADMIN_AUTH_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30日
+async function _adminHashPw(pw) {
+  const buf = new TextEncoder().encode(pw);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+function _adminIsAuthorized() {
+  try {
+    const raw = localStorage.getItem(ADMIN_AUTH_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.h !== ADMIN_PW_HASH) return false;
+    if ((Date.now() - (data.t || 0)) > ADMIN_AUTH_MAX_AGE_MS) {
+      localStorage.removeItem(ADMIN_AUTH_KEY);
+      return false;
+    }
+    return true;
+  } catch(e) { return false; }
+}
+function _adminUnlock() {
+  document.getElementById('adminLoginScreen').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function _adminLock() {
+  document.getElementById('adminLoginScreen').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function adminLogout() {
+  if (!confirm('ログアウトしますか？')) return;
+  localStorage.removeItem(ADMIN_AUTH_KEY);
+  sessionStorage.removeItem(ADMIN_AUTH_KEY);
+  location.reload();
+}
+async function _adminTryLogin() {
+  const pwInput = document.getElementById('adminLoginPw');
+  const errEl = document.getElementById('adminLoginError');
+  const rememberEl = document.getElementById('adminLoginRemember');
+  const pw = pwInput.value;
+  if (!pw) { errEl.textContent = 'パスワードを入力してください'; return; }
+  errEl.textContent = '認証中…';
+  errEl.style.color = '';
+  try {
+    const hash = await _adminHashPw(pw);
+    if (hash === ADMIN_PW_HASH) {
+      const payload = JSON.stringify({ h: hash, t: Date.now() });
+      if (rememberEl && rememberEl.checked) {
+        localStorage.setItem(ADMIN_AUTH_KEY, payload);
+      } else {
+        sessionStorage.setItem(ADMIN_AUTH_KEY, payload);
+      }
+      _adminUnlock();
+    } else {
+      errEl.textContent = '⚠️ パスワードが違います';
+      errEl.style.color = '';
+      pwInput.value = '';
+      pwInput.focus();
+    }
+  } catch(e) {
+    errEl.textContent = '⚠️ 認証エラー: ' + (e.message || e);
+  }
+}
+// 初期化：既にログイン済みならスキップ、未ログインなら入力フォーム待ち
+document.addEventListener('DOMContentLoaded', () => {
+  // sessionStorage チェック（タブ単位の一時記憶）
+  try {
+    const sess = sessionStorage.getItem(ADMIN_AUTH_KEY);
+    if (sess) {
+      const d = JSON.parse(sess);
+      if (d.h === ADMIN_PW_HASH) { _adminUnlock(); return; }
+    }
+  } catch(e) {}
+  if (_adminIsAuthorized()) { _adminUnlock(); return; }
+  // ログイン待機
+  _adminLock();
+  const pwInput = document.getElementById('adminLoginPw');
+  const btn = document.getElementById('adminLoginBtn');
+  if (btn) btn.addEventListener('click', _adminTryLogin);
+  if (pwInput) {
+    pwInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') _adminTryLogin(); });
+    setTimeout(()=>pwInput.focus(), 100);
+  }
+});
+window.adminLogout = adminLogout;
+</script>
 <script src="./menu-canonical.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
@@ -176,6 +297,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div class="fb-dot connecting" id="fbDot"></div>
     <span id="fbText">接続中...</span>
   </div>
+  <button class="logout-btn" onclick="adminLogout()">🔒 ログアウト</button>
   <div class="sidebar-footer">v2.0.0 — Firebase + Canonical</div>
 </nav>
 
