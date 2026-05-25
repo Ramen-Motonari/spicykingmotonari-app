@@ -515,6 +515,7 @@ function lookupMenuPrice(itemId) {
 
 const abbrev = {
 'SKSP スパイシーキングスペシャル':'SKSP','SK スパイシーキング':'SK','SKC スパイシーキングチーズ':'SKC',
+'カレースペシャル':'カレーSP',
 'C カレーラーメン':'カレー','CC チーズカレー':'チーズカレー',
 '醤油スペシャル':'醤油SP','醤油ラーメン':'醤油',
 'スパイシー醤油スペシャル':'スパ醤油SP','スパイシー醤油':'スパ醤油',
@@ -1204,6 +1205,7 @@ function getGroupCategoryOrder(grp) {
   if (!grp) return 99;
   const m = grp.main || (grp.items && grp.items[0]);
   if (!m) return 99;
+  // 1. canonical を最優先
   const canon = MOTONARI.getMenuById(m.itemId);
   if (canon) {
     if (canon.cat === 'tonkotsu' || canon.cat === 'shouyu' || canon.cat === 'teishoku') return 0;
@@ -1211,13 +1213,21 @@ function getGroupCategoryOrder(grp) {
     if (canon.cat === 'drink') return 2;
     return 3;
   }
-  // フォールバック：custom item や旧データは論理カテゴリで判定
+  // 2. カスタムメニュー（管理APP追加）の cat を参照
+  const custom = _kitchenCustomMenuItems.find(c => c.id === m.itemId);
+  if (custom) {
+    if (custom.cat === 'tonkotsu' || custom.cat === 'shouyu' || custom.cat === 'teishoku') return 0;
+    if (custom.cat === 'topping' || custom.cat === 'side') return 1;
+    if (custom.cat === 'drink') return 2;
+    return 3;
+  }
+  // 3. フォールバック：論理カテゴリ
   const logical = MOTONARI.classifyByName(m.name);
   if (logical === 'ramen' || logical === 'teishoku') return 0;
   if (logical === 'drink') return 2;
-  // 名前ベース最終フォールバック
+  // 4. 名前ベース最終フォールバック
   const nm = m.name || '';
-  if (/ビール|生中|ハイボール|サワー|酎ハイ|焼酎|泡盛|ワイン|ジュース|コーラ|お茶|ウーロン|コーヒー/.test(nm)) return 2;
+  if (/ビール|生中|ハイボール|サワー|酎ハイ|焼酎|泡盛|ワイン|ジュース|コーラ|お茶|ウーロン|コーヒー|レモネード|ソーダ|カフェ|ラテ|ティー|スカッシュ|ハイ\b/.test(nm)) return 2;
   return 1; // デフォルトでサイド扱い
 }
 
@@ -1346,12 +1356,21 @@ function shouldExtractAddon(item) {
     if (canon.id === 40) return true; // 替え玉（細麺）
     return false;
   }
-  // フォールバック（旧データ・canon未取得時）：名前ベース
+  // カスタムメニュー（管理APPで追加）も cat フィールドを参照
+  const custom = _kitchenCustomMenuItems.find(c => c.id === item.itemId);
+  if (custom) {
+    if (custom.cat === 'side' || custom.cat === 'drink') return true;
+    return false;
+  }
+  // フォールバック（旧データ・canon/custom未取得時）：名前ベース
   const nm = item.name || '';
   if (nm.includes('替え玉')) return true;
   const logical = MOTONARI.classifyByName(nm);
   if (logical === 'drink') return true;
-  const sideKw = ['ライス','餃子','ポテト','枝豆','唐揚げ','チャーハン','シューマイ','サラダ','きんぴら','おつまみ','ごぼうチップス'];
+  // ドリンク系の名前キーワード（新規追加メニューでもよくある名称）
+  const drinkKw = ['レモネード','ソーダ','コーラ','ジュース','ビール','ハイボール','サワー','酎ハイ','焼酎','泡盛','ワイン','お茶','ウーロン','コーヒー','カフェ','ラテ','ティー','ミルク','水','スカッシュ','ハイ'];
+  if (drinkKw.some(k => nm.includes(k))) return true;
+  const sideKw = ['ライス','餃子','ポテト','枝豆','唐揚げ','からあげ','チャーハン','シューマイ','サラダ','きんぴら','おつまみ','ごぼうチップス','丼','チャーエッグ'];
   if (sideKw.some(k => nm.includes(k))) return true;
   return false;
 }
@@ -1378,8 +1397,7 @@ function buildItemGroups(items) {
     if (g.main) return;
     const candidates = g.items.filter(i => !i.isAddon);
     candidates.forEach(i => {
-      const canon = MOTONARI.getMenuById(i.itemId);
-      const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(i.name);
+      const logical = getItemLogicalCat(i);
       if (!g.main && (logical === 'ramen' || logical === 'teishoku')) g.main = i;
       else if (!g.addons.includes(i)) g.addons.push(i);
     });
@@ -1391,11 +1409,25 @@ function buildItemGroups(items) {
   return Array.from(groups.values());
 }
 
+// アイテムの論理カテゴリを統一判定（canonical → custom → 名前 の順）
+function getItemLogicalCat(item) {
+  if (!item) return null;
+  const canon = MOTONARI.getMenuById(item.itemId);
+  if (canon) return MOTONARI.getLogicalCategory(canon);
+  const custom = _kitchenCustomMenuItems.find(c => c.id === item.itemId);
+  if (custom) {
+    if (custom.cat === 'tonkotsu' || custom.cat === 'shouyu') return 'ramen';
+    if (custom.cat === 'teishoku') return 'teishoku';
+    if (custom.cat === 'drink') return 'drink';
+    if (custom.cat === 'side' || custom.cat === 'topping') return 'side';
+    return null;
+  }
+  return MOTONARI.classifyByName(item.name || '');
+}
+
 function isRamenGroup(grp) {
   if (!grp || !grp.main) return false;
-  const m = grp.main;
-  const canon = MOTONARI.getMenuById(m.itemId);
-  const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(m.name);
+  const logical = getItemLogicalCat(grp.main);
   return logical === 'ramen' || logical === 'teishoku';
 }
 
