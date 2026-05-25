@@ -147,6 +147,20 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .tc-opts{font-size:12px}
   .tc-qty{font-size:18px}
   .suborder-new-badge{font-size:10px;padding:3px 8px}
+  /* スマホ用：ヘッダー&件数バーをコンパクト化（縦領域を広く確保） */
+  .staff-header{padding:8px 12px}
+  .header-title{font-size:14px}
+  .header-badge{font-size:10px;padding:3px 8px}
+  #kitchenCountBar{height:36px;font-size:14px;gap:14px;letter-spacing:1px}
+  #kitchenCountBar #kitchenCountNum{font-size:22px}
+  #kitchenContent{top:36px;height:calc(100vh - 53px - 36px)}
+  /* スマホでは並び替えボタンを縮小 */
+  .reorder-toggle-btn{padding:5px 8px;font-size:10px}
+  /* スマホ用：会計取消ボタンも縮小 */
+  .reg-tab{padding:5px 10px;font-size:11px}
+  /* スマホ用：伝票内の余白を最適化 */
+  .ticket-header{padding:5px 8px 3px}
+  .ticket-top{margin-bottom:2px}
 }
 .lang-btn{padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.15s;flex-shrink:0}
 .lang-btn:active{transform:scale(0.94)}
@@ -2423,8 +2437,13 @@ function autoSizeTickets() {
 const screen = document.getElementById('kitchenScreen');
 if (!screen) return;
 const w = screen.offsetWidth || window.innerWidth;
+// スマホ（≤640px）: 画面いっぱい1列。インライン width は外して CSS の 100vw に任せる
+if (w <= 640) {
+  document.querySelectorAll('.ticket').forEach(t => { t.style.width = ''; });
+  return;
+}
+// タブレット以上: 3列レイアウト
 const gap = 10;
-// 3列レイアウト：3枚分の幅 + ガップ2つ
 const ticketW = Math.floor((w - gap*2) / 3);
 const finalW = Math.max(ticketW, 200);
 document.querySelectorAll('.ticket').forEach(t => { t.style.width = finalW + 'px'; });
