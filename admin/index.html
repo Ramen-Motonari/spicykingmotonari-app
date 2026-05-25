@@ -289,6 +289,7 @@ window.adminLogout = adminLogout;
     <div class="nav-item" onclick="switchPage('analytics',this)"><span class="nav-icon">📈</span><span>売上分析</span></div>
     <div class="nav-item" onclick="switchPage('visits',this)"><span class="nav-icon">👥</span><span>来店分析</span></div>
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
+    <div class="nav-item" onclick="switchPage('service',this)"><span class="nav-icon">🎁</span><span>サービス集計</span></div>
     <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
     <div class="nav-item" onclick="switchPage('sortorder',this)"><span class="nav-icon">↕️</span><span>表示順序</span></div>
     <div class="nav-item" onclick="switchPage('maintenance',this)"><span class="nav-icon">🛠️</span><span>メンテナンス</span></div>
@@ -453,6 +454,40 @@ window.adminLogout = adminLogout;
     <div class="card" style="margin-bottom:14px"><div class="card-title">🥟 餃子定食</div><div id="gyoza-count-chart"></div></div>
   </div>
 
+  <!-- サービス集計ページ -->
+  <div class="page" id="page-service">
+    <div class="page-title">🎁 サービス集計</div>
+    <div class="page-sub">サービス会計（全額無料）の集計。通常売上分析には含まれません。</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <label style="font-size:13px;color:var(--muted)">対象月：</label>
+      <input type="month" id="serviceMonthFilter" class="form-input" style="width:160px" onchange="renderServicePage()">
+      <button onclick="document.getElementById('serviceMonthFilter').value=''; renderServicePage()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif">全期間</button>
+    </div>
+    <!-- 月次サマリ -->
+    <div class="card" style="margin-bottom:14px;border:1.5px solid #7c3aed">
+      <div class="card-title" style="color:#a855f7"><span id="serviceMonthLabel">🎁 月次サマリ</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:14px">
+        <div style="padding:14px;background:var(--surface2);border-radius:10px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">サービス件数</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:#fff" id="serviceCount">0</div>
+        </div>
+        <div style="padding:14px;background:var(--surface2);border-radius:10px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">月の合計金額</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:#a855f7" id="serviceMonthTotal">¥0</div>
+        </div>
+        <div style="padding:14px;background:rgba(124,58,237,0.12);border-radius:10px;border:1px solid #7c3aed">
+          <div style="font-size:11px;color:#c4b5fd;margin-bottom:4px">28% 相当額</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:#a855f7" id="service28Percent">¥0</div>
+        </div>
+      </div>
+    </div>
+    <!-- 個別履歴 -->
+    <div class="card">
+      <div class="card-title">📋 サービス履歴一覧</div>
+      <div id="serviceList" style="margin-top:10px"></div>
+    </div>
+  </div>
+
   <!-- Menu Management -->
   <div class="page" id="page-menu">
     <div class="page-title">商品管理</div>
@@ -474,7 +509,10 @@ window.adminLogout = adminLogout;
   <div class="page" id="page-sortorder">
     <div class="page-title">↕️ 表示順序</div>
     <div class="page-sub">カテゴリを選んで商品をドラッグで並び替え。オーダーAPPの表示順に反映されます。</div>
-    <div class="sortpage-cats" id="sortpageCats"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+      <div class="sortpage-cats" id="sortpageCats" style="flex:1;margin:0"></div>
+      <button onclick="forceRefreshAndRender()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">🔄 再読み込み</button>
+    </div>
     <div id="sortpageList" class="sortpage-list"></div>
     <div class="sortpage-save-status" id="sortpageStatus"></div>
   </div>
@@ -588,7 +626,8 @@ if (!window.MOTONARI) {
 
 // ────── State ──────
 let allOrders = [];   // 全オーダー（cancelled_by_edit を除く）
-let paidOrders = [];  // status === 'paid' のみ
+let paidOrders = [];  // status === 'paid' のみ（通常会計）
+let serviceOrders = []; // サービス会計のみ（通常集計から分離）
 let soldoutIds = [];
 let menuFilter = { search: '', cat: 'all' };
 // 商品管理用
@@ -656,7 +695,7 @@ function startOrdersListener() {
   const { collection, query, orderBy, onSnapshot } = window.fbApi;
   const q = query(collection(window.fb.db, 'orders'), orderBy('createdAt', 'desc'));
   onSnapshot(q, (snap) => {
-    allOrders = []; paidOrders = [];
+    allOrders = []; paidOrders = []; serviceOrders = [];
     snap.forEach(d => {
       const data = d.data();
       // キャンセル扱いを除外
@@ -666,7 +705,14 @@ function startOrdersListener() {
       if (data.testMode === true) return;
       const o = { id: d.id, ...data };
       allOrders.push(o);
-      if (o.status === 'paid') paidOrders.push(o);
+      if (o.status === 'paid') {
+        // サービス注文は通常集計から除外（サービス集計に分離）
+        if (data.isService === true || data.paymentType === 'service') {
+          serviceOrders.push(o);
+        } else {
+          paidOrders.push(o);
+        }
+      }
     });
     setFbStatus('online', `ONLINE (${paidOrders.length}件)`);
     rerenderActivePage();
@@ -854,6 +900,7 @@ function rerenderActivePage() {
   if (document.getElementById('page-soup').classList.contains('active')) renderSoupRanking();
   if (document.getElementById('page-visits').classList.contains('active')) renderVisits();
   if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+  if (document.getElementById('page-service')?.classList.contains('active')) renderServicePage();
 }
 
 // ────── Page switching ──────
@@ -869,6 +916,75 @@ function switchPage(name, btn) {
   if (name === 'menu') renderMenuPage();
   if (name === 'sortorder') renderSortOrderPage();
   if (name === 'maintenance') renderMaintenancePage();
+  if (name === 'service') renderServicePage();
+}
+
+// ────── サービス集計ページ ──────
+function renderServicePage() {
+  const monthFilter = document.getElementById('serviceMonthFilter');
+  // 月フィルタ未指定なら今月をデフォルト
+  if (monthFilter && !monthFilter.value) {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth()+1).padStart(2,'0');
+    monthFilter.value = `${yyyy}-${mm}`;
+  }
+  const monthVal = monthFilter ? monthFilter.value : ''; // "YYYY-MM" or ""
+  // フィルタ適用
+  let filtered = serviceOrders.slice();
+  if (monthVal) {
+    filtered = filtered.filter(o => {
+      const d = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null;
+      if (!d) return false;
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      return `${yyyy}-${mm}` === monthVal;
+    });
+  }
+  // ソート（新しい順）
+  filtered.sort((a, b) => {
+    const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+    const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+    return tb - ta;
+  });
+  // 集計
+  const count = filtered.length;
+  const monthTotal = filtered.reduce((s, o) => s + (Number(o.serviceAmount || o.total) || 0), 0);
+  const percent28 = Math.round(monthTotal * 0.28);
+  // 月ラベル
+  const monthLabelEl = document.getElementById('serviceMonthLabel');
+  if (monthLabelEl) {
+    monthLabelEl.textContent = monthVal ? `🎁 ${monthVal.replace('-','年')}月 サマリ` : '🎁 全期間サマリ';
+  }
+  // サマリ更新
+  const cntEl = document.getElementById('serviceCount'); if (cntEl) cntEl.textContent = count;
+  const totEl = document.getElementById('serviceMonthTotal'); if (totEl) totEl.textContent = `¥${monthTotal.toLocaleString()}`;
+  const p28El = document.getElementById('service28Percent'); if (p28El) p28El.textContent = `¥${percent28.toLocaleString()}`;
+  // 一覧
+  const listEl = document.getElementById('serviceList');
+  if (!listEl) return;
+  if (count === 0) {
+    listEl.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px">該当するサービス会計がありません</div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map(o => {
+    const d = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null;
+    const dateStr = d ? `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '—';
+    const tLabel = o.tableLabel || o.table || '?';
+    const subtotal = Number(o.serviceAmount || o.total) || 0;
+    const items = Array.isArray(o.items) ? o.items : [];
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:'Oswald',sans-serif;font-size:18px;color:#fff">${tLabel}</span>
+          <span style="font-size:11px;color:var(--muted)">${dateStr}</span>
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,58,237,0.2);color:#a855f7">🎁 サービス</span>
+        </div>
+        <span style="font-family:'Oswald',sans-serif;font-size:18px;color:#a855f7;font-weight:700">¥${subtotal.toLocaleString()}</span>
+      </div>
+      <div style="font-size:11px;color:#aaa;line-height:1.6">${items.map(it => `${it.name}×${it.qty}`).join(' / ')}</div>
+    </div>`;
+  }).join('');
 }
 
 // ────── メンテナンスページ ──────
@@ -972,6 +1088,24 @@ function renderSortPageList() {
     dragClass: 'sortable-drag',
     onEnd: async (evt) => {
       if (evt.oldIndex === evt.newIndex) return;
+      // 診断: 全項目の editKey をログ
+      console.log('[sortOrder] _sortPageItems editKeys:', _sortPageItems.map(m => m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`));
+      // 不正な editKey をチェック（docId未取得の新規アイテム検出）
+      const invalidItems = _sortPageItems.filter(m => m._isCustom && (!m._docId || m._docId === 'undefined'));
+      if (invalidItems.length > 0) {
+        const statusEl = document.getElementById('sortpageStatus');
+        if (statusEl) {
+          statusEl.innerHTML = `<div style="background:rgba(245,158,11,0.15);border:1.5px solid #f59e0b;border-radius:10px;padding:14px 16px;color:#ffd699;font-size:12px;line-height:1.6">
+            <div style="font-weight:900;font-size:13px;margin-bottom:6px">⏳ データ同期待ち</div>
+            <div style="font-size:11px">新規追加した商品のID取得待ちです。<br>2-3秒待ってからもう一度試してください。<br>または「再読み込み」ボタンで最新化してください。</div>
+          </div>`;
+          statusEl.className = 'sortpage-save-status error';
+        }
+        // 強制再取得して再描画
+        await forceRefreshMenuData();
+        renderSortOrderPage();
+        return;
+      }
       // DOM の現在の順序を読み取って _sortPageItems を更新
       const rows = Array.from(listEl.querySelectorAll('.sortpage-row'));
       const editKeyToItem = new Map(_sortPageItems.map(m => {
@@ -981,7 +1115,6 @@ function renderSortPageList() {
       _sortPageItems = rows.map(r => editKeyToItem.get(r.dataset.editKey)).filter(Boolean);
       // 番号を更新
       rows.forEach((r, i) => { const n = r.querySelector('.sp-num'); if (n) n.textContent = i + 1; });
-      // ローカルデータも更新（UI即時反映のため）
       _sortPageItems.forEach((m, i) => { m._sortOrder = (i + 1) * 10; });
       const statusEl = document.getElementById('sortpageStatus');
       if (statusEl) { statusEl.textContent = '保存中…'; statusEl.className = 'sortpage-save-status'; }
@@ -989,24 +1122,30 @@ function renderSortPageList() {
         editKey: m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`,
         sortOrder: (i + 1) * 10
       }));
-      console.log('[sortOrder] saving:', updates);
-      try {
-        await saveSortOrders(updates);
-        if (statusEl) { statusEl.textContent = '✅ 並び順を保存しました'; statusEl.className = 'sortpage-save-status saved'; }
-        setTimeout(() => { if (statusEl && statusEl.classList.contains('saved')) statusEl.textContent = ''; }, 2500);
-      } catch (e) {
-        console.error('[sortOrder] save failed:', e);
-        // エラーは画面に確実に表示（クリックされるまで消えない）
+      console.log('[sortOrder] saving', updates.length, 'items:', updates);
+      // 1件ずつ確実に保存（並列実行をやめる）
+      const result = await saveSortOrders(updates);
+      console.log('[sortOrder] result:', result);
+      // 保存後にFirestoreから強制再取得（リスナーを待たない）
+      await forceRefreshMenuData();
+      // 全カテゴリの最新データで描画し直し（_sortPageItemsを再構築）
+      _sortPageItems = getMergedMenu().filter(m => m.cat === _sortPageCat);
+      renderSortPageList();
+      // 結果サマリ表示
+      if (result.failed.length === 0) {
+        if (statusEl) { statusEl.textContent = `✅ ${result.ok.length}件の並び順を保存しました`; statusEl.className = 'sortpage-save-status saved'; }
+        setTimeout(() => { if (statusEl && statusEl.classList.contains('saved')) statusEl.textContent = ''; }, 3000);
+      } else {
+        // 失敗があっても、成功した分は反映される。失敗内容を明示
+        const detailLines = result.failed.map(f => `• ${f.editKey}\n  ${(f.error && f.error.message ? f.error.message : 'unknown').slice(0, 150)}`).join('\n');
         if (statusEl) {
-          statusEl.innerHTML = `<div style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);border-radius:8px;padding:10px 14px;color:#ffb3a8;font-size:12px;line-height:1.5">
-            <div style="font-weight:900;margin-bottom:4px">⚠️ 保存に失敗しました</div>
-            <div style="font-size:11px;color:#ffd4cc;white-space:pre-wrap">${(e.message || e.toString()).slice(0, 300)}</div>
-            <div style="font-size:10px;color:#fff;margin-top:6px;opacity:0.7">F12コンソールで詳細確認可能 → [sortOrder] save failed</div>
+          statusEl.innerHTML = `<div style="background:rgba(192,57,43,0.15);border:1.5px solid var(--accent2);border-radius:10px;padding:14px 16px;color:#ffb3a8;font-size:12px;line-height:1.6">
+            <div style="font-weight:900;font-size:13px;margin-bottom:6px">⚠️ ${result.failed.length}件の保存に失敗（成功: ${result.ok.length}件）</div>
+            <div style="font-size:11px;color:#ffd4cc;white-space:pre-wrap;font-family:'Oswald',monospace">${detailLines}</div>
+            <div style="font-size:10px;color:#fff;margin-top:8px;opacity:0.75">F12コンソールで詳細確認可能（[sortOrder] ✗ の行）</div>
           </div>`;
           statusEl.className = 'sortpage-save-status error';
         }
-        // 元の位置に戻す
-        renderSortOrderPage();
       }
     }
   });
@@ -1694,72 +1833,48 @@ function renderMenuPage() {
   // ※ 並び替えは「表示順序」ページ（左サイドバー）で行う
 }
 
-// カスタム商品の保存：複数の方法を順に試して最初に成功したものを使う
-async function saveCustomSortOrder(idOrDoc, sortOrder) {
-  const { doc, setDoc, updateDoc, serverTimestamp } = window.fbApi;
-  const docRef = doc(window.fb.db, 'customMenuItems', idOrDoc);
-
-  // 方法1: updateDoc（最も基本的な部分更新）
-  try {
-    await updateDoc(docRef, { sortOrder, updatedAt: serverTimestamp() });
-    console.log('[sortOrder] custom saved via updateDoc:', idOrDoc, sortOrder);
-    return;
-  } catch (e1) {
-    console.warn('[sortOrder] updateDoc failed:', e1.code || e1.message);
-  }
-  // 方法2: setDoc(merge:true)（部分マージ）
-  try {
-    await setDoc(docRef, { sortOrder, updatedAt: serverTimestamp() }, { merge: true });
-    console.log('[sortOrder] custom saved via setDoc(merge):', idOrDoc, sortOrder);
-    return;
-  } catch (e2) {
-    console.warn('[sortOrder] setDoc(merge) failed:', e2.code || e2.message);
-  }
-  // 方法3: 全フィールドsetDoc（ルールで全フィールド要求の場合）
-  try {
-    const existing = (customMenuItems || []).find(c => c.docId === idOrDoc);
-    if (!existing) throw new Error('Item not in local cache');
-    const { docId, updatedAt, ...rest } = existing;
-    const fullData = { ...rest, sortOrder, updatedAt: serverTimestamp() };
-    await setDoc(docRef, fullData, { merge: false });
-    console.log('[sortOrder] custom saved via full setDoc:', idOrDoc, sortOrder);
-    return;
-  } catch (e3) {
-    console.error('[sortOrder] all save methods failed for', idOrDoc, e3);
-    throw e3;
-  }
-}
-
-// 並び順をFirestoreに一括保存（per-item エラー対応版）
+// 並び順を1件ずつ順番に保存（並列だと一つ失敗で全体停止するので逐次に変更）
+// 戻り値: { ok: [...], failed: [...] }
 async function saveSortOrders(updates) {
-  const { doc, setDoc, updateDoc, serverTimestamp } = window.fbApi;
-  const promises = updates.map(async ({ editKey, sortOrder }) => {
+  const { doc, setDoc, serverTimestamp } = window.fbApi;
+  const result = { ok: [], failed: [] };
+  for (const { editKey, sortOrder } of updates) {
     const [type, idOrDoc] = editKey.split(':');
     if (!idOrDoc || idOrDoc === 'undefined') {
-      throw new Error(`Invalid editKey: ${editKey}`);
+      console.error('[sortOrder] invalid editKey:', editKey);
+      result.failed.push({ editKey, error: new Error('docIdが不明（リスナー同期前？）') });
+      continue;
     }
+    const collName = (type === 'canonical') ? 'menuOverrides' : 'customMenuItems';
+    const docRef = doc(window.fb.db, collName, String(idOrDoc));
     try {
-      if (type === 'canonical') {
-        await setDoc(
-          doc(window.fb.db, 'menuOverrides', String(idOrDoc)),
-          { sortOrder, updatedAt: serverTimestamp() },
-          { merge: true }
-        );
-        console.log('[sortOrder] canonical ok:', editKey, '→', sortOrder);
-      } else {
-        await saveCustomSortOrder(idOrDoc, sortOrder);
-      }
-      return { editKey, ok: true };
+      // setDoc(merge:true) は最もシンプルかつ確実
+      await setDoc(docRef, { sortOrder, updatedAt: serverTimestamp() }, { merge: true });
+      console.log('[sortOrder] ✓', editKey, '→', sortOrder);
+      result.ok.push(editKey);
     } catch (e) {
-      console.error('[sortOrder] save failed for', editKey, e);
-      return { editKey, ok: false, error: e };
+      console.error('[sortOrder] ✗', editKey, e);
+      result.failed.push({ editKey, error: e });
     }
-  });
-  const results = await Promise.all(promises);
-  const failed = results.filter(r => !r.ok);
-  if (failed.length) {
-    const detail = failed.map(f => `${f.editKey}: ${(f.error && f.error.message) || 'unknown'}`).join('\n');
-    throw new Error(`${failed.length}件の保存に失敗:\n${detail}`);
+  }
+  return result;
+}
+
+// 保存後に customMenuItems / menuOverrides を Firestore から強制再取得
+async function forceRefreshMenuData() {
+  const { collection, getDocs } = window.fbApi;
+  try {
+    const [overSnap, customSnap] = await Promise.all([
+      getDocs(collection(window.fb.db, 'menuOverrides')),
+      getDocs(collection(window.fb.db, 'customMenuItems'))
+    ]);
+    menuOverrides = {};
+    overSnap.forEach(d => { menuOverrides[d.id] = d.data(); });
+    customMenuItems = [];
+    customSnap.forEach(d => { customMenuItems.push({ docId: d.id, ...d.data() }); });
+    console.log('[sortOrder] data refreshed. custom:', customMenuItems.length, 'overrides:', Object.keys(menuOverrides).length);
+  } catch(e) {
+    console.warn('[sortOrder] refresh failed:', e);
   }
 }
 
@@ -2266,8 +2381,13 @@ window.switchReportTab = switchReportTab;
 window.setCatFilter = setCatFilter;
 window.filterMenu = filterMenu;
 window.setSortPageCat = setSortPageCat;
+window.forceRefreshAndRender = async function() {
+  await forceRefreshMenuData();
+  renderSortOrderPage();
+};
 window.deleteAllOrders = deleteAllOrders;
 window.copyTestUrl = copyTestUrl;
+window.renderServicePage = renderServicePage;
 window.copyDailyReport = copyDailyReport;
 // 商品管理
 window.openAddItemModal = openAddItemModal;
