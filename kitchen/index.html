@@ -49,6 +49,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .suborder + .suborder{margin-top:6px;padding-top:6px;border-top:1px dashed #d0c8b8}
 .suborder-new{border-left:3px solid #e74c3c;background:linear-gradient(90deg,rgba(231,76,60,0.08) 0%,transparent 40%);padding-left:6px}
 .suborder-new-badge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);color:#fff;font-size:12px;font-weight:900;padding:4px 11px;border-radius:8px;margin:4px 8px 4px;animation:newOrderPulse 1.4s ease infinite;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(231,76,60,0.45)}
+/* 3層構成（ラーメン／ミドル／ドリンク） */
+.tk-tier{padding:2px 0}
+.tk-tier + .tk-tier{margin-top:4px;padding-top:6px;border-top:2px dashed #d4c8a8}
+/* 新規追加アイテム強調 */
+.tk-item-new{position:relative}
+.tk-item-new::before{content:'🆕';position:absolute;top:2px;right:8px;z-index:20;font-size:13px;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);color:#fff;padding:2px 6px;border-radius:6px;font-weight:900;letter-spacing:0.5px;box-shadow:0 2px 6px rgba(231,76,60,0.5);animation:newOrderPulse 1.4s ease infinite}
+.tk-item-new .ramen-group-card,
+.tk-item-new .ticket-compact-card{border-color:#e74c3c !important;box-shadow:0 0 0 1.5px #e74c3c,0 2px 8px rgba(231,76,60,0.25) !important}
+/* 伝票ヘッダーの新規追加フラグ */
+.ticket-new-flag{display:inline-flex;align-items:center;font-size:11px;font-weight:900;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);color:#fff;padding:3px 8px;border-radius:8px;letter-spacing:0.5px;animation:newOrderPulse 1.4s ease infinite;box-shadow:0 2px 6px rgba(231,76,60,0.45)}
 @keyframes newOrderPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,0.55)}50%{transform:scale(1.06);box-shadow:0 0 0 5px rgba(231,76,60,0)}}
 .ticket{background:#fff;border:none;border-radius:0;width:100%;height:100%;min-width:0;min-height:0;display:flex;flex-direction:column;white-space:normal;transition:all 0.3s;overflow:hidden;box-shadow:1px 0 0 #2a2a2a inset,-1px 0 0 #2a2a2a inset;position:relative}
 /* 並び替えモード */
@@ -161,6 +171,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .tc-opts{font-size:12px}
   .tc-qty{font-size:18px}
   .suborder-new-badge{font-size:10px;padding:3px 8px}
+  .ticket-new-flag{font-size:9px;padding:2px 6px}
+  .tk-item-new::before{font-size:10px;padding:1px 4px}
   /* スマホ用：伝票を2列にし縦領域を確保 */
   #kitchenContent > .ticket{flex:0 0 calc(50vw - 4px);width:calc(50vw - 4px);max-width:calc(50vw - 4px)}
   #helpScreen .ticket{flex:0 0 calc(50vw - 4px);width:calc(50vw - 4px);max-width:calc(50vw - 4px)}
@@ -275,7 +287,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .switch-btn.to-help{background:rgba(231,76,60,0.18);color:#e74c3c;border:1px solid #e74c3c}
 .switch-btn.to-help.active{background:#e74c3c;color:#fff}
 /* ヘルプ画面の伝票内セクション */
-#helpScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden;display:flex;flex-direction:column}
+/* ヘルプ画面：app-screen の display:none を保ちつつ active 時のみ flex で表示 */
+#helpScreen{background:#1a1008;height:calc(100vh - 53px);overflow:hidden;flex-direction:column}
+#helpScreen.active{display:flex !important}
 #helpContent{flex:1;display:flex;flex-wrap:wrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;align-items:stretch}
 #helpScreen .ticket{flex:0 0 calc(33.333vw - 7px);width:calc(33.333vw - 7px);max-width:calc(33.333vw - 7px);scroll-snap-align:start}
 .hlp-sec{padding:8px 10px;border-bottom:1.5px dashed #d4c8a8}
@@ -483,11 +497,16 @@ let _kitchenCustomMenuItems = [];
 // 管理APPからの名前/価格オーバーライド（メニュー名変更を即時反映するため）
 let _kitchenMenuOverrides = {};
 function rebuildAllMenuItems() {
-  const base = MOTONARI.MENU_ITEMS.map(m => {
-    const ov = _kitchenMenuOverrides[String(m.id)] || {};
-    const nameJa = (ov.nameOverride && ov.nameOverride.ja) || m.name.ja;
-    return { id: m.id, name: nameJa, cat: kitchenCatLabel(m), _hidden: !!ov.hidden };
-  });
+  const base = MOTONARI.MENU_ITEMS
+    .filter(m => {
+      const ov = _kitchenMenuOverrides[String(m.id)] || {};
+      return !ov.deleted; // 完全削除されたメニューは除外
+    })
+    .map(m => {
+      const ov = _kitchenMenuOverrides[String(m.id)] || {};
+      const nameJa = (ov.nameOverride && ov.nameOverride.ja) || m.name.ja;
+      return { id: m.id, name: nameJa, cat: kitchenCatLabel(m), _hidden: !!ov.hidden };
+    });
   const custom = _kitchenCustomMenuItems.map(c => ({
     id: c.id, name: (c.name && c.name.ja) || '?',
     cat: kitchenCatLabel({ cat: c.cat, spicy: c.spicy, night: c.night }),
@@ -923,12 +942,16 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
     return items.some(i => !i.served);
   });
 }).map(([tl, list]) => {
-  // 表示用：pending / preparing / served の全注文を含める
-  // → 既存注文を提供済みにしても伝票には残り、新規追加とは別セクションで「提供済み」状態で表示
-  // → テーブルの全アイテムが提供済みになったら、上のfilter条件で伝票全体が除外される
-  const visibleOrders = list.filter(o =>
-    o.status === 'pending' || o.status === 'preparing' || o.status === 'served'
-  );
+  // 表示用：
+  //   - 「未提供アイテムを含む注文」のみ表示（部分的に提供済みなら、その注文は引き続き表示し、提供済みアイテムはグレー表示）
+  //   - 「全アイテムが提供済みの注文」は非表示（一旦終わった注文は、新規追加注文と混ざらない）
+  const visibleOrders = list.filter(o => {
+    if (o.status !== 'pending' && o.status !== 'preparing' && o.status !== 'served') return false;
+    const items = Array.isArray(o.items) ? o.items : [];
+    if (items.length === 0) return false;
+    // 全アイテム提供済みの注文は除外
+    return items.some(i => !i.served);
+  });
   const sorted = visibleOrders.slice().sort((a, b) => {
     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
     const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
@@ -1208,6 +1231,12 @@ function renderOrderGroupsHtml(order) {
 }
 
 // テーブル単位の伝票（同一テーブルの複数注文を1枚にまとめる）
+// レイアウト：3層構成
+//   上段：ラーメン（定食含む）
+//   中段：ミドル（サイド・トッピング）
+//   下段：ドリンク
+// 各層内：未提供アイテム → 提供済みアイテム の順
+// 追加注文（2件目以降）も同じ層内で正しい位置にマージされる
 function renderTableTicket(tt) {
   const orderList = tt.orders || [];
   const first = orderList[0];
@@ -1217,21 +1246,61 @@ function renderTableTicket(tt) {
   const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
   const visitLabel = first.visitType === 'first' ? '初回' : 'リピーター';
 
-  // 各注文をサブセクションとして並べる
-  let subSectionsHtml = '';
+  // すべての注文から groups を収集（NEW フラグ付き）
+  const entries = []; // { grp, order, isNewOrder, _idx }
   orderList.forEach((order, orderIdx) => {
-    const isAdditional = orderIdx > 0;
     const items = Array.isArray(order.items) ? order.items : [];
     const hasUnserved = items.some(i => !i.served);
-    const showNewBadge = isAdditional && hasUnserved;
-    const groupsHtml = renderOrderGroupsHtml(order);
-    subSectionsHtml += `<div class="suborder${showNewBadge?' suborder-new':''}">${
-      showNewBadge ? '<div class="suborder-new-badge">🆕 新規追加</div>' : ''
-    }${groupsHtml}</div>`;
+    const isNewOrder = orderIdx > 0 && hasUnserved;
+    const groups = buildItemGroups(items);
+    groups.forEach(grp => {
+      entries.push({ grp, order, isNewOrder, _idx: entries.length });
+    });
   });
+
+  // ソート: カテゴリ → 提供状態（未提供先） → 元の順序
+  entries.sort((a, b) => {
+    const ca = getGroupCategoryOrder(a.grp);
+    const cb = getGroupCategoryOrder(b.grp);
+    if (ca !== cb) return ca - cb;
+    const sa = a.grp.items.every(i => i.served) ? 1 : 0;
+    const sb = b.grp.items.every(i => i.served) ? 1 : 0;
+    if (sa !== sb) return sa - sb;
+    return a._idx - b._idx;
+  });
+
+  // 3層に振り分け
+  const tiers = { ramen: [], middle: [], drink: [] };
+  entries.forEach(e => {
+    const c = getGroupCategoryOrder(e.grp);
+    if (c === 0) tiers.ramen.push(e);
+    else if (c === 2) tiers.drink.push(e);
+    else tiers.middle.push(e);
+  });
+
+  const renderTier = (list, tierLabel) => {
+    if (!list.length) return '';
+    const cardsHtml = list.map(e => {
+      const cardHtml = isRamenGroup(e.grp)
+        ? renderRamenGroupCard(e.order.id, e.grp)
+        : renderCompactGroupCard(e.order.id, e.grp);
+      // 新規追加アイテムは赤枠＋NEWバッジで強調
+      return e.isNewOrder
+        ? `<div class="tk-item-new">${cardHtml}</div>`
+        : cardHtml;
+    }).join('');
+    return `<div class="tk-tier" data-tier="${tierLabel}">${cardsHtml}</div>`;
+  };
+
+  const sectionsHtml =
+    renderTier(tiers.ramen, 'ramen') +
+    renderTier(tiers.middle, 'middle') +
+    renderTier(tiers.drink, 'drink');
 
   const allItems = orderList.flatMap(o => o.items || []);
   const allServed = allItems.length > 0 && allItems.every(i => i.served);
+  // 新規追加が含まれているか（伝票全体のバッジ用）
+  const hasNewItems = entries.some(e => e.isNewOrder);
 
   return `<div class="ticket ${allServed?'completing':''}" id="ticket-${tIdSafe}">
 <div class="ticket-reorder">
@@ -1243,11 +1312,12 @@ function renderTableTicket(tt) {
 <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
 <div class="ticket-table">${tLabel}</div>
 <span class="ticket-visit ${visitClass}">${visitLabel}</span>
+${hasNewItems ? '<span class="ticket-new-flag">🆕 追加あり</span>' : ''}
 </div>
 <div class="ticket-time">${formatOrderTime(first)}</div>
 </div>
 </div>
-<div style="padding:4px 0 8px">${subSectionsHtml}</div>
+<div style="padding:4px 0 8px">${sectionsHtml}</div>
 </div>`;
 }
 
@@ -1541,13 +1611,19 @@ function renderKitchenHelp() {
       return items.some(i => !i.served);
     });
   }).map(([tl, list]) => {
-    const sorted = list.slice().sort((a, b) => {
+    // 全アイテム提供済みの注文は除外
+    const visibleOrders = list.filter(o => {
+      const items = Array.isArray(o.items) ? o.items : [];
+      if (items.length === 0) return false;
+      return items.some(i => !i.served);
+    });
+    const sorted = visibleOrders.slice().sort((a, b) => {
       const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
       const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
       return ta - tb;
     });
     return { tableLabel: tl, orders: sorted };
-  });
+  }).filter(tt => tt.orders.length > 0);
 
   // カウント表示更新
   const cn = document.getElementById('helpCountNum');
