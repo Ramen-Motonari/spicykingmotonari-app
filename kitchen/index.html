@@ -1810,8 +1810,9 @@ const grid = document.getElementById('tableGrid');
 grid.innerHTML = SEAT_LABELS.map(label => {
 const t = tables[label] || { label, orderIds: [], status: 'empty', total: 0, visitType: null, paymentRequested: false };
 const displayStatus = t.status;
-// P席（テイクアウト/別会計用）は使用時のみ表示
+// P席（テイクアウト/別会計用）・TEST席 は使用時のみ表示
 if (label.startsWith('P') && displayStatus === 'empty') return '';
+if (label === 'TEST' && displayStatus === 'empty') return '';
 if (regFilter === 'ordering' && displayStatus !== 'ordering') return '';
 if (regFilter === 'payment' && displayStatus !== 'payment') return '';
 let statusClass = '', statusLabel = regT('statusEmpty');
@@ -1891,6 +1892,55 @@ renderHistoryList();
 document.getElementById('historyFullPage').style.display = 'block';
 }
 function closeHistoryPage() { document.getElementById('historyFullPage').style.display = 'none'; }
+
+// 履歴グループを論理削除（同一会計のすべての注文を一括削除）
+async function deleteHistoryGroup(orderIdsCsv, tableLabel, total) {
+  if (!confirm(`${tableLabel} の履歴を削除しますか？\n金額：¥${(total||0).toLocaleString()}\n\n※ 「削除済みを表示」から復元可能です。`)) return;
+  try {
+    const ids = orderIdsCsv.split(',').filter(x=>x);
+    const { doc, updateDoc, serverTimestamp } = window.fbApi;
+    await Promise.all(ids.map(id => updateDoc(doc(window.fb.db, 'orders', id), {
+      deleted: true, deletedAt: serverTimestamp()
+    })));
+    showToast(`✅ ${tableLabel} の履歴を削除（${ids.length}件、復元可）`);
+    paidOrders = paidOrders.filter(o => !ids.includes(o.id));
+    if (document.getElementById('historyFullPage').style.display === 'block') renderHistoryList();
+  } catch (e) {
+    console.error('deleteHistoryGroup failed:', e);
+    showToast('削除に失敗しました: ' + (e.message || e), true);
+  }
+}
+
+async function restoreHistoryGroup(orderIdsCsv, tableLabel) {
+  if (!confirm(`${tableLabel} の履歴を復元しますか？`)) return;
+  try {
+    const ids = orderIdsCsv.split(',').filter(x=>x);
+    const { doc, updateDoc, serverTimestamp } = window.fbApi;
+    await Promise.all(ids.map(id => updateDoc(doc(window.fb.db, 'orders', id), {
+      deleted: false, restoredAt: serverTimestamp()
+    })));
+    showToast(`✅ ${tableLabel} を復元しました（${ids.length}件）`);
+    if (document.getElementById('historyFullPage').style.display === 'block') renderHistoryList();
+  } catch (e) {
+    console.error('restoreHistoryGroup failed:', e);
+    showToast('復元に失敗しました: ' + (e.message || e), true);
+  }
+}
+
+async function permanentlyDeleteGroup(orderIdsCsv, tableLabel) {
+  if (!confirm(`${tableLabel} の履歴を【完全削除】しますか？\n\n⚠️ この操作は取り消せません。`)) return;
+  if (!confirm('最終確認：本当に完全削除しますか？')) return;
+  try {
+    const ids = orderIdsCsv.split(',').filter(x=>x);
+    const { doc, deleteDoc } = window.fbApi;
+    await Promise.all(ids.map(id => deleteDoc(doc(window.fb.db, 'orders', id))));
+    showToast(`✅ ${tableLabel} を完全削除（${ids.length}件）`);
+    if (document.getElementById('historyFullPage').style.display === 'block') renderHistoryList();
+  } catch (e) {
+    console.error('permanentlyDeleteGroup failed:', e);
+    showToast('完全削除に失敗しました: ' + (e.message || e), true);
+  }
+}
 
 // 履歴を1件「論理削除」（フラグを立てて非表示化、復元可能）
 async function deleteHistoryEntry(orderId, tableLabel, total) {
@@ -1974,6 +2024,98 @@ function toggleShowDeleted() {
   renderHistoryList();
 }
 
+// 注文をお会計単位（同テーブル＋同時刻）でグループ化
+//   - 通常/別会計：同 tableLabel ＋ paymentType ＋ paidAt 10秒以内
+//   - 合算：複数テーブルを同時に paid にするので、paymentType='merge' ＋ paidAt 10秒以内
+function getOrderPaidMs(o) {
+  const t = o.updatedAt;
+  if (!t) return 0;
+  if (typeof t.toMillis === 'function') return t.toMillis();
+  if (typeof t.seconds === 'number') return t.seconds * 1000;
+  return 0;
+}
+function groupHistoryByPayment(historyOrders) {
+  const WINDOW = 10 * 1000; // 10秒
+  // 時刻昇順
+  const sorted = historyOrders.slice().sort((a,b) => getOrderPaidMs(a) - getOrderPaidMs(b));
+  const groups = [];
+  sorted.forEach(o => {
+    const tLabel = o.tableLabel || o.table || '?';
+    const pType = o.paymentType || 'normal';
+    const paidAt = getOrderPaidMs(o);
+
+    let g = null;
+    if (pType === 'merge') {
+      g = groups.find(x => x.paymentType === 'merge' && Math.abs(x.paidAtMax - paidAt) < WINDOW);
+    } else {
+      g = groups.find(x =>
+        x.paymentType === pType &&
+        x.tableLabel === tLabel &&
+        Math.abs(x.paidAtMax - paidAt) < WINDOW
+      );
+    }
+    if (g) {
+      g.orderIds.push(o.id);
+      g.orders.push(o);
+      g.total += (o.total || 0);
+      g.items = g.items.concat(o.items || []);
+      g.paidAtMax = Math.max(g.paidAtMax, paidAt);
+      // 別会計：複数の paymentMethod が混在する場合の集計
+      const pm = o.paymentMethod;
+      if (pm) {
+        if (!g.paymentBreakdown[pm]) g.paymentBreakdown[pm] = { count: 0, total: 0 };
+        g.paymentBreakdown[pm].count++;
+        g.paymentBreakdown[pm].total += (o.total || 0);
+      }
+      // 合算用：tableLabel を追加
+      if (!g.tableLabels.includes(tLabel)) g.tableLabels.push(tLabel);
+      // 代表 paymentMethod は最初に設定したものを優先
+      g.paymentMethod = g.paymentMethod || pm;
+      g.visitType = g.visitType || o.visitType;
+    } else {
+      const pm = o.paymentMethod;
+      const pb = {};
+      if (pm) pb[pm] = { count: 1, total: o.total || 0 };
+      groups.push({
+        id: o.id, // 代表 ID
+        orderIds: [o.id],
+        orders: [o],
+        tableLabel: tLabel,
+        tableLabels: [tLabel],
+        paymentType: pType,
+        paymentMethod: pm,
+        paymentBreakdown: pb,
+        paidAt,
+        paidAtMax: paidAt,
+        updatedAt: o.updatedAt,
+        createdAt: o.createdAt,
+        total: o.total || 0,
+        items: (o.items || []).slice(),
+        visitType: o.visitType,
+        date: getOrderDateString(o),
+        time: getOrderTimeString(o)
+      });
+    }
+  });
+  // 表示は新しい順
+  return groups.sort((a,b) => b.paidAtMax - a.paidAtMax);
+}
+
+// 同一商品をマージしてアイテム表示を整理
+function mergeItems(items) {
+  const map = new Map();
+  (items || []).forEach(item => {
+    const key = `${item.itemId || item.id || item.name}::${JSON.stringify(item.opts || [])}`;
+    if (!map.has(key)) {
+      map.set(key, { ...item, qty: 0, items: [] });
+    }
+    const e = map.get(key);
+    e.qty += (item.qty || 0);
+    e.items.push(item);
+  });
+  return Array.from(map.values());
+}
+
 function renderHistoryList() {
 const list = document.getElementById('historyPageList');
 const totalEl = document.getElementById('historyTotalDisplay');
@@ -1994,45 +2136,70 @@ return;
 }
 const grandTotal = hist.reduce((s,h) => s + (h.total||0), 0);
 if (totalEl) totalEl.textContent = `${_showDeletedHistory ? '削除済み合計' : '合計'} ¥${grandTotal.toLocaleString()}`;
-const groups = {};
-hist.forEach(h => {
-const d = getOrderDateString(h);
-if (!groups[d]) groups[d] = [];
-groups[d].push(h);
+
+// お会計単位にグループ化
+const paymentGroups = groupHistoryByPayment(hist);
+// 日付別にさらにグルーピング
+const byDate = {};
+paymentGroups.forEach(g => {
+  const d = g.date;
+  if (!byDate[d]) byDate[d] = [];
+  byDate[d].push(g);
 });
+
 const methodLabel = {normal:'通常', separate:'別会計', merge:'合算'};
 const methodColor = {normal:'var(--green)', separate:'var(--blue)', merge:'var(--purple)'};
 const payLabel = {cash:'💴 現金', card:'💳 カード'};
 const payColor = {cash:'var(--green)', card:'var(--blue)'};
-list.innerHTML = Object.entries(groups).map(([date, entries]) => {
-const dayTotal = entries.reduce((s,h) => s + (h.total||0), 0);
-const itemsHtml = entries.map(h => {
-const items = Array.isArray(h.items) ? h.items : [];
-const tLabel = h.tableLabel || h.table || '?';
-const m = h.paymentType || 'normal';
-const pm = h.paymentMethod;
+
+list.innerHTML = Object.entries(byDate).map(([date, entries]) => {
+const dayTotal = entries.reduce((s,g) => s + (g.total||0), 0);
+const itemsHtml = entries.map(g => {
+const mergedItems = mergeItems(g.items);
+const m = g.paymentType || 'normal';
+// 表示用テーブルラベル
+const dispLabel = (m === 'merge' && g.tableLabels.length > 1)
+  ? g.tableLabels.join('＋')
+  : g.tableLabel;
+// 支払い方法表示（別会計で複数混在時は内訳）
+const pbKeys = Object.keys(g.paymentBreakdown);
+let pmHtml = '';
+if (pbKeys.length > 1) {
+  // 複数method混在 → 内訳表示
+  pmHtml = pbKeys.map(pm =>
+    `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${payColor[pm]||'#555'};color:${payColor[pm]||'#555'}">${payLabel[pm]||pm} ¥${g.paymentBreakdown[pm].total.toLocaleString()}</span>`
+  ).join('');
+} else if (pbKeys.length === 1) {
+  const pm = pbKeys[0];
+  pmHtml = `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${payColor[pm]||'#555'};color:${payColor[pm]||'#555'}">${payLabel[pm]||''}</span>`;
+}
+const orderIdsCsv = g.orderIds.join(',');
 const actionBtns = _showDeletedHistory
-  ? `<button onclick="restoreHistoryEntry('${h.id}','${tLabel}')" style="background:rgba(34,197,94,0.15);border:1px solid var(--green);color:var(--green);font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif" title="復元">↩️ 復元</button>
-     <button onclick="permanentlyDeleteEntry('${h.id}','${tLabel}')" style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);color:var(--accent2);font-size:14px;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;line-height:1" title="完全削除（取消不可）">⚠️</button>`
-  : `<button onclick="deleteHistoryEntry('${h.id}','${tLabel}',${h.total||0})" style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);color:var(--accent2);font-size:14px;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;line-height:1" title="この履歴を削除">🗑</button>`;
+  ? `<button onclick="restoreHistoryGroup('${orderIdsCsv}','${dispLabel}')" style="background:rgba(34,197,94,0.15);border:1px solid var(--green);color:var(--green);font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif" title="復元">↩️ 復元</button>
+     <button onclick="permanentlyDeleteGroup('${orderIdsCsv}','${dispLabel}')" style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);color:var(--accent2);font-size:14px;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;line-height:1" title="完全削除（取消不可）">⚠️</button>`
+  : `<button onclick="deleteHistoryGroup('${orderIdsCsv}','${dispLabel}',${g.total||0})" style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);color:var(--accent2);font-size:14px;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;line-height:1" title="この履歴を削除">🗑</button>`;
 const cardBorder = _showDeletedHistory ? 'border:1.5px solid var(--accent2);opacity:0.85' : 'border:1px solid var(--border)';
 const deletedBadge = _showDeletedHistory ? '<span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:10px;background:var(--accent2);color:#fff">🗑 削除済み</span>' : '';
+const subBadge = g.orderIds.length > 1
+  ? `<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(200,134,10,0.15);color:var(--accent);border:1px solid var(--accent)">${g.orderIds.length}件まとめ</span>`
+  : '';
 return `<div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:8px;${cardBorder};position:relative">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0">
-<span style="font-family:'Oswald',sans-serif;font-size:20px;color:#fff">${tLabel}</span>
-<span style="font-size:11px;color:var(--muted)">${getOrderTimeString(h)}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:20px;color:#fff">${dispLabel}</span>
+<span style="font-size:11px;color:var(--muted)">${g.time}</span>
 <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${methodColor[m]||'var(--green)'};color:${methodColor[m]||'var(--green)'}">${methodLabel[m]||'通常'}</span>
-${pm ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${payColor[pm]||'#555'};color:${payColor[pm]||'#555'}">${payLabel[pm]||''}</span>` : ''}
+${pmHtml}
+${subBadge}
 ${deletedBadge}
 </div>
 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-<span style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--accent)">¥${(h.total||0).toLocaleString()}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--accent)">¥${(g.total||0).toLocaleString()}</span>
 ${actionBtns}
 </div>
 </div>
 <div style="display:flex;flex-direction:column;gap:3px">
-${items.map(item => `<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;padding:3px 0;border-bottom:1px solid var(--border)">
+${mergedItems.map(item => `<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;padding:3px 0;border-bottom:1px solid var(--border)">
 <span>${item.name} × ${item.qty}</span>
 <span style="color:var(--muted)">¥${((item.price||MOTONARI.getPrice(item.itemId)) * item.qty).toLocaleString()}</span>
 </div>`).join('')}
@@ -2932,6 +3099,9 @@ window.openHistoryPage = openHistoryPage; window.closeHistoryPage = closeHistory
 window.deleteHistoryEntry = deleteHistoryEntry;
 window.restoreHistoryEntry = restoreHistoryEntry;
 window.permanentlyDeleteEntry = permanentlyDeleteEntry;
+window.deleteHistoryGroup = deleteHistoryGroup;
+window.restoreHistoryGroup = restoreHistoryGroup;
+window.permanentlyDeleteGroup = permanentlyDeleteGroup;
 window.toggleShowDeleted = toggleShowDeleted;
 window.renderHistoryList = renderHistoryList; window.toggleServed = toggleServed;
 window.openTable = openTable; window.filterReg = filterReg;
