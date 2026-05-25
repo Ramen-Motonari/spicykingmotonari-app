@@ -213,7 +213,7 @@
      name:{ja:'枝豆', en:'Edamame', zh:'毛豆', ko:'에다마메'},
      price:300, spicy:false, night:false, custom:{}},
     {id:21, cat:'side', img:'🍗',
-     name:{ja:'唐揚げ（3個）', en:'Karaage ×3', zh:'炸鸡（3个）', ko:'가라아게（3개）'},
+     name:{ja:'からあげ（3個）', en:'Karaage ×3', zh:'炸鸡（3个）', ko:'가라아게（3개）'},
      price:480, spicy:false, night:false, custom:{}},
     {id:20, cat:'side', img:'🍟',
      name:{ja:'ポテト', en:'Fries', zh:'薯条', ko:'포테이토'},
