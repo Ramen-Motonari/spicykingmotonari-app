@@ -279,6 +279,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <button class="reg-tab active" onclick="filterReg(this,'all')">すべて</button>
 <button class="reg-tab" onclick="filterReg(this,'ordering')">注文中</button>
 <button class="reg-tab" onclick="filterReg(this,'payment')">🔔 会計待ち</button>
+<button class="reg-tab" onclick="openUndoPayment()" style="margin-left:auto;background:rgba(192,57,43,0.15);border-color:var(--accent2);color:var(--accent2);font-weight:900">↩️ 会計取消</button>
 </div>
 <div class="table-grid" id="tableGrid"></div>
 </div>
@@ -342,6 +343,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--blue)">👥 別会計</button>
 <button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--purple)">🔗 他テーブルと合算</button>
 <button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:var(--accent)">✏️ 注文変更</button>
+<button class="btn-complete" id="btnService" onclick="completeService()" style="background:#7c3aed">🎁 サービス（全額無料）</button>
 <button class="btn-close-detail" onclick="closeDetail()">閉じる</button>
 </div>
 </div>
@@ -1472,6 +1474,23 @@ document.getElementById('historyFullPage').style.display = 'block';
 }
 function closeHistoryPage() { document.getElementById('historyFullPage').style.display = 'none'; }
 
+// 履歴を1件削除（取り消し不可）
+async function deleteHistoryEntry(orderId, tableLabel, total) {
+  if (!confirm(`${tableLabel} の履歴を削除しますか？\n金額：¥${(total||0).toLocaleString()}\n\nこの操作は取り消せません。売上分析からも削除されます。`)) return;
+  try {
+    const { doc, deleteDoc } = window.fbApi;
+    await deleteDoc(doc(window.fb.db, 'orders', orderId));
+    showToast(`✅ ${tableLabel} の履歴を削除しました`);
+    // 一覧再描画（リスナーが反映するまでローカルでも除去）
+    paidOrders = paidOrders.filter(o => o.id !== orderId);
+    orders = orders.filter(o => o.id !== orderId);
+    if (document.getElementById('historyFullPage').style.display === 'block') renderHistoryList();
+  } catch (e) {
+    console.error('deleteHistoryEntry failed:', e);
+    showToast('削除に失敗しました: ' + (e.message || e), true);
+  }
+}
+
 function getOrderDateString(o) {
 const ts = o.updatedAt || o.createdAt;
 if (ts && ts.toDate) {
@@ -1516,15 +1535,18 @@ const items = Array.isArray(h.items) ? h.items : [];
 const tLabel = h.tableLabel || h.table || '?';
 const m = h.paymentType || 'normal';
 const pm = h.paymentMethod;
-return `<div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border)">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+return `<div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);position:relative">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0">
 <span style="font-family:'Oswald',sans-serif;font-size:20px;color:#fff">${tLabel}</span>
 <span style="font-size:11px;color:var(--muted)">${getOrderTimeString(h)}</span>
 <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${methodColor[m]||'var(--green)'};color:${methodColor[m]||'var(--green)'}">${methodLabel[m]||'通常'}</span>
 ${pm ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${payColor[pm]||'#555'};color:${payColor[pm]||'#555'}">${payLabel[pm]||''}</span>` : ''}
 </div>
+<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
 <span style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--accent)">¥${(h.total||0).toLocaleString()}</span>
+<button onclick="deleteHistoryEntry('${h.id}','${tLabel}',${h.total||0})" style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);color:var(--accent2);font-size:14px;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;line-height:1" title="この履歴を削除">🗑</button>
+</div>
 </div>
 <div style="display:flex;flex-direction:column;gap:3px">
 ${items.map(item => `<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;padding:3px 0;border-bottom:1px solid var(--border)">
@@ -1605,6 +1627,130 @@ closeDetail();
 }
 
 function completePayment(type) { if (selectedTable) openPaymentMethodModal(type, null); }
+
+// ────── サービス会計（全額無料・通常集計に含まれない） ──────
+async function completeService() {
+  if (!selectedTable) return;
+  const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid');
+  if (tableOrders.length === 0) {
+    alert('対象の注文がありません');
+    return;
+  }
+  const totalAmount = tableOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  if (!confirm(`${selectedTable} の注文をすべてサービス（全額無料）にしますか？\n\n対象金額：¥${totalAmount.toLocaleString()}\n\n※ 通常集計には含まれません。サービス集計に記録されます。`)) return;
+  try {
+    const { doc, updateDoc, serverTimestamp } = window.fbApi;
+    await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db,'orders',o.id), {
+      status: 'paid',
+      paymentMethod: 'service',
+      paymentType: 'service',
+      isService: true,            // 集計分離フラグ
+      serviceAmount: o.total || 0, // 元の金額を保存
+      paymentRequested: false,
+      updatedAt: serverTimestamp()
+    })));
+    showToast(`✅ ${selectedTable} 🎁 サービス完了（¥${totalAmount.toLocaleString()}）`);
+    closeDetail();
+  } catch(e) {
+    console.error('completeService failed:', e);
+    showToast('サービス処理に失敗しました', true);
+  }
+}
+
+// ────── 会計取消（直近5分以内の支払いを元に戻す） ──────
+async function openUndoPayment() {
+  // 直近5分以内に paid になった注文を抽出
+  const FIVE_MIN = 5 * 60 * 1000;
+  const now = Date.now();
+  const recent = orders.filter(o => {
+    if (o.status !== 'paid') return false;
+    const updMs = (o.updatedAt && o.updatedAt.toMillis) ? o.updatedAt.toMillis() : 0;
+    return (now - updMs) < FIVE_MIN;
+  });
+  if (recent.length === 0) {
+    alert('直近5分以内の会計が見つかりません。\n（取消可能なのは会計後5分以内のみ）');
+    return;
+  }
+  // テーブル単位でグループ化
+  const byTable = new Map();
+  recent.forEach(o => {
+    const k = o.tableLabel || o.table || '?';
+    if (!byTable.has(k)) byTable.set(k, []);
+    byTable.get(k).push(o);
+  });
+  // 各テーブルの最新時刻順
+  const tableGroups = Array.from(byTable.entries()).map(([label, list]) => {
+    const latest = Math.max(...list.map(o => (o.updatedAt && o.updatedAt.toMillis) ? o.updatedAt.toMillis() : 0));
+    const total = list.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    return { label, list, latest, total };
+  }).sort((a, b) => b.latest - a.latest);
+
+  // モーダル表示
+  let html = `<div style="font-size:18px;font-weight:900;margin-bottom:14px;color:var(--accent2)">↩️ 会計取消</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">取り消したいテーブルを選んでください<br>（直近5分以内の会計のみ）</div>`;
+  tableGroups.forEach(g => {
+    const minsAgo = Math.floor((now - g.latest) / 60000);
+    const secsAgo = Math.floor((now - g.latest) / 1000);
+    const timeLabel = minsAgo > 0 ? `${minsAgo}分前` : `${secsAgo}秒前`;
+    html += `<button onclick="undoPaymentForTable('${g.label}')" style="display:block;width:100%;padding:14px 16px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:#fff;margin-bottom:8px;text-align:left;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent);font-weight:900">${g.label}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${g.list.length}件の注文 / ${timeLabel}</div>
+        </div>
+        <div style="font-family:'Oswald',sans-serif;font-size:22px;color:#e74c3c;font-weight:700">¥${g.total.toLocaleString()}</div>
+      </div>
+    </button>`;
+  });
+  html += `<button onclick="document.getElementById('undoPayOverlay').remove()" style="width:100%;padding:12px;border-radius:10px;background:transparent;color:var(--muted);border:1px solid var(--border);margin-top:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700">キャンセル</button>`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'undoPayOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto">${html}</div>`;
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+
+async function undoPaymentForTable(tableLabel) {
+  if (!confirm(`${tableLabel} の会計を取消しますか？\n注文ステータスを「提供済」に戻し、支払い情報をクリアします。`)) return;
+  const { doc, updateDoc, serverTimestamp, deleteField } = window.fbApi;
+  const FIVE_MIN = 5 * 60 * 1000;
+  const now = Date.now();
+  // 該当テーブルの直近5分以内の paid 注文
+  const targets = orders.filter(o => {
+    if (o.status !== 'paid') return false;
+    const tl = o.tableLabel || o.table || '?';
+    if (tl !== tableLabel) return false;
+    const updMs = (o.updatedAt && o.updatedAt.toMillis) ? o.updatedAt.toMillis() : 0;
+    return (now - updMs) < FIVE_MIN;
+  });
+  if (targets.length === 0) {
+    alert('取消対象の会計が見つかりませんでした');
+    return;
+  }
+  try {
+    await Promise.all(targets.map(o => {
+      // 全アイテムが提供済みなら status='served'、未提供アイテムがあれば 'preparing'
+      const items = Array.isArray(o.items) ? o.items : [];
+      const newStatus = (items.length > 0 && items.every(i => i.served)) ? 'served' : 'preparing';
+      return updateDoc(doc(window.fb.db,'orders',o.id), {
+        status: newStatus,
+        paymentMethod: null,
+        paymentType: null,
+        paymentBreakdown: null,
+        paymentRequested: false,
+        updatedAt: serverTimestamp()
+      });
+    }));
+    const ovl = document.getElementById('undoPayOverlay');
+    if (ovl) ovl.remove();
+    showToast(`✅ ${tableLabel} の会計を取消しました（${targets.length}件）`);
+  } catch (e) {
+    console.error('undoPayment failed:', e);
+    alert('取消に失敗しました: ' + (e.message || e));
+  }
+}
 
 // 別会計（再設計版）：各人ごとに「商品選択 → 現金/カード」の流れ
 // 各人の支払いをログに記録し、最後にFirestoreへ反映
@@ -2292,9 +2438,12 @@ window.closeSoldoutFullPage = closeSoldoutFullPage; window.toggleSoldout = toggl
 window.confirmSoldout = confirmSoldout; window.closeSoldoutModal = closeSoldoutModal;
 window.maybeCloseSoldout = maybeCloseSoldout; window.quickToggleSoldout = quickToggleSoldout;
 window.openHistoryPage = openHistoryPage; window.closeHistoryPage = closeHistoryPage;
+window.deleteHistoryEntry = deleteHistoryEntry;
 window.renderHistoryList = renderHistoryList; window.toggleServed = toggleServed;
 window.openTable = openTable; window.filterReg = filterReg;
 window.completePayment = completePayment; window.finalizePayment = finalizePayment;
+window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
+window.completeService = completeService;
 window.openSeparatePayment = openSeparatePayment; window.toggleBetsuItem = toggleBetsuItem;
 window.confirmOnePersonPay = confirmOnePersonPay; window.finishAllBetsu = finishAllBetsu;
 window.openOrderEdit = openOrderEdit; window.closeOrderEdit = closeOrderEdit;
