@@ -768,6 +768,8 @@ function renderSortPageList() {
       _sortPageItems = rows.map(r => editKeyToItem.get(r.dataset.editKey)).filter(Boolean);
       // 番号を更新
       rows.forEach((r, i) => { const n = r.querySelector('.sp-num'); if (n) n.textContent = i + 1; });
+      // ローカルデータも更新（UI即時反映のため）
+      _sortPageItems.forEach((m, i) => { m._sortOrder = (i + 1) * 10; });
       const statusEl = document.getElementById('sortpageStatus');
       if (statusEl) { statusEl.textContent = '保存中…'; statusEl.className = 'sortpage-save-status'; }
       const updates = _sortPageItems.map((m, i) => ({
@@ -781,7 +783,16 @@ function renderSortPageList() {
         setTimeout(() => { if (statusEl && statusEl.classList.contains('saved')) statusEl.textContent = ''; }, 2500);
       } catch (e) {
         console.error('[sortOrder] save failed:', e);
-        if (statusEl) { statusEl.textContent = '⚠️ ' + (e.message || '保存に失敗しました'); statusEl.className = 'sortpage-save-status error'; }
+        // エラーは画面に確実に表示（クリックされるまで消えない）
+        if (statusEl) {
+          statusEl.innerHTML = `<div style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);border-radius:8px;padding:10px 14px;color:#ffb3a8;font-size:12px;line-height:1.5">
+            <div style="font-weight:900;margin-bottom:4px">⚠️ 保存に失敗しました</div>
+            <div style="font-size:11px;color:#ffd4cc;white-space:pre-wrap">${(e.message || e.toString()).slice(0, 300)}</div>
+            <div style="font-size:10px;color:#fff;margin-top:6px;opacity:0.7">F12コンソールで詳細確認可能 → [sortOrder] save failed</div>
+          </div>`;
+          statusEl.className = 'sortpage-save-status error';
+        }
+        // 元の位置に戻す
         renderSortOrderPage();
       }
     }
@@ -1470,9 +1481,43 @@ function renderMenuPage() {
   // ※ 並び替えは「表示順序」ページ（左サイドバー）で行う
 }
 
+// カスタム商品の保存：複数の方法を順に試して最初に成功したものを使う
+async function saveCustomSortOrder(idOrDoc, sortOrder) {
+  const { doc, setDoc, updateDoc, serverTimestamp } = window.fbApi;
+  const docRef = doc(window.fb.db, 'customMenuItems', idOrDoc);
+
+  // 方法1: updateDoc（最も基本的な部分更新）
+  try {
+    await updateDoc(docRef, { sortOrder, updatedAt: serverTimestamp() });
+    console.log('[sortOrder] custom saved via updateDoc:', idOrDoc, sortOrder);
+    return;
+  } catch (e1) {
+    console.warn('[sortOrder] updateDoc failed:', e1.code || e1.message);
+  }
+  // 方法2: setDoc(merge:true)（部分マージ）
+  try {
+    await setDoc(docRef, { sortOrder, updatedAt: serverTimestamp() }, { merge: true });
+    console.log('[sortOrder] custom saved via setDoc(merge):', idOrDoc, sortOrder);
+    return;
+  } catch (e2) {
+    console.warn('[sortOrder] setDoc(merge) failed:', e2.code || e2.message);
+  }
+  // 方法3: 全フィールドsetDoc（ルールで全フィールド要求の場合）
+  try {
+    const existing = (customMenuItems || []).find(c => c.docId === idOrDoc);
+    if (!existing) throw new Error('Item not in local cache');
+    const { docId, updatedAt, ...rest } = existing;
+    const fullData = { ...rest, sortOrder, updatedAt: serverTimestamp() };
+    await setDoc(docRef, fullData, { merge: false });
+    console.log('[sortOrder] custom saved via full setDoc:', idOrDoc, sortOrder);
+    return;
+  } catch (e3) {
+    console.error('[sortOrder] all save methods failed for', idOrDoc, e3);
+    throw e3;
+  }
+}
+
 // 並び順をFirestoreに一括保存（per-item エラー対応版）
-// カスタム商品はFirestoreルールで全フィールド検証されている可能性があるため、
-// 既存データをローカルから取得してマージ → 全フィールドsetDocで書き戻す
 async function saveSortOrders(updates) {
   const { doc, setDoc, updateDoc, serverTimestamp } = window.fbApi;
   const promises = updates.map(async ({ editKey, sortOrder }) => {
@@ -1482,36 +1527,15 @@ async function saveSortOrders(updates) {
     }
     try {
       if (type === 'canonical') {
-        // menuOverrides は sortOrder と updatedAt のみで merge:true で OK
         await setDoc(
           doc(window.fb.db, 'menuOverrides', String(idOrDoc)),
           { sortOrder, updatedAt: serverTimestamp() },
           { merge: true }
         );
+        console.log('[sortOrder] canonical ok:', editKey, '→', sortOrder);
       } else {
-        // customMenuItems: ローカルのカスタム配列から該当ドキュメントの全フィールドを取得
-        const existing = (customMenuItems || []).find(c => c.docId === idOrDoc);
-        if (existing) {
-          // 全フィールド + sortOrder で setDoc（ルール検証対策）
-          // docId は Firestore のメタ情報なので含めない
-          const { docId, createdAt, updatedAt, ...rest } = existing;
-          const fullData = { ...rest, sortOrder, updatedAt: serverTimestamp() };
-          await setDoc(
-            doc(window.fb.db, 'customMenuItems', idOrDoc),
-            fullData,
-            { merge: false }  // 完全な書き戻し
-          );
-        } else {
-          // ローカルに存在しない（同期遅延）→ merge:true で sortOrder のみ書き込み
-          console.warn('[sortOrder] custom item not in local cache, using merge save:', idOrDoc);
-          await setDoc(
-            doc(window.fb.db, 'customMenuItems', idOrDoc),
-            { sortOrder, updatedAt: serverTimestamp() },
-            { merge: true }
-          );
-        }
+        await saveCustomSortOrder(idOrDoc, sortOrder);
       }
-      console.log('[sortOrder] ok:', editKey, '→', sortOrder);
       return { editKey, ok: true };
     } catch (e) {
       console.error('[sortOrder] save failed for', editKey, e);
