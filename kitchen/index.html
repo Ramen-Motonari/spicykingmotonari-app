@@ -395,14 +395,14 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, serverTimestamp, Timestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 const firebaseConfig = { apiKey:"AIzaSyAJ7Z0b0ex74nUPsnsiXXJqcxytJlU9wD0", authDomain:"motonari-4f9ee.firebaseapp.com", projectId:"motonari-4f9ee", storageBucket:"motonari-4f9ee.firebasestorage.app", messagingSenderId:"614951238402", appId:"1:614951238402:web:bb5a9d6ace6f4e6900e01b" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 try { await enableIndexedDbPersistence(db); } catch(e) {}
 window.fb = { app, auth, db };
-window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, serverTimestamp, Timestamp, signInAnonymously, onAuthStateChanged };
+window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, signInAnonymously, onAuthStateChanged };
 </script>
 
 <script>
