@@ -703,6 +703,8 @@ function startOrdersListener() {
       if (data.status === 'cancelled') return;
       // テストモード注文は売上集計・分析から除外
       if (data.testMode === true) return;
+      // 論理削除された注文は集計から除外（履歴の削除済みビューでのみ表示可能）
+      if (data.deleted === true) return;
       const o = { id: d.id, ...data };
       allOrders.push(o);
       if (o.status === 'paid') {
