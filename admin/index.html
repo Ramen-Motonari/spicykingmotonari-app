@@ -699,6 +699,35 @@ function getCurrentItemName(itemOrId) {
   return (typeof itemOrId === 'object' && itemOrId.name) || '';
 }
 
+// 統一カテゴリ判定（canonical → custom → null の順）
+//   新規追加メニュー（customMenuItems）にも対応
+function getItemCat(itemOrId) {
+  if (itemOrId == null) return null;
+  const id = (typeof itemOrId === 'object') ? (itemOrId.itemId !== undefined ? itemOrId.itemId : itemOrId.id) : itemOrId;
+  if (id == null) return null;
+  if (typeof MOTONARI !== 'undefined') {
+    const canon = MOTONARI.getMenuById(id);
+    if (canon) return canon.cat || null;
+  }
+  if (typeof customMenuItems !== 'undefined') {
+    const c = customMenuItems.find(x => x.id === id);
+    if (c) return c.cat || null;
+  }
+  return null;
+}
+// 統一論理カテゴリ判定（ramen / teishoku / drink / side / null）
+//   cat → 名前 の順でフォールバック
+function getItemLogicalCat(item) {
+  const cat = getItemCat(item);
+  if (cat === 'tonkotsu' || cat === 'shouyu') return 'ramen';
+  if (cat === 'teishoku') return 'teishoku';
+  if (cat === 'drink') return 'drink';
+  if (cat === 'side' || cat === 'topping') return 'side';
+  if (cat === 'takeout') return 'takeout';
+  // フォールバック: 名前ベース
+  return MOTONARI.classifyByName((item && item.name) || '');
+}
+
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1255,8 +1284,7 @@ function renderDashboard() {
   let customers = 0;
   todayOrders.forEach(o => {
     (o.items||[]).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(item.name);
+      const logical = getItemLogicalCat(item);
       if (logical === 'ramen' || logical === 'teishoku') customers += (item.qty || 0);
     });
   });
@@ -1301,8 +1329,7 @@ function renderDashboard() {
   let yCustomers = 0;
   yOrders.forEach(o => {
     (o.items||[]).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(item.name);
+      const logical = getItemLogicalCat(item);
       if (logical === 'ramen' || logical === 'teishoku') yCustomers += (item.qty || 0);
     });
   });
@@ -1397,8 +1424,8 @@ function renderTodayRanking(todayOrders) {
 // ────── Daily report ──────
 // レポートに表示する商品リスト（カノニカルID）
 const LUNCH_SECTIONS = [
-  { label: '🍜 ラーメン', ids: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,99] },
-  { label: '🥟 サイド・トッピング', ids: [40,43,44,45,46,47,48,49,62,63,65,29,24,25,26,27,28,66,67,64,22,21,20] },
+  { label: '🍜 ラーメン', ids: [1,2,3,99,16,5,4,12,6,7,8,9,10,11,13,14,15] },
+  { label: '🥟 サイド・トッピング', ids: [40,43,44,45,46,47,48,49,62,63,89,65,29,24,25,26,27,28,66,67,64,22,21,20] },
   { label: '🥢 定食', ids: [70] },
   { label: '🍺 ドリンク', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
 ];
@@ -1406,11 +1433,11 @@ const LUNCH_SECTIONS = [
 //   ラーメン類（豚骨 → カレー → 醤油 → 定食）→ 追加トッピング → サイド → ドリンク
 const DINNER_SECTIONS = [
   { label: '🍜 ラーメン - 豚骨', key: 'tonkotsu', ids: [1,2,3,12,99] },
-  { label: '🍛 ラーメン - カレー', key: 'curry', ids: [4,5] },
+  { label: '🍛 ラーメン - カレー', key: 'curry', ids: [16,5,4] },
   { label: '🍜 ラーメン - 醤油', key: 'shouyu', ids: [6,7,8,9,10,11,13,14,15] },
   { label: '🥢 定食', key: 'teishoku', ids: [70] },
   { label: '🥄 追加トッピング', key: 'topping', ids: [40,43,44,45,46,47,48,49,62,63] },
-  { label: '🥟 サイド', key: 'side', ids: [29,24,25,26,27,28,66,67,65,64,22,21,20,80,81,82,83,84,85,86,87,88] },
+  { label: '🥟 サイド', key: 'side', ids: [89,29,24,25,26,27,28,66,67,65,64,22,21,20,80,81,82,83,84,85,86,87,88] },
   { label: '🍺 ドリンク', key: 'drink', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
 ];
 
@@ -1443,9 +1470,8 @@ function calcNoodleOptionCounts(orders) {
         return;
       }
 
-      // 麺サイズ：ラーメンの opts を解析
-      const canon = MOTONARI.getMenuById(id);
-      const cat = canon ? canon.cat : null;
+      // 麺サイズ：ラーメンの opts を解析（カスタム ramen も対応）
+      const cat = getItemCat(item);
       if (cat !== 'tonkotsu' && cat !== 'shouyu') return;
       const opts = item.opts || [];
       opts.forEach(rawOpt => {
@@ -1511,8 +1537,7 @@ function calcForeignRate(orders) {
     if (langSet[lang]) langSet[lang].add(sid);
     else langSet.other.add(sid);
     (o.items || []).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(item.name);
+      const logical = getItemLogicalCat(item);
       if (logical === 'ramen' || logical === 'teishoku') {
         const q = item.qty || 0;
         totalRamen += q;
@@ -1558,8 +1583,7 @@ function calcReportFor(session) {
   let customers = 0;
   orders.forEach(o => {
     (o.items||[]).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(item.name);
+      const logical = getItemLogicalCat(item);
       if (logical === 'ramen' || logical === 'teishoku') customers += (item.qty || 0);
     });
   });
@@ -1725,8 +1749,7 @@ function calcMonthToDate(session) {
   let customers = 0;
   orders.forEach(o => {
     (o.items||[]).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(item.name);
+      const logical = getItemLogicalCat(item);
       if (logical === 'ramen' || logical === 'teishoku') customers += (item.qty || 0);
     });
   });
@@ -2031,18 +2054,16 @@ function renderAnalytics() {
   const catSales = { ramen: 0, teishoku: 0, side: 0, drink: 0, topping: 0 };
   allFiltered.forEach(o => {
     (o.items||[]).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
+      // カスタムメニュー対応
+      const rawCat = getItemCat(item);
       let cat = 'side';
-      if (canon) {
-        if (canon.cat === 'tonkotsu' || canon.cat === 'shouyu') cat = 'ramen';
-        else if (canon.cat === 'teishoku') cat = 'teishoku';
-        else if (canon.cat === 'takeout') cat = 'takeout';
-        else if (canon.cat === 'drink') cat = 'drink';
-        else if (canon.cat === 'topping') cat = 'topping';
-        else cat = 'side';
-      } else {
-        cat = MOTONARI.classifyByName(item.name);
-      }
+      if (rawCat === 'tonkotsu' || rawCat === 'shouyu') cat = 'ramen';
+      else if (rawCat === 'teishoku') cat = 'teishoku';
+      else if (rawCat === 'takeout') cat = 'takeout';
+      else if (rawCat === 'drink') cat = 'drink';
+      else if (rawCat === 'topping') cat = 'topping';
+      else if (rawCat === 'side') cat = 'side';
+      else cat = MOTONARI.classifyByName(item.name) || 'side';
       catSales[cat] = (catSales[cat]||0) + (item.price||MOTONARI.getPrice(item.itemId)||0) * (item.qty||0);
     });
   });
