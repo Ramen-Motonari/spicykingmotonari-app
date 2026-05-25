@@ -386,6 +386,8 @@ window.adminLogout = adminLogout;
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
         <div id="dinner-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-top:14px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">麺サイズ・替え玉</div>
+        <div id="dinner-noodle-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
       </div>
     </div>
   </div>
@@ -1400,12 +1402,100 @@ const LUNCH_SECTIONS = [
   { label: '🥢 定食', ids: [70] },
   { label: '🍺 ドリンク', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
 ];
+// 夜営業報告の表示順序：
+//   ラーメン類（豚骨 → カレー → 醤油 → 定食）→ 追加トッピング → サイド → ドリンク
 const DINNER_SECTIONS = [
-  { label: '🍜 ラーメン', ids: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,99] },
-  { label: '🍳 夜限定サイド', ids: [80,81,82,83,84,85,86,87,88] },
-  { label: '🥟 サイド共通', ids: [40,43,44,45,46,47,48,49,62,63,65,29,24,25,26,27,28,66,67,64,22,21,20] },
-  { label: '🍺 ドリンク', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
+  { label: '🍜 ラーメン - 豚骨', key: 'tonkotsu', ids: [1,2,3,12,99] },
+  { label: '🍛 ラーメン - カレー', key: 'curry', ids: [4,5] },
+  { label: '🍜 ラーメン - 醤油', key: 'shouyu', ids: [6,7,8,9,10,11,13,14,15] },
+  { label: '🥢 定食', key: 'teishoku', ids: [70] },
+  { label: '🥄 追加トッピング', key: 'topping', ids: [40,43,44,45,46,47,48,49,62,63] },
+  { label: '🥟 サイド', key: 'side', ids: [29,24,25,26,27,28,66,67,65,64,22,21,20,80,81,82,83,84,85,86,87,88] },
+  { label: '🍺 ドリンク', key: 'drink', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
 ];
+
+// 麺サイズ・替え玉オプションの集計（夜営業報告の末尾用）
+//   - 替え玉: id 40、ランチタイム無料は除外
+//   - 細麺大盛り: 豚骨カテゴリで「細麺 大盛り」を選択（ランチタイム無料を除外）
+//   - 平打ち麺小盛り: 豚骨・醤油の「平打ち 小」
+//   - 平打ち麺大盛り: 豚骨・醤油の「平打ち 大盛り」
+//   - 細麺→平打ち変更（豚骨のみ）: 小 / 並 / 大盛り の内訳
+function calcNoodleOptionCounts(orders) {
+  let kaedama = 0;
+  let thinLarge = 0;
+  let flatSmall = 0;
+  let flatLarge = 0;
+  let tonkotsuFlatSmall = 0;
+  let tonkotsuFlatRegular = 0;
+  let tonkotsuFlatLarge = 0;
+
+  orders.forEach(o => {
+    (o.items || []).forEach(item => {
+      const id = item.itemId;
+      const qty = item.qty || 0;
+
+      // 替え玉（id 40）。ランチタイム無料の場合は除外（opts/name/price で判定）
+      if (id === 40) {
+        const optsStr = (item.opts || []).map(x => String(x)).join(' ');
+        const nm = item.name || '';
+        const isFree = /無料|FREE|免费|무료/.test(optsStr) || /無料|FREE|免费|무료/.test(nm) || item.price === 0;
+        if (!isFree) kaedama += qty;
+        return;
+      }
+
+      // 麺サイズ：ラーメンの opts を解析
+      const canon = MOTONARI.getMenuById(id);
+      const cat = canon ? canon.cat : null;
+      if (cat !== 'tonkotsu' && cat !== 'shouyu') return;
+      const opts = item.opts || [];
+      opts.forEach(rawOpt => {
+        const s = String(rawOpt);
+        const isThin = /(細麺|Thin|细面|가는면)/i.test(s);
+        const isFlat = /(平打ち麺|平打ち|Flat|宽面|넓은면)/i.test(s);
+        const isLarge = /(大盛り|大盛|Large|大碗|곱배기)/i.test(s);
+        const isSmall = /(小盛|^小|\s小|少盛|^少|\s少|Less|少量|적게)/i.test(s);
+        const isRegular = /(並|Regular|普通|보통)/i.test(s);
+        const isFree = /無料|FREE|免费|무료/.test(s);
+
+        if (cat === 'tonkotsu') {
+          if (isThin && isLarge && !isFree) thinLarge += qty;
+          if (isFlat) {
+            if (isLarge) { flatLarge += qty; tonkotsuFlatLarge += qty; }
+            else if (isSmall) { flatSmall += qty; tonkotsuFlatSmall += qty; }
+            else if (isRegular) tonkotsuFlatRegular += qty;
+          }
+        } else if (cat === 'shouyu') {
+          if (isFlat) {
+            if (isLarge) flatLarge += qty;
+            else if (isSmall) flatSmall += qty;
+          }
+        }
+      });
+    });
+  });
+
+  return {
+    kaedama, thinLarge, flatSmall, flatLarge,
+    tonkotsuFlatSmall, tonkotsuFlatRegular, tonkotsuFlatLarge
+  };
+}
+
+// カテゴリのキーを判定（カノニカル / カスタムどちらも対応）
+//   カレー名を含む tonkotsu アイテム → curry セクション
+//   それ以外は item.cat 直接マップ
+function getDinnerSectionKey(item) {
+  if (!item) return null;
+  const nameJa = (item.name && (item.name.ja || item.name)) || '';
+  if (item.cat === 'tonkotsu') {
+    return /カレー/.test(nameJa) ? 'curry' : 'tonkotsu';
+  }
+  if (item.cat === 'shouyu') return 'shouyu';
+  if (item.cat === 'teishoku') return 'teishoku';
+  if (item.cat === 'topping') return 'topping';
+  if (item.cat === 'side') return 'side';
+  if (item.cat === 'drink') return 'drink';
+  return null;
+}
 
 // 外国人率の計算
 // 計算式: 非日本語客のラーメン＋定食杯数 ÷ 全ラーメン＋定食杯数 × 100%
@@ -1519,12 +1609,32 @@ function calcReportFor(session) {
 
 function renderMenuCountHTML(counts, sections) {
   let html = '';
+  // 既にどのセクションで表示したかを記録（重複防止）
+  const shownIds = new Set();
   sections.forEach(sec => {
-    const items = sec.ids.map(id => {
+    // canonical IDs から
+    const items = [];
+    (sec.ids || []).forEach(id => {
       const m = MOTONARI.getMenuById(id);
-      if (!m) return null;
-      return { id, name: getCurrentItemName(id) || m.name.ja, count: counts[id] || 0 };
-    }).filter(Boolean);
+      if (!m) return;
+      const ov = (typeof menuOverrides !== 'undefined') ? (menuOverrides[String(id)] || {}) : {};
+      if (ov.deleted) return; // 完全削除は除外
+      items.push({ id, name: getCurrentItemName(id) || m.name.ja, count: counts[id] || 0, _sort: ov.sortOrder || 0 });
+      shownIds.add(id);
+    });
+    // custom items のうち同セクションに該当するもの
+    if (sec.key && typeof customMenuItems !== 'undefined') {
+      customMenuItems.forEach(c => {
+        if (c.hidden) return;
+        if (shownIds.has(c.id)) return;
+        const key = getDinnerSectionKey({ cat: c.cat, name: c.name });
+        if (key === sec.key) {
+          items.push({ id: c.id, name: (c.name && c.name.ja) || '(無名)', count: counts[c.id] || 0, _sort: c.sortOrder || 9999, _isCustom: true });
+          shownIds.add(c.id);
+        }
+      });
+    }
+    items.sort((a,b) => (a._sort||0) - (b._sort||0));
     if (!items.length) return;
     html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-top:12px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${sec.label}</div>`;
     items.forEach(item => {
@@ -1573,6 +1683,30 @@ function renderDailyReport() {
   document.getElementById('dinner-avg').textContent = '¥' + dinner.avg.toLocaleString();
   document.getElementById('dinner-pay-breakdown').innerHTML = renderPayBreakdownHTML(dinner.payBreakdown);
   document.getElementById('dinner-menu-count').innerHTML = renderMenuCountHTML(dinner.counts, DINNER_SECTIONS);
+  // 麺サイズ・替え玉カウント
+  const noc = calcNoodleOptionCounts(dinner.orders);
+  document.getElementById('dinner-noodle-count').innerHTML = renderNoodleCountHTML(noc);
+}
+
+function renderNoodleCountHTML(noc) {
+  const row = (label, count, note) => {
+    const isZero = count === 0;
+    return `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;font-size:12px;${isZero?'opacity:0.4':''}">
+      <span style="color:#ccc">${label}${note ? `<span style="font-size:10px;color:var(--muted);margin-left:4px">${note}</span>` : ''}</span>
+      <span style="font-family:'Oswald',sans-serif;color:${isZero?'var(--muted)':'var(--accent)'};font-weight:700">${count}</span>
+    </div>`;
+  };
+  let html = '';
+  html += row('替え玉', noc.kaedama);
+  html += row('細麺大盛り', noc.thinLarge);
+  html += row('平打ち麺小盛り', noc.flatSmall, '（並料金）');
+  html += row('平打ち麺大盛り', noc.flatLarge);
+  html += `<div style="font-size:10px;color:var(--muted);margin-top:2px;padding:2px 8px;font-style:italic">※ランチタイム無料除く</div>`;
+  html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-top:10px;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid var(--border)">細麺→平打ち麺変更（豚骨）</div>`;
+  html += row('・小（並料金）', noc.tonkotsuFlatSmall);
+  html += row('・並', noc.tonkotsuFlatRegular);
+  html += row('・大盛り', noc.tonkotsuFlatLarge);
+  return html;
 }
 
 // ────── Month-to-date 累計計算（月初〜今日まで） ──────
@@ -1759,12 +1893,41 @@ function buildReportText(session) {
   txt += `${SEP}\n`;
   txt += `●メニュー別売上高\n`;
   txt += `\n`;
-  // メニュー一覧：登録済みの全メニュー（非表示除く）を順番に、0件含めて出力
+  // メニュー一覧：豚骨/カレー/醤油/定食/トッピング/サイド/ドリンク の順
+  const sectionEmojis = {
+    tonkotsu: '【豚骨】', curry: '【カレー】', shouyu: '【醤油】', teishoku: '【定食】',
+    topping: '【追加トッピング】', side: '【サイド】', drink: '【ドリンク】'
+  };
   const visible = getVisibleMenuItems();
+  // セクション別にグルーピング
+  const grouped = { tonkotsu: [], curry: [], shouyu: [], teishoku: [], topping: [], side: [], drink: [] };
   visible.forEach(item => {
-    const cnt = r.counts[item.id] || 0;
-    txt += `${item.name}　x ${cnt}\n`;
+    const key = getDinnerSectionKey({ cat: item.cat, name: { ja: item.name } });
+    if (key && grouped[key]) grouped[key].push(item);
   });
+  ['tonkotsu','curry','shouyu','teishoku','topping','side','drink'].forEach(key => {
+    if (!grouped[key].length) return;
+    txt += `${sectionEmojis[key]}\n`;
+    grouped[key].forEach(item => {
+      const cnt = r.counts[item.id] || 0;
+      txt += `${item.name}　x ${cnt}\n`;
+    });
+    txt += `\n`;
+  });
+
+  // 麺オプション集計
+  const noc = calcNoodleOptionCounts(r.orders);
+  txt += `${SEP}\n`;
+  txt += `替え玉　x ${noc.kaedama}\n`;
+  txt += `細麺大盛り　x ${noc.thinLarge}\n`;
+  txt += `平打ち麺小盛り（並料金）　x ${noc.flatSmall}\n`;
+  txt += `平打ち麺大盛り　x ${noc.flatLarge}\n`;
+  txt += `※ランチタイム無料除く\n`;
+  txt += `\n`;
+  txt += `細麺→平打ち麺変更\n`;
+  txt += `・小（並料金）　x ${noc.tonkotsuFlatSmall}\n`;
+  txt += `・並　x ${noc.tonkotsuFlatRegular}\n`;
+  txt += `・大盛り　x ${noc.tonkotsuFlatLarge}\n`;
   return txt;
 }
 
