@@ -315,15 +315,16 @@ window.adminLogout = adminLogout;
         <button class="stab" onclick="switchDashboardSession(this,'dinner')">夜営業</button>
       </div>
     </div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
       <div class="kpi-card"><div class="kpi-label" id="kpi-sales-label">当日累計売上（税抜）</div><div class="kpi-value" style="color:var(--accent)" id="kpi-sales">¥0</div><div class="kpi-diff" id="kpi-sales-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-customers-label">当日累計客数</div><div class="kpi-value" style="color:var(--green)" id="kpi-customers">0</div><div class="kpi-diff" id="kpi-customers-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-avg-label">当日累計客単価（税抜）</div><div class="kpi-value" style="color:var(--purple)" id="kpi-avg">¥0</div><div class="kpi-diff" id="kpi-avg-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-newrate-label">当日新規率</div><div class="kpi-value" style="color:var(--blue)" id="kpi-newrate">0%</div><div class="kpi-diff" id="kpi-newrate-diff"></div></div>
+      <div class="kpi-card"><div class="kpi-label" id="kpi-foreignrate-label">当日外国人率</div><div class="kpi-value" style="color:#e2a14b" id="kpi-foreignrate">0%</div><div class="kpi-diff" id="kpi-foreignrate-diff"></div></div>
     </div>
     <div class="card">
-      <div class="card-title">🏆 本日の人気メニュー TOP10</div>
-      <div id="today-ranking" style="display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px"></div>
+      <div class="card-title">🏆 本日の人気メニュー TOP5</div>
+      <div id="today-ranking" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px"></div>
     </div>
     <div class="card">
       <div class="card-title">
@@ -583,8 +584,25 @@ window.adminLogout = adminLogout;
   <div class="page" id="page-visits">
     <div class="page-title">来店分析</div>
     <div class="page-sub">初回・リピーター・言語別の来店データを確認</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+      <div class="period-tabs">
+        <button class="ptab active" id="vtab-week" onclick="switchVisitsMode(this,'week')">直近7日</button>
+        <button class="ptab" id="vtab-day" onclick="switchVisitsMode(this,'day')">単日</button>
+        <button class="ptab" id="vtab-range" onclick="switchVisitsMode(this,'range')">期間指定</button>
+        <button class="ptab" id="vtab-month" onclick="switchVisitsMode(this,'month')">当月</button>
+      </div>
+      <div id="visits-day-picker" style="display:none">
+        <input type="date" id="visits-date" onchange="renderVisits()" style="padding:6px 10px;border-radius:8px;background:var(--surface2);color:#fff;border:1px solid var(--border);font-size:13px">
+      </div>
+      <div id="visits-range-picker" style="display:none;gap:6px;align-items:center">
+        <input type="date" id="visits-range-from" onchange="renderVisits()" style="padding:6px 10px;border-radius:8px;background:var(--surface2);color:#fff;border:1px solid var(--border);font-size:13px">
+        <span style="color:var(--muted)">〜</span>
+        <input type="date" id="visits-range-to" onchange="renderVisits()" style="padding:6px 10px;border-radius:8px;background:var(--surface2);color:#fff;border:1px solid var(--border);font-size:13px">
+      </div>
+      <div id="visits-range-info" style="font-size:11px;color:var(--muted);margin-left:auto"></div>
+    </div>
     <div class="chart-grid" style="margin-bottom:20px">
-      <div class="card"><div class="card-title">来店タイプ推移（直近7日）</div><div class="bar-chart" id="visit-chart"></div></div>
+      <div class="card"><div class="card-title" id="visit-chart-title">来店タイプ推移</div><div class="bar-chart" id="visit-chart"></div></div>
       <div class="card"><div class="card-title">初回 vs リピーター</div><div class="donut-wrap" id="visit-donut-wrap"></div></div>
     </div>
     <div class="chart-grid">
@@ -635,6 +653,7 @@ let currentSession = { 'week-chart': 'all', 'analytics-chart': 'all' };
 let currentSoupSession = 'all';
 let currentReportTab = 'lunch';
 let currentDashboardSession = 'all';
+let currentVisitsMode = 'week'; // 'week' | 'day' | 'range' | 'month'
 
 function setFbStatus(state, text) {
   const dot = document.getElementById('fbDot');
@@ -651,6 +670,31 @@ function showToast(msg, isErr) {
   el.style.display = 'block';
   clearTimeout(el._t);
   el._t = setTimeout(() => el.style.display = 'none', 2500);
+}
+
+// オーバーライド適用済みの最新メニュー名（ja）を返す
+// 引数は item オブジェクトまたは menuId（数値/文字列）
+function getCurrentItemName(itemOrId) {
+  if (itemOrId == null) return '';
+  const id = (typeof itemOrId === 'object') ? (itemOrId.itemId !== undefined ? itemOrId.itemId : itemOrId.id) : itemOrId;
+  if (id == null) return (typeof itemOrId === 'object' && itemOrId.name) || '';
+  // 1. 名前オーバーライド
+  if (typeof menuOverrides !== 'undefined') {
+    const ov = menuOverrides[String(id)] || {};
+    if (ov.nameOverride && ov.nameOverride.ja) return ov.nameOverride.ja;
+  }
+  // 2. canonical
+  if (typeof MOTONARI !== 'undefined') {
+    const canon = MOTONARI.getMenuById(id);
+    if (canon && canon.name && canon.name.ja) return canon.name.ja;
+  }
+  // 3. customMenuItems
+  if (typeof customMenuItems !== 'undefined') {
+    const c = customMenuItems.find(x => x.id === id);
+    if (c && c.name && c.name.ja) return c.name.ja;
+  }
+  // 4. 最終フォールバック：保存済み item.name
+  return (typeof itemOrId === 'object' && itemOrId.name) || '';
 }
 
 function todayKey() {
@@ -739,6 +783,9 @@ function startMenuOverridesListener() {
       clearTimeout(window._sortPageRefreshTimer);
       window._sortPageRefreshTimer = setTimeout(() => { renderSortOrderPage(); }, 600);
     }
+    // メニュー名変更を集計画面・ダッシュボードへ即時反映
+    if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard();
+    if (document.getElementById('page-analytics')?.classList.contains('active')) renderAnalytics();
   }, err => console.error('menuOverrides listener:', err));
 }
 function startCustomMenuItemsListener() {
@@ -1215,6 +1262,8 @@ function renderDashboard() {
 
   // 新規率
   const vr = calcVisitRate(todayOrders);
+  // 外国人率
+  const fr = calcForeignRate(todayOrders);
 
   // ラベル接尾辞
   const suffix = sess === 'lunch' ? '（ランチ）' : (sess === 'dinner' ? '（夜営業）' : '');
@@ -1222,15 +1271,18 @@ function renderDashboard() {
   const lbC = document.getElementById('kpi-customers-label');
   const lbA = document.getElementById('kpi-avg-label');
   const lbN = document.getElementById('kpi-newrate-label');
+  const lbF = document.getElementById('kpi-foreignrate-label');
   if (lbS) lbS.textContent = '当日累計売上（税抜）' + suffix;
   if (lbC) lbC.textContent = '当日累計客数' + suffix;
   if (lbA) lbA.textContent = '当日累計客単価（税抜）' + suffix;
   if (lbN) lbN.textContent = '当日新規率' + suffix;
+  if (lbF) lbF.textContent = '当日外国人率' + suffix;
 
   document.getElementById('kpi-sales').textContent = '¥' + salesNoTax.toLocaleString();
   document.getElementById('kpi-customers').textContent = customers + '人';
   document.getElementById('kpi-avg').textContent = '¥' + avg.toLocaleString();
   document.getElementById('kpi-newrate').textContent = vr.rate + '%';
+  document.getElementById('kpi-foreignrate').textContent = fr.rate + '%';
 
   // 前日比
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
@@ -1252,11 +1304,13 @@ function renderDashboard() {
   });
   const yAvg = yCustomers > 0 ? Math.round(ySalesNoTax / yCustomers) : 0;
   const yvr = calcVisitRate(yOrders);
+  const yfr = calcForeignRate(yOrders);
 
   setKpiDiff('kpi-sales-diff', salesNoTax, ySalesNoTax);
   setKpiDiff('kpi-customers-diff', customers, yCustomers);
   setKpiDiff('kpi-avg-diff', avg, yAvg);
   setKpiDiff('kpi-newrate-diff', vr.rate, yvr.rate);
+  setKpiDiff('kpi-foreignrate-diff', fr.rate, yfr.rate);
 
   renderTodayRanking(todayOrders);
   renderDailyReport();
@@ -1303,34 +1357,34 @@ function renderWeekChart() {
 function renderTodayRanking(todayOrders) {
   const list = document.getElementById('today-ranking');
   if (!list) return;
-  // 商品別 数量ランキング
+  // 商品別 数量ランキング（オーバーライド適用済みの最新名で集計）
   const counts = {};
   todayOrders.forEach(o => {
     (o.items||[]).forEach(item => {
-      const name = item.name || MOTONARI.getNameJa(item.itemId) || '?';
+      const name = getCurrentItemName(item) || item.name || '?';
       counts[name] = (counts[name] || 0) + (item.qty || 0);
     });
   });
-  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 5);
   if (!sorted.length) {
     list.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:12px;text-align:center;padding:20px">本日の販売データがありません</div>';
     return;
   }
-  // 10件に満たない場合は空セルで埋める（横一列の幅を維持）
+  // 5件に満たない場合は空セルで埋める（横一列の幅を維持）
   const cells = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 5; i++) {
     if (i < sorted.length) {
       const [name, count] = sorted[i];
       const numColor = i === 0 ? 'var(--accent)' : (i < 3 ? '#e2a14b' : 'var(--muted)');
       cells.push(`
-        <div style="background:var(--surface2);border-radius:10px;padding:10px 4px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:96px;border:1px solid var(--border)">
-          <div style="font-family:'Oswald',sans-serif;font-size:20px;color:${numColor};font-weight:700;line-height:1">${i+1}</div>
-          <div style="font-size:10px;color:#ccc;line-height:1.25;margin:6px 2px;word-break:break-word">${name}</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:17px;color:var(--green);font-weight:700;line-height:1">${count}</div>
+        <div style="background:var(--surface2);border-radius:12px;padding:14px 8px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:110px;border:1px solid var(--border)">
+          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:${numColor};font-weight:700;line-height:1">${i+1}</div>
+          <div style="font-size:12px;color:#ccc;line-height:1.3;margin:8px 2px;word-break:break-word">${name}</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green);font-weight:700;line-height:1">${count}</div>
         </div>
       `);
     } else {
-      cells.push(`<div style="background:transparent;border-radius:10px;padding:10px 4px;min-height:96px;border:1px dashed var(--border);opacity:0.3"></div>`);
+      cells.push(`<div style="background:transparent;border-radius:12px;padding:14px 8px;min-height:110px;border:1px dashed var(--border);opacity:0.3"></div>`);
     }
   }
   list.innerHTML = cells.join('');
@@ -1350,6 +1404,38 @@ const DINNER_SECTIONS = [
   { label: '🥟 サイド共通', ids: [40,43,44,45,46,47,48,49,62,63,65,29,24,25,26,27,28,66,67,64,22,21,20] },
   { label: '🍺 ドリンク', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
 ];
+
+// 外国人率の計算
+// 計算式: 非日本語客のラーメン＋定食杯数 ÷ 全ラーメン＋定食杯数 × 100%
+function calcForeignRate(orders) {
+  let foreignRamen = 0;
+  let totalRamen = 0;
+  // 言語別 sessionId 集計（情報表示用）
+  const langSet = { ja: new Set(), en: new Set(), zh: new Set(), ko: new Set(), other: new Set() };
+  orders.forEach(o => {
+    const lang = o.language || 'ja';
+    const isForeign = (lang === 'en' || lang === 'zh' || lang === 'ko');
+    const sid = o.sessionId || o.id;
+    if (langSet[lang]) langSet[lang].add(sid);
+    else langSet.other.add(sid);
+    (o.items || []).forEach(item => {
+      const canon = MOTONARI.getMenuById(item.itemId);
+      const logical = canon ? MOTONARI.getLogicalCategory(canon) : MOTONARI.classifyByName(item.name);
+      if (logical === 'ramen' || logical === 'teishoku') {
+        const q = item.qty || 0;
+        totalRamen += q;
+        if (isForeign) foreignRamen += q;
+      }
+    });
+  });
+  const rate = totalRamen > 0 ? Math.round((foreignRamen / totalRamen) * 100) : 0;
+  return {
+    foreignRamen, totalRamen, rate,
+    ja: langSet.ja.size, en: langSet.en.size, zh: langSet.zh.size, ko: langSet.ko.size,
+    foreign: langSet.en.size + langSet.zh.size + langSet.ko.size,
+    total: langSet.ja.size + langSet.en.size + langSet.zh.size + langSet.ko.size + langSet.other.size
+  };
+}
 
 // 新規率の計算（unique sessionId ベース）
 function calcVisitRate(orders) {
@@ -1425,7 +1511,8 @@ function calcReportFor(session) {
     }
   });
   const visitRate = calcVisitRate(orders);
-  return { salesTax, salesNoTax, customers, avg, counts, orders, payBreakdown, visitRate };
+  const foreignRate = calcForeignRate(orders);
+  return { salesTax, salesNoTax, customers, avg, counts, orders, payBreakdown, visitRate, foreignRate };
 }
 
 function renderMenuCountHTML(counts, sections) {
@@ -1434,7 +1521,7 @@ function renderMenuCountHTML(counts, sections) {
     const items = sec.ids.map(id => {
       const m = MOTONARI.getMenuById(id);
       if (!m) return null;
-      return { id, name: m.name.ja, count: counts[id] || 0 };
+      return { id, name: getCurrentItemName(id) || m.name.ja, count: counts[id] || 0 };
     }).filter(Boolean);
     if (!items.length) return;
     html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-top:12px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${sec.label}</div>`;
@@ -1508,7 +1595,8 @@ function calcMonthToDate(session) {
     });
   });
   const visitRate = calcVisitRate(orders);
-  return { salesNoTax, customers, salesTax, visitRate };
+  const foreignRate = calcForeignRate(orders);
+  return { salesNoTax, customers, salesTax, visitRate, foreignRate };
 }
 
 // ────── Copy report ──────
@@ -1594,12 +1682,14 @@ function buildReportText(session) {
     txt += `客数　${r.customers}名 \n`;
     txt += `客単価　¥${r.avg.toLocaleString()}\n`;
     txt += `当日新規率　${r.visitRate.rate}%\n`;
+    txt += `当日外国人率　${r.foreignRate.rate}%\n`;
     txt += `\n`;
     txt += `●当月累計\n`;
     txt += `累計売上　¥${mtdSales.toLocaleString()}（税抜）\n`;
     txt += `累計客数:　${mtdCustomers}人\n`;
     txt += `累計客単価　¥${mtdAvg.toLocaleString()}\n`;
     txt += `累計新規率　${mtdAll.visitRate.rate}%\n`;
+    txt += `累計外国人率　${mtdAll.foreignRate.rate}%\n`;
     txt += `\n`;
     txt += `●詳細\n`;
     txt += `現金売上　¥${cashTotal.toLocaleString()}(税込) \n`;
@@ -1638,6 +1728,7 @@ function buildReportText(session) {
   txt += `客単価　¥${r.avg.toLocaleString()}\n`;
   txt += `客数　　${r.customers}名\n`;
   txt += `当日新規率　${r.visitRate.rate}%\n`;
+  txt += `当日外国人率　${r.foreignRate.rate}%\n`;
   txt += `\n`;
   txt += `${SEP}\n`;
   txt += `\n`;
@@ -1652,6 +1743,7 @@ function buildReportText(session) {
   txt += `累計 客数　${mtdCustomers}人\n`;
   txt += `累計客単価　${mtdAvg.toLocaleString()}円\n`;
   txt += `累計新規率　${mtdAll.visitRate.rate}%\n`;
+  txt += `累計外国人率　${mtdAll.foreignRate.rate}%\n`;
   txt += `\n`;
   txt += `${SEP}\n`;
   txt += `\n`;
@@ -1803,14 +1895,16 @@ function renderAnalytics() {
       <div class="rank-val">¥${v.toLocaleString()}</div>
     </div>`).join('') : '<div style="color:var(--muted);font-size:12px">データなし</div>';
 
-  // 商品別ランキング
+  // 商品別ランキング（オーバーライド適用済みの最新名で集計）
   const itemStats = {};
   allFiltered.forEach(o => {
     (o.items||[]).forEach(item => {
       const id = item.itemId;
-      const name = item.name || MOTONARI.getNameJa(id);
+      const name = getCurrentItemName(item) || item.name || MOTONARI.getNameJa(id);
       const price = item.price || MOTONARI.getPrice(id) || 0;
       if (!itemStats[id]) itemStats[id] = { name, qty: 0, total: 0 };
+      // ID追跡だが、名前は最新を維持
+      itemStats[id].name = name;
       itemStats[id].qty += (item.qty||0);
       itemStats[id].total += price * (item.qty||0);
     });
@@ -2473,17 +2567,85 @@ async function confirmDeleteCategory(docId, name) {
 }
 
 // ────── Visits ──────
-function renderVisits() {
-  const today = new Date();
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today); d.setDate(d.getDate() - i);
-    days.push(dateKey(d));
+function switchVisitsMode(btn, mode) {
+  document.querySelectorAll('#page-visits .ptab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  currentVisitsMode = mode;
+  document.getElementById('visits-day-picker').style.display = (mode === 'day') ? 'inline-block' : 'none';
+  document.getElementById('visits-range-picker').style.display = (mode === 'range') ? 'inline-flex' : 'none';
+  // 期間モード初回で空ならデフォルト値をセット（直近7日）
+  if (mode === 'day') {
+    const el = document.getElementById('visits-date');
+    if (!el.value) el.value = todayKey();
+  } else if (mode === 'range') {
+    const f = document.getElementById('visits-range-from');
+    const t = document.getElementById('visits-range-to');
+    if (!t.value) t.value = todayKey();
+    if (!f.value) {
+      const d = new Date(); d.setDate(d.getDate() - 6);
+      f.value = dateKey(d);
+    }
   }
-  // 来店組数 = ユニークsessionId
+  renderVisits();
+}
+
+// モードに応じた対象日付配列と表示ラベルを返す
+function getVisitsRange() {
+  const today = new Date();
+  if (currentVisitsMode === 'day') {
+    const dv = document.getElementById('visits-date');
+    const d = (dv && dv.value) ? dv.value : todayKey();
+    return { days: [d], label: d, isDayMode: true };
+  }
+  if (currentVisitsMode === 'range') {
+    const fv = document.getElementById('visits-range-from');
+    const tv = document.getElementById('visits-range-to');
+    const from = (fv && fv.value) ? fv.value : '';
+    const to = (tv && tv.value) ? tv.value : '';
+    if (!from || !to) {
+      // フォールバック：直近7日
+      const days = [];
+      for (let i = 6; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); days.push(dateKey(d)); }
+      return { days, label: '直近7日', isDayMode: false };
+    }
+    const days = [];
+    const [fy, fm, fd] = from.split('-').map(n => parseInt(n));
+    const [ty, tm, td] = to.split('-').map(n => parseInt(n));
+    const start = new Date(fy, fm-1, fd);
+    const end = new Date(ty, tm-1, td);
+    const cursor = new Date(start);
+    while (cursor <= end) { days.push(dateKey(cursor)); cursor.setDate(cursor.getDate()+1); }
+    return { days, label: `${from} 〜 ${to}（${days.length}日間）`, isDayMode: false };
+  }
+  if (currentVisitsMode === 'month') {
+    const ym = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+    const lastDay = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+    const days = [];
+    for (let d = 1; d <= lastDay; d++) days.push(`${ym}-${String(d).padStart(2,'0')}`);
+    return { days, label: `${ym}（当月 ${days.length}日間）`, isDayMode: false };
+  }
+  // week（デフォルト）：直近7日
+  const days = [];
+  for (let i = 6; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); days.push(dateKey(d)); }
+  return { days, label: '直近7日', isDayMode: false };
+}
+
+function renderVisits() {
+  const range = getVisitsRange();
+  const days = range.days;
+  // タイトル＆情報表示
+  const titleEl = document.getElementById('visit-chart-title');
+  if (titleEl) titleEl.textContent = range.isDayMode ? `来店データ（${range.label}）` : `来店タイプ推移（${range.label}）`;
+  const infoEl = document.getElementById('visits-range-info');
+  if (infoEl) infoEl.textContent = range.label;
+
+  // 対象期間内の paidOrders を抽出
+  const targetOrders = paidOrders.filter(o => days.includes(getOrderDateKey(o)));
+
+  // 来店組数 = ユニークsessionId（日別）
   const visitsByDay = {};
   days.forEach(dk => visitsByDay[dk] = { first: new Set(), repeat: new Set() });
-  paidOrders.forEach(o => {
+  targetOrders.forEach(o => {
     const dk = getOrderDateKey(o);
     if (!visitsByDay[dk]) return;
     const sid = o.sessionId || o.id;
@@ -2491,29 +2653,58 @@ function renderVisits() {
     else visitsByDay[dk].repeat.add(sid);
   });
 
-  // 棒グラフ
-  const max = Math.max(1, ...days.map(dk => visitsByDay[dk].first.size + visitsByDay[dk].repeat.size));
+  // 棒グラフ（単日モードのときは時間帯ごとに表示、それ以外は日別）
   const chart = document.getElementById('visit-chart');
-  chart.innerHTML = days.map(dk => {
-    const f = visitsByDay[dk].first.size;
-    const r = visitsByDay[dk].repeat.size;
-    const total = f + r;
-    const pct = (total / max) * 100;
-    const fPct = total > 0 ? (f/total)*100 : 0;
-    return `<div class="bar-wrap">
-      <div class="bar" style="height:${pct}%;background:linear-gradient(180deg,var(--green) 0%,var(--green) ${100-fPct}%,var(--accent) ${100-fPct}%,var(--accent) 100%)" data-val="計${total} (初${f}/リ${r})"></div>
-      <span class="bar-label">${dk.slice(5).replace('-','/')}</span>
-    </div>`;
-  }).join('');
+  if (range.isDayMode) {
+    // 単日：時間帯ごとの来店推移
+    const hourCounts = {};
+    for (let h = 0; h <= 23; h++) hourCounts[h] = { first: new Set(), repeat: new Set() };
+    targetOrders.forEach(o => {
+      const h = getOrderHour(o);
+      if (h < 0 || !hourCounts[h]) return;
+      const sid = o.sessionId || o.id;
+      if (o.visitType === 'first') hourCounts[h].first.add(sid);
+      else hourCounts[h].repeat.add(sid);
+    });
+    // 11〜22時のみ表示
+    const hours = [];
+    for (let h = 11; h <= 22; h++) hours.push(h);
+    const hourMax = Math.max(1, ...hours.map(h => hourCounts[h].first.size + hourCounts[h].repeat.size));
+    chart.innerHTML = hours.map(h => {
+      const f = hourCounts[h].first.size;
+      const r = hourCounts[h].repeat.size;
+      const total = f + r;
+      const pct = (total / hourMax) * 100;
+      const fPct = total > 0 ? (f/total)*100 : 0;
+      return `<div class="bar-wrap">
+        <div class="bar" style="height:${pct}%;background:linear-gradient(180deg,var(--green) 0%,var(--green) ${100-fPct}%,var(--accent) ${100-fPct}%,var(--accent) 100%)" data-val="計${total} (初${f}/リ${r})"></div>
+        <span class="bar-label">${h}時</span>
+      </div>`;
+    }).join('');
+  } else {
+    // 期間：日別の来店推移
+    const max = Math.max(1, ...days.map(dk => visitsByDay[dk].first.size + visitsByDay[dk].repeat.size));
+    chart.innerHTML = days.map(dk => {
+      const f = visitsByDay[dk].first.size;
+      const r = visitsByDay[dk].repeat.size;
+      const total = f + r;
+      const pct = (total / max) * 100;
+      const fPct = total > 0 ? (f/total)*100 : 0;
+      return `<div class="bar-wrap">
+        <div class="bar" style="height:${pct}%;background:linear-gradient(180deg,var(--green) 0%,var(--green) ${100-fPct}%,var(--accent) ${100-fPct}%,var(--accent) 100%)" data-val="計${total} (初${f}/リ${r})"></div>
+        <span class="bar-label">${dk.slice(5).replace('-','/')}</span>
+      </div>`;
+    }).join('');
+  }
 
-  // ドーナツ
+  // ドーナツ（対象期間の総計）
   const allFirst = days.reduce((s, dk) => s + visitsByDay[dk].first.size, 0);
   const allRepeat = days.reduce((s, dk) => s + visitsByDay[dk].repeat.size, 0);
   const totalAll = allFirst + allRepeat;
-  const fPct = totalAll > 0 ? (allFirst/totalAll)*100 : 0;
-  const rPct = 100 - fPct;
+  const fPctAll = totalAll > 0 ? (allFirst/totalAll)*100 : 0;
+  const rPctAll = 100 - fPctAll;
   const circ = 2 * Math.PI * 40;
-  const fLen = (fPct / 100) * circ;
+  const fLen = (fPctAll / 100) * circ;
   document.getElementById('visit-donut-wrap').innerHTML = `
     <div class="donut">
       <svg width="100" height="100" viewBox="0 0 100 100">
@@ -2523,34 +2714,45 @@ function renderVisits() {
       <div class="donut-center"><div class="dv">${totalAll}</div><div class="dl">来店組</div></div>
     </div>
     <div class="donut-legend">
-      <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span><span>初回 ${allFirst}組 (${fPct.toFixed(0)}%)</span></div>
-      <div class="legend-row"><span class="legend-dot" style="background:var(--green)"></span><span>リピーター ${allRepeat}組 (${rPct.toFixed(0)}%)</span></div>
+      <div class="legend-row"><span class="legend-dot" style="background:var(--accent)"></span><span>初回 ${allFirst}組 (${fPctAll.toFixed(0)}%)</span></div>
+      <div class="legend-row"><span class="legend-dot" style="background:var(--green)"></span><span>リピーター ${allRepeat}組 (${rPctAll.toFixed(0)}%)</span></div>
     </div>`;
 
-  // 言語別来店
+  // 言語別来店（対象期間のユニークsessionId）
   const langCounts = { ja: new Set(), en: new Set(), zh: new Set(), ko: new Set() };
-  paidOrders.forEach(o => {
+  targetOrders.forEach(o => {
     const lang = o.language || 'ja';
     if (!langCounts[lang]) langCounts[lang] = new Set();
     langCounts[lang].add(o.sessionId || o.id);
   });
+  // 同一sidが複数言語に入る重複排除（最初に出会った言語を優先）
+  const seenSid = new Set();
+  ['ja','en','zh','ko'].forEach(k => {
+    const filtered = new Set();
+    langCounts[k].forEach(s => { if (!seenSid.has(s)) { filtered.add(s); seenSid.add(s); } });
+    langCounts[k] = filtered;
+  });
   const langLabels = { ja: '🇯🇵 日本語', en: '🇺🇸 English', zh: '🇨🇳 中文', ko: '🇰🇷 한국어' };
   const langData = Object.entries(langCounts).map(([k, v]) => ({ k, v: v.size })).sort((a,b) => b.v - a.v);
+  const langTotal = langData.reduce((s,d) => s + d.v, 0);
   const langMax = Math.max(1, ...langData.map(d => d.v));
-  document.getElementById('lang-ranking').innerHTML = langData.map((d, i) => `
-    <div class="rank-row">
-      <div class="rank-num ${i===0?'top':''}">${i+1}</div>
-      <div class="rank-info">
-        <div class="rank-name">${langLabels[d.k] || d.k}</div>
-        <div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${(d.v/langMax)*100}%"></div></div>
-      </div>
-      <div class="rank-val">${d.v}組</div>
-    </div>`).join('');
+  document.getElementById('lang-ranking').innerHTML = langData.map((d, i) => {
+    const pct = langTotal > 0 ? Math.round((d.v / langTotal) * 100) : 0;
+    return `
+      <div class="rank-row">
+        <div class="rank-num ${i===0?'top':''}">${i+1}</div>
+        <div class="rank-info">
+          <div class="rank-name">${langLabels[d.k] || d.k}</div>
+          <div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${(d.v/langMax)*100}%"></div></div>
+        </div>
+        <div class="rank-val">${d.v}組 (${pct}%)</div>
+      </div>`;
+  }).join('');
 
-  // 時間帯別来店数
+  // 時間帯別来店数（対象期間集計）
   const hourCounts = {};
   for (let h = 11; h <= 22; h++) hourCounts[h] = new Set();
-  paidOrders.forEach(o => {
+  targetOrders.forEach(o => {
     const h = getOrderHour(o);
     if (hourCounts[h]) hourCounts[h].add(o.sessionId || o.id);
   });
@@ -2571,6 +2773,9 @@ window.switchSession = switchSession;
 window.switchPeriod = switchPeriod;
 window.switchSoupSession = switchSoupSession;
 window.switchReportTab = switchReportTab;
+window.switchDashboardSession = switchDashboardSession;
+window.switchVisitsMode = switchVisitsMode;
+window.renderVisits = renderVisits;
 window.setCatFilter = setCatFilter;
 window.filterMenu = filterMenu;
 window.setSortPageCat = setSortPageCat;
