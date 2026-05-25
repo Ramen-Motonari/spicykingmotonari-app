@@ -170,6 +170,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
     <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
     <div class="nav-item" onclick="switchPage('sortorder',this)"><span class="nav-icon">↕️</span><span>表示順序</span></div>
+    <div class="nav-item" onclick="switchPage('maintenance',this)"><span class="nav-icon">🛠️</span><span>メンテナンス</span></div>
   </div>
   <div class="fb-status">
     <div class="fb-dot connecting" id="fbDot"></div>
@@ -356,6 +357,48 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div class="sortpage-save-status" id="sortpageStatus"></div>
   </div>
 
+  <!-- メンテナンスページ -->
+  <div class="page" id="page-maintenance">
+    <div class="page-title">🛠️ メンテナンス</div>
+    <div class="page-sub">注文履歴の削除・テストモードの確認など</div>
+
+    <!-- 注文履歴の全削除 -->
+    <div class="card" style="margin-bottom:14px;border:1.5px solid var(--accent2)">
+      <div class="card-title" style="color:var(--accent2)"><span>🗑 注文履歴の全削除</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+        Firestore上の<b style="color:#fff">すべての注文（orders コレクション）</b>を削除します。<br>
+        本番運用前の初期化や、テストデータの一掃に使用します。<br>
+        <b style="color:var(--accent2)">⚠ 取り消し不可です。</b> 売上分析等のデータもすべて失われます。
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button onclick="deleteAllOrders()" style="padding:12px 20px;border-radius:10px;background:var(--accent2);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑 全注文を削除する</button>
+        <div id="deleteAllStatus" style="font-size:12px;color:var(--muted)"></div>
+      </div>
+    </div>
+
+    <!-- テストモード URL -->
+    <div class="card" style="margin-bottom:14px;border:1.5px solid #a855f7">
+      <div class="card-title" style="color:#a855f7"><span>🧪 テストモード URL</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+        テスト用のテーブルURL。注文は通常通り送信されますが、<b style="color:#fff">testMode フラグ</b>が付き<br>
+        <b style="color:#fff">売上集計・分析からは除外</b>されます。スタッフ研修やテストにご使用ください。
+      </div>
+      <div style="background:var(--surface2);padding:14px;border-radius:10px;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">通常URL：</div>
+        <code id="testUrlNormal" style="display:block;font-size:13px;color:#fff;word-break:break-all;font-family:'Oswald',monospace">—</code>
+      </div>
+      <div style="background:var(--surface2);padding:14px;border-radius:10px;margin-bottom:8px">
+        <div style="font-size:11px;color:#a855f7;margin-bottom:6px">🧪 テスト用URL（テーブルT1）：</div>
+        <code id="testUrlT1" style="display:block;font-size:13px;color:#a855f7;word-break:break-all;font-family:'Oswald',monospace;font-weight:700">—</code>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="copyTestUrl()" style="padding:10px 16px;border-radius:8px;background:#a855f7;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📋 テストURLをコピー</button>
+        <button onclick="window.open(document.getElementById('testUrlT1').textContent,'_blank')" style="padding:10px 16px;border-radius:8px;background:transparent;color:#a855f7;border:1px solid #a855f7;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🚀 開く</button>
+      </div>
+      <div id="copyStatus" style="font-size:11px;color:var(--green);margin-top:8px;display:none">✅ コピーしました</div>
+    </div>
+  </div>
+
   <!-- 商品編集/追加モーダル -->
   <div id="itemEditOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto">
     <div style="background:var(--surface);border-radius:16px;width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease">
@@ -497,6 +540,8 @@ function startOrdersListener() {
       // キャンセル扱いを除外
       if (data.paymentType === 'cancelled_by_edit') return;
       if (data.status === 'cancelled') return;
+      // テストモード注文は売上集計・分析から除外
+      if (data.testMode === true) return;
       const o = { id: d.id, ...data };
       allOrders.push(o);
       if (o.status === 'paid') paidOrders.push(o);
@@ -701,6 +746,52 @@ function switchPage(name, btn) {
   if (name === 'visits') renderVisits();
   if (name === 'menu') renderMenuPage();
   if (name === 'sortorder') renderSortOrderPage();
+  if (name === 'maintenance') renderMaintenancePage();
+}
+
+// ────── メンテナンスページ ──────
+function renderMaintenancePage() {
+  // オーダーAPPのURLを推定（adminのURLから ../ に上がる）
+  let base = location.origin + location.pathname.replace(/\/admin\/?.*$/, '/');
+  const normalUrl = base + '?table=T1';
+  const testUrl = base + '?table=T1&test=1';
+  const n = document.getElementById('testUrlNormal'); if (n) n.textContent = normalUrl;
+  const t = document.getElementById('testUrlT1'); if (t) t.textContent = testUrl;
+}
+
+function copyTestUrl() {
+  const url = document.getElementById('testUrlT1').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    const s = document.getElementById('copyStatus');
+    if (s) { s.style.display = 'block'; setTimeout(()=>s.style.display='none', 2500); }
+  }).catch(e => {
+    alert('コピー失敗: ' + e.message + '\n手動でコピーしてください:\n' + url);
+  });
+}
+
+async function deleteAllOrders() {
+  const status = document.getElementById('deleteAllStatus');
+  if (!confirm('⚠️ 本当にすべての注文履歴を削除しますか？\n\nこの操作は取り消せません。\n売上分析・履歴データもすべて消えます。')) return;
+  if (!confirm('⚠️ 最終確認：\n本当にすべての注文を削除しますか？\n（OK で削除実行）')) return;
+  if (status) { status.textContent = '削除中…'; status.style.color = 'var(--muted)'; }
+  try {
+    const { collection, getDocs, doc, deleteDoc } = window.fbApi;
+    const snap = await getDocs(collection(window.fb.db, 'orders'));
+    const total = snap.size;
+    let done = 0;
+    // バッチではなく1件ずつ確実に削除（小規模データ向け）
+    for (const d of snap.docs) {
+      await deleteDoc(doc(window.fb.db, 'orders', d.id));
+      done++;
+      if (status) { status.textContent = `削除中… ${done}/${total}`; }
+    }
+    if (status) { status.textContent = `✅ ${total}件の注文を削除しました`; status.style.color = 'var(--green)'; }
+    showToast(`${total}件の注文を削除しました`);
+  } catch (e) {
+    console.error('deleteAllOrders failed:', e);
+    if (status) { status.textContent = '⚠️ 削除失敗: ' + (e.message || e); status.style.color = 'var(--accent2)'; }
+    showToast('削除に失敗しました', true);
+  }
 }
 
 // ────── 表示順序ページ（ドラッグ＆ドロップ） ──────
@@ -2053,6 +2144,8 @@ window.switchReportTab = switchReportTab;
 window.setCatFilter = setCatFilter;
 window.filterMenu = filterMenu;
 window.setSortPageCat = setSortPageCat;
+window.deleteAllOrders = deleteAllOrders;
+window.copyTestUrl = copyTestUrl;
 window.copyDailyReport = copyDailyReport;
 // 商品管理
 window.openAddItemModal = openAddItemModal;
