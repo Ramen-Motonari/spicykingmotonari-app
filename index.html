@@ -799,11 +799,13 @@ function normalizeTable(raw) {
   return '?';
 }
 
-const tableNum = normalizeTable(new URLSearchParams(location.search).get('table'));
+const _rawTableParam = new URLSearchParams(location.search).get('table');
 const isAdminMode = new URLSearchParams(location.search).get('admin')==='1';
 // テストモード：?test=1 でアクセス。注文は通常通り送信されるが testMode: true フラグが付き売上分析から除外
 const isTestMode = new URLSearchParams(location.search).get('test')==='1';
-if (isTestMode) console.log('[TEST MODE] Orders will be flagged as testMode=true');
+// テストモード時はテーブル認識・表記とも "TEST" に固定（実テーブルに影響しない）
+const tableNum = isTestMode ? 'TEST' : normalizeTable(_rawTableParam);
+if (isTestMode) console.log('[TEST MODE] tableNum forced to TEST. Orders will be flagged as testMode=true');
 
 /* Auth state */
 let currentUser = null;
