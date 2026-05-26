@@ -715,6 +715,15 @@ function getItemCat(itemOrId) {
   }
   return null;
 }
+// アイテムの単価を取得（無料品 price=0 を正しく扱う）
+//   item.price が typeof 'number' ならそれを優先（0 含む）
+//   未設定ならカノニカル価格を返す
+function getItemUnitPrice(item) {
+  if (item && typeof item.price === 'number') return item.price;
+  const id = item && item.itemId;
+  return (typeof MOTONARI !== 'undefined' && MOTONARI.getPrice && MOTONARI.getPrice(id)) || 0;
+}
+
 // 統一論理カテゴリ判定（ramen / teishoku / drink / side / null）
 //   cat → 名前 の順でフォールバック
 function getItemLogicalCat(item) {
@@ -2064,7 +2073,7 @@ function renderAnalytics() {
       else if (rawCat === 'topping') cat = 'topping';
       else if (rawCat === 'side') cat = 'side';
       else cat = MOTONARI.classifyByName(item.name) || 'side';
-      catSales[cat] = (catSales[cat]||0) + (item.price||MOTONARI.getPrice(item.itemId)||0) * (item.qty||0);
+      catSales[cat] = (catSales[cat]||0) + getItemUnitPrice(item) * (item.qty||0);
     });
   });
   const catLabels = { ramen: '🍜 ラーメン', teishoku: '🥢 定食', takeout: '🥡 テイクアウト', side: '🥟 サイド', drink: '🍺 ドリンク', topping: '⭐ トッピング' };
@@ -2087,7 +2096,7 @@ function renderAnalytics() {
     (o.items||[]).forEach(item => {
       const id = item.itemId;
       const name = getCurrentItemName(item) || item.name || MOTONARI.getNameJa(id);
-      const price = item.price || MOTONARI.getPrice(id) || 0;
+      const price = getItemUnitPrice(item);
       if (!itemStats[id]) itemStats[id] = { name, qty: 0, total: 0 };
       // ID追跡だが、名前は最新を維持
       itemStats[id].name = name;
