@@ -512,6 +512,13 @@ function lookupMenuPrice(itemId) {
   const custom = _kitchenCustomMenuItems.find(c => c.id === itemId);
   return (custom && custom.price) || 0;
 }
+// アイテムの単価を取得する正規ヘルパー
+//   item.price が「設定済み（typeof number）」ならそれを優先（0=無料も尊重）
+//   未設定なら canonical/custom のメニュー価格を返す
+function getItemUnitPrice(item) {
+  if (item && typeof item.price === 'number') return item.price;
+  return lookupMenuPrice(item && item.itemId) || 0;
+}
 
 const abbrev = {
 'SKSP スパイシーキングスペシャル':'SKSP','SK スパイシーキング':'SK','SKC スパイシーキングチーズ':'SKC',
@@ -1898,7 +1905,7 @@ return `<div class="order-line">
 <div class="order-line-name">${displayName} × ${item.qty}
 ${(Array.isArray(item.opts)&&item.opts.length)?`<div class="order-line-sub">${item.opts.map(o=>translateOptToLang(o)).join(' / ')}</div>`:''}
 </div>
-<div class="order-line-price">¥${(item.qty * (item.price || MOTONARI.getPrice(item.itemId))).toLocaleString()}</div>
+<div class="order-line-price">¥${(item.qty * getItemUnitPrice(item)).toLocaleString()}</div>
 </div>`;
 }).join('')}
 </div>`;
@@ -2233,7 +2240,7 @@ ${actionBtns}
 <div style="display:flex;flex-direction:column;gap:3px">
 ${mergedItems.map(item => `<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;padding:3px 0;border-bottom:1px solid var(--border)">
 <span>${item.name} × ${item.qty}</span>
-<span style="color:var(--muted)">¥${((item.price||MOTONARI.getPrice(item.itemId)) * item.qty).toLocaleString()}</span>
+<span style="color:var(--muted)">¥${(getItemUnitPrice(item) * item.qty).toLocaleString()}</span>
 </div>`).join('')}
 </div>
 </div>`;
@@ -2442,7 +2449,7 @@ function openSeparatePayment() {
 if (!selectedTable) return;
 const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid');
 const allItems = tableOrders.flatMap(o => (o.items||[]).flatMap(item => {
-const unitPrice = item.price || MOTONARI.getPrice(item.itemId) || 0;
+const unitPrice = getItemUnitPrice(item);
 return Array.from({length: item.qty}, () => ({
   name: getDetailItemName(item),
   rawName: item.name,
@@ -2646,7 +2653,7 @@ const tableOrders = orders.filter(o => o.table === selectedTable && o.status !==
 let eid = 0;
 window._editItems = tableOrders.flatMap(o => (o.items||[]).map(item => ({
 name: item.name,
-price: item.price || MOTONARI.getPrice(item.itemId) || 0,
+price: getItemUnitPrice(item),
 qty: item.qty,
 opts: item.opts || [],
 cat: item.cat || 'side',
@@ -2876,7 +2883,7 @@ const total = mergedTables.reduce((s,label) => s + (tables[label]?.total||0), 0)
 const labelStr = mergedTables.join('＋');
 const allMergedItems = mergedTables.flatMap(label =>
 orders.filter(o => o.table === label && o.status !== 'paid').flatMap(o =>
-(o.items||[]).map(item => ({name: item.name, qty: item.qty, price: item.price || MOTONARI.getPrice(item.itemId)}))
+(o.items||[]).map(item => ({name: item.name, qty: item.qty, price: getItemUnitPrice(item)}))
 )
 );
 document.getElementById('mergeOverlay').style.display = 'none';
