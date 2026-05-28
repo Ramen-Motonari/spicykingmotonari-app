@@ -1000,7 +1000,13 @@ function switchPage(name, btn) {
   if (name === 'soup') renderSoupRanking();
   if (name === 'visits') renderVisits();
   if (name === 'menu') renderMenuPage();
-  if (name === 'sortorder') renderSortOrderPage();
+  if (name === 'sortorder') {
+    // ページ遷移時は必ず最新データを取得してから描画（新規追加直後の docId 不整合を防ぐ）
+    (async () => {
+      await forceRefreshMenuData();
+      renderSortOrderPage();
+    })();
+  }
   if (name === 'maintenance') renderMaintenancePage();
   if (name === 'service') renderServicePage();
 }
@@ -1151,7 +1157,7 @@ function renderSortPageList() {
     const editKey = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
     const tags = [];
     if (m._hidden) tags.push('<span class="sp-tag" style="background:#444;color:#fff">非表示</span>');
-    if (m._isCustom) tags.push('<span class="sp-tag" style="background:rgba(59,130,246,.25);color:#7eb6ff">CUSTOM</span>');
+    // CUSTOMバッジは削除（管理APPでも識別不要）
     if (m.night) tags.push('<span class="sp-tag">🌙夜</span>');
     if (m.spicy) tags.push('<span class="sp-tag">🌶</span>');
     return `<div class="sortpage-row" data-edit-key="${editKey}">
@@ -2286,7 +2292,6 @@ function renderMenuPage() {
         ${imgHtml}
         ${isSold ? '<div style="position:absolute;top:8px;right:8px;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🚫 売切</div>' : ''}
         ${isHidden ? '<div style="position:absolute;top:8px;left:8px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
-        ${m._isCustom ? '<div style="position:absolute;bottom:8px;left:8px;background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">CUSTOM</div>' : ''}
       </div>
       <div class="menu-card-body">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -2432,6 +2437,7 @@ function openEditItemModal(editKey) {
       spicy: (typeof ov.spicyOverride === 'boolean') ? ov.spicyOverride : !!canon.spicy,
       night: (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : !!canon.night,
       pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : !!canon.pirikara,
+      kitchenName: ov.kitchenName || '',
       lunchFreeBase: canon.lunchFreeBase
     };
   } else {
@@ -2444,7 +2450,8 @@ function openEditItemModal(editKey) {
       imageUrl: c.imageUrl || null,
       hidden: !!c.hidden,
       custom: c.custom || {},
-      spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara
+      spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara,
+      kitchenName: c.kitchenName || ''
     };
   }
   _pendingImageFile = null;
@@ -2487,6 +2494,11 @@ function renderItemEditForm() {
       <button class="itemedit-translate-btn" style="margin-top:6px" onclick="translateAllLangs()">🌐 他言語へ自動翻訳</button>
     </div>
 
+    <div class="itemedit-row">
+      <label class="itemedit-label">🍳 キッチン伝票表示名 <span style="font-size:10px;color:var(--muted);font-weight:400">（短い略称・空欄なら商品名と同じ）</span></label>
+      <input type="text" class="itemedit-input" id="kitchenName" value="${(it.kitchenName||'').replace(/"/g,'&quot;')}" placeholder="例：SKSP / カレーSP / ヤン餃子">
+    </div>
+
     <div class="itemedit-grid">
       <div class="itemedit-row">
         <label class="itemedit-label">English</label>
@@ -2522,9 +2534,9 @@ function renderItemEditForm() {
     </div>
 
     <div class="itemedit-row" style="display:flex;gap:8px;flex-wrap:wrap">
-      <label class="itemedit-checkbox"><input type="checkbox" id="itemSpicy" ${it.spicy?'checked':''}> 🌶 SPICY</label>
+      <label class="itemedit-checkbox"><input type="checkbox" id="itemSpicy" ${it.spicy?'checked':''}> 🌶 辛さ選択 (0〜10辛)</label>
       <label class="itemedit-checkbox"><input type="checkbox" id="itemNight" ${it.night?'checked':''}> 🌙 夜限定</label>
-      <label class="itemedit-checkbox"><input type="checkbox" id="itemPirikara" ${it.pirikara?'checked':''}> ピリ辛</label>
+      <label class="itemedit-checkbox"><input type="checkbox" id="itemPirikara" ${it.pirikara?'checked':''}> 🌶 ピリ辛</label>
       <label class="itemedit-checkbox"><input type="checkbox" id="itemHidden" ${it.hidden?'checked':''}> 👁 非表示</label>
     </div>
   `;
@@ -2625,6 +2637,7 @@ async function saveItemEdit() {
   const night = document.getElementById('itemNight').checked;
   const pirikara = document.getElementById('itemPirikara').checked;
   const hidden = document.getElementById('itemHidden').checked;
+  const kitchenName = (document.getElementById('kitchenName')?.value || '').trim();
 
   const saveBtn = document.getElementById('itemEditSaveBtn');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
@@ -2653,6 +2666,8 @@ async function saveItemEdit() {
       overrideData.spicyOverride = (canon && spicy !== !!canon.spicy) ? spicy : null;
       overrideData.nightOverride = (canon && night !== !!canon.night) ? night : null;
       overrideData.pirikaraOverride = (canon && pirikara !== !!canon.pirikara) ? pirikara : null;
+      // キッチン伝票表示名（空欄なら null で削除）
+      overrideData.kitchenName = kitchenName || null;
       await saveMenuOverride(it.id, overrideData);
     } else {
       // custom: customMenuItems に保存
@@ -2660,6 +2675,7 @@ async function saveItemEdit() {
         id: it.id, cat, img,
         name: { ja: nameJa, en: nameEn || nameJa, zh: nameZh || nameJa, ko: nameKo || nameJa },
         price, imageUrl, hidden, spicy, night, pirikara,
+        kitchenName: kitchenName || '',
         custom: it.custom || {}
       };
       // 新規追加（docIdなし）の場合は、同カテゴリの最大sortOrder+10 を初期値に設定
