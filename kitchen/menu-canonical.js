@@ -333,8 +333,10 @@
   }
   function isLunchWeekday(now) {
     const d = now || new Date();
-    const wd = d.getDay(), h = d.getHours();
-    return wd >= 1 && wd <= 5 && h >= 11 && h < 14;
+    const wd = d.getDay();
+    const m = d.getHours() * 60 + d.getMinutes();
+    // 平日 10:30〜14:30（替え玉・大盛り無料の判定枠／余裕を持った時間設定）
+    return wd >= 1 && wd <= 5 && m >= 630 && m <= 870;
   }
   function isNightTime(now) {
     const d = now || new Date();

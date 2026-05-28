@@ -961,14 +961,14 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   });
 }).map(([tl, list]) => {
   // 表示用：
-  //   - 「未提供アイテムを含む注文」のみ表示（部分的に提供済みなら、その注文は引き続き表示し、提供済みアイテムはグレー表示）
-  //   - 「全アイテムが提供済みの注文」は非表示（一旦終わった注文は、新規追加注文と混ざらない）
+  //   - テーブル全体の全アイテムが提供完了するまで、すべての注文（追加注文含む）を表示し続ける
+  //   - 提供済みアイテムはグレーアウトのみ（消えない・並び順も変えない）
+  //   - 全アイテム提供完了で初めてテーブル単位で消える
   const visibleOrders = list.filter(o => {
     if (o.status !== 'pending' && o.status !== 'preparing' && o.status !== 'served') return false;
     const items = Array.isArray(o.items) ? o.items : [];
-    if (items.length === 0) return false;
-    // 全アイテム提供済みの注文は除外
-    return items.some(i => !i.served);
+    if (items.length === 0) return false; // 空注文のみ除外
+    return true; // 全アイテム提供済みでも、テーブル内に未提供があれば残す
   });
   const sorted = visibleOrders.slice().sort((a, b) => {
     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
