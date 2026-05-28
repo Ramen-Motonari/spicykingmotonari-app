@@ -509,9 +509,11 @@ window.adminLogout = adminLogout;
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
       <div class="sortpage-cats" id="sortpageCats" style="flex:1;margin:0"></div>
       <button onclick="forceRefreshAndRender()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">🔄 再読み込み</button>
+      <button onclick="diagnoseSortOrderSystem()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--blue);background:transparent;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">🔧 動作テスト</button>
     </div>
     <div id="sortpageList" class="sortpage-list"></div>
     <div class="sortpage-save-status" id="sortpageStatus"></div>
+    <div id="sortpageDiagnostic" style="margin-top:16px"></div>
   </div>
 
   <!-- メンテナンスページ -->
@@ -620,7 +622,7 @@ window.adminLogout = adminLogout;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, serverTimestamp, setDoc, addDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, serverTimestamp, setDoc, addDoc, updateDoc, deleteDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 const firebaseConfig = { apiKey:"AIzaSyAJ7Z0b0ex74nUPsnsiXXJqcxytJlU9wD0", authDomain:"motonari-4f9ee.firebaseapp.com", projectId:"motonari-4f9ee", storageBucket:"motonari-4f9ee.firebasestorage.app", messagingSenderId:"614951238402", appId:"1:614951238402:web:bb5a9d6ace6f4e6900e01b" };
 const app = initializeApp(firebaseConfig);
@@ -628,7 +630,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 window.fb = { app, auth, db, storage };
-window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, signInAnonymously, onAuthStateChanged, serverTimestamp, setDoc, addDoc, updateDoc, deleteDoc, getDocs, storageRef, uploadBytes, getDownloadURL, deleteObject };
+window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, signInAnonymously, onAuthStateChanged, serverTimestamp, setDoc, addDoc, updateDoc, deleteDoc, getDocs, getDoc, storageRef, uploadBytes, getDownloadURL, deleteObject };
 </script>
 
 <script>
@@ -2408,6 +2410,117 @@ async function saveSortOrders(updates) {
     }
   }
   return result;
+}
+
+// ────── 動作テスト（診断モード） ──────
+// 表示順序の保存・読込が正常に機能しているか自動テスト
+async function diagnoseSortOrderSystem() {
+  const diagEl = document.getElementById('sortpageDiagnostic');
+  if (!diagEl) return;
+  diagEl.innerHTML = `<div style="background:rgba(59,130,246,0.12);border:1.5px solid #3b82f6;border-radius:10px;padding:16px;color:#cfe1ff;font-size:12px;line-height:1.7;font-family:'Noto Sans JP',sans-serif">
+    <div style="font-weight:900;font-size:13px;margin-bottom:8px">🔧 動作テスト実行中…</div>
+    <div id="diagSteps" style="font-family:'Oswald',monospace;font-size:11px;white-space:pre-wrap"></div>
+  </div>`;
+  const stepsEl = document.getElementById('diagSteps');
+  const addStep = (text) => {
+    if (stepsEl) stepsEl.textContent += text + '\n';
+    console.log('[diag]', text);
+  };
+
+  const { doc, setDoc, getDoc, updateDoc, deleteDoc, serverTimestamp } = window.fbApi;
+  const testDocId = '__sort_diagnostic__';
+  const testRef = doc(window.fb.db, 'menuOverrides', testDocId);
+  const results = [];
+
+  // 認証チェック
+  try {
+    const user = window.fb.auth?.currentUser;
+    if (user) {
+      addStep(`✓ Firebase認証OK（uid: ${user.uid.slice(0,8)}...）`);
+    } else {
+      addStep('✗ Firebase認証なし（匿名認証も失敗中）');
+      results.push({ step: 'auth', ok: false });
+    }
+  } catch(e) { addStep('✗ 認証チェック失敗: ' + (e.message || e)); }
+
+  // テスト1: menuOverrides へ書込（canonical 動作確認）
+  addStep('--- テスト1: menuOverrides 書込（canonical用） ---');
+  let test1Ok = false;
+  try {
+    await setDoc(testRef, { sortOrder: 99999, updatedAt: serverTimestamp(), _diag: true }, { merge: true });
+    addStep('✓ setDoc(merge) 成功');
+    test1Ok = true;
+  } catch(e) {
+    addStep('✗ setDoc(merge) 失敗: ' + (e.code || '') + ' ' + (e.message || e));
+  }
+  if (!test1Ok) {
+    try {
+      await updateDoc(testRef, { sortOrder: 99999, updatedAt: serverTimestamp() });
+      addStep('✓ updateDoc 成功（fallback）');
+      test1Ok = true;
+    } catch(e) {
+      addStep('✗ updateDoc 失敗: ' + (e.code || '') + ' ' + (e.message || e));
+    }
+  }
+  results.push({ step: 'write', ok: test1Ok });
+
+  // テスト2: 読み込み
+  addStep('--- テスト2: 書いたデータの読込確認 ---');
+  let test2Ok = false;
+  if (test1Ok) {
+    try {
+      const snap = await getDoc(testRef);
+      if (snap.exists() && snap.data().sortOrder === 99999) {
+        addStep('✓ 読込成功（書込内容が永続化されている）');
+        test2Ok = true;
+      } else {
+        addStep('✗ 読込はできたが値が一致しない');
+      }
+    } catch(e) {
+      addStep('✗ getDoc 失敗: ' + (e.code || '') + ' ' + (e.message || e));
+    }
+  } else {
+    addStep('-- 書込失敗のためスキップ');
+  }
+  results.push({ step: 'read', ok: test2Ok });
+
+  // テスト3: クリーンアップ
+  addStep('--- テスト3: テストデータ削除 ---');
+  if (test1Ok) {
+    try {
+      await deleteDoc(testRef);
+      addStep('✓ deleteDoc 成功');
+    } catch(e) {
+      addStep('⚠️ deleteDoc 失敗（手動削除推奨）: ' + (e.code || '') + ' ' + (e.message || e));
+    }
+  }
+
+  // テスト4: 実際の menuOverrides/89 に書き込んでみる（ミニチャーシューエッグ丼を最上位に）
+  addStep('--- テスト4: ミニチャーシューエッグ丼を最上位設定 ---');
+  let test4Ok = false;
+  try {
+    const ref89 = doc(window.fb.db, 'menuOverrides', '89');
+    await setDoc(ref89, { sortOrder: 1, updatedAt: serverTimestamp() }, { merge: true });
+    addStep('✓ menuOverrides/89 sortOrder=1 書込成功！');
+    test4Ok = true;
+  } catch(e) {
+    addStep('✗ menuOverrides/89 書込失敗: ' + (e.code || '') + ' ' + (e.message || e));
+  }
+  results.push({ step: 'mini-chashu', ok: test4Ok });
+
+  // 結果サマリ
+  const allOk = results.every(r => r.ok);
+  const summary = allOk
+    ? `<div style="background:rgba(34,197,94,0.15);border:1.5px solid #22c55e;border-radius:8px;padding:10px 14px;margin-top:8px;color:#a7f3d0;font-weight:700">✅ すべて成功！ Firestore書込は正常に機能しています。<br>ミニチャーシューエッグ丼を最上位に固定しました（要ページ再読込）</div>`
+    : `<div style="background:rgba(192,57,43,0.15);border:1.5px solid var(--accent2);border-radius:8px;padding:10px 14px;margin-top:8px;color:#ffb3a8;font-weight:700">⚠️ 失敗があります。<br>Firestoreルールが書き込みを拒否している可能性が高いです。<br>上の詳細を確認してください。</div>`;
+  if (stepsEl && stepsEl.parentNode) {
+    stepsEl.parentNode.insertAdjacentHTML('beforeend', summary);
+  }
+
+  if (test4Ok) {
+    await forceRefreshMenuData();
+    renderSortOrderPage();
+  }
 }
 
 // 保存後に customMenuItems / menuOverrides を Firestore から強制再取得
