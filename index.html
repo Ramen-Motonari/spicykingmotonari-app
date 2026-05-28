@@ -818,7 +818,7 @@ const setHTML = (id, html) => { const el=$(id); if(el) el.innerHTML=html; };
 
 const isItemSoldout = id => soldoutSet.has(id);
 const isNightTime  = () => { const h=new Date().getHours(); return h>=17&&h<21; };
-const isLunchTime  = () => { const h=new Date().getHours(); return h>=11&&h<14; };
+const isLunchTime  = () => { const now=new Date(); const m=now.getHours()*60+now.getMinutes(); return m>=630&&m<=870; }; // 10:30〜14:30（替え玉・大盛り無料判定／余裕を持った時間枠）
 
 /* ===== 日本の祝日判定 ===== */
 // 2025-2030 の主要な日本の祝日（固定日 + ハッピーマンデー + 春分/秋分）
