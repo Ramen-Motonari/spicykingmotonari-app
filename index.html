@@ -1228,11 +1228,9 @@ function toggleLangMenu(e) {
   const open = menu.style.display === 'flex';
   menu.style.display = open ? 'none' : 'flex';
   if (!open) {
-    // 現在の言語をハイライト
     menu.querySelectorAll('.lang-opt').forEach(b => {
       b.classList.toggle('current', b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${lang}'`));
     });
-    // 外側タップで閉じる
     setTimeout(() => {
       document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     }, 0);
@@ -1243,7 +1241,6 @@ function closeLangMenuOnOutside(e) {
   const btn = document.getElementById('langSwitchBtn');
   if (!menu || !btn) return;
   if (menu.contains(e.target) || btn.contains(e.target)) {
-    // 中をタップした場合は再登録
     document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     return;
   }
@@ -1251,17 +1248,13 @@ function closeLangMenuOnOutside(e) {
 }
 function changeLang(l) {
   lang = l;
-  // フラッグ更新
   const flag = document.getElementById('langSwitchFlag');
   if (flag) flag.textContent = LANG_FLAGS[l] || '🌐';
-  // メニュー閉じる
   const menu = document.getElementById('langSwitchMenu');
   if (menu) menu.style.display = 'none';
-  // 翻訳適用 + メニュー再描画
   applyLang();
   if (typeof renderMenu === 'function') renderMenu();
   if (typeof renderCart === 'function') renderCart();
-  // 開いている履歴・支払い画面も更新
   if (typeof renderHistory === 'function') renderHistory();
   if (typeof renderPayment === 'function') renderPayment();
 }
@@ -1563,7 +1556,7 @@ function renderMenu(){
       }
       if(item.night)                      badges+=`<span class="badge badge-night">${t.badgeNight}</span>`;
       if(item.ghost)                      badges+=`<span class="badge badge-ghost">${t.badgeGhost}</span>`;
-      if(Object.keys(item.custom).length) badges+=`<span class="badge badge-custom">${t.badgeCustom}</span>`;
+      // カスタムバッジは削除（お客様画面では区別しない）
 
       d.setAttribute('onclick', `openItem(${item.id})`);
       d.setAttribute('role', 'button');
