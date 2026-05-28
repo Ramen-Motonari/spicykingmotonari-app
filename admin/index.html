@@ -1183,30 +1183,57 @@ function renderSortPageList() {
       // 診断: 全項目の editKey をログ
       console.log('[sortOrder] _sortPageItems editKeys:', _sortPageItems.map(m => m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`));
       // 不正な editKey をチェック（docId未取得の新規アイテム検出）
-      const invalidItems = _sortPageItems.filter(m => m._isCustom && (!m._docId || m._docId === 'undefined'));
-      if (invalidItems.length > 0) {
-        const statusEl = document.getElementById('sortpageStatus');
-        if (statusEl) {
-          statusEl.innerHTML = `<div style="background:rgba(245,158,11,0.15);border:1.5px solid #f59e0b;border-radius:10px;padding:14px 16px;color:#ffd699;font-size:12px;line-height:1.6">
-            <div style="font-weight:900;font-size:13px;margin-bottom:6px">⏳ データ同期待ち</div>
-            <div style="font-size:11px">新規追加した商品のID取得待ちです。<br>2-3秒待ってからもう一度試してください。<br>または「再読み込み」ボタンで最新化してください。</div>
-          </div>`;
-          statusEl.className = 'sortpage-save-status error';
-        }
-        // 強制再取得して再描画
+      // 一度強制再取得を試みる（保存続行のため）
+      const hasInvalid = _sortPageItems.some(m => m._isCustom && (!m._docId || m._docId === 'undefined'));
+      if (hasInvalid) {
+        console.warn('[sortOrder] invalid items detected, refreshing first...');
         await forceRefreshMenuData();
-        renderSortOrderPage();
-        return;
+        // 再構築：DOM順を保持しつつ最新データで docId を再取得
+        const rowsTmp = Array.from(listEl.querySelectorAll('.sortpage-row'));
+        const editKeys = rowsTmp.map(r => r.dataset.editKey);
+        const latestMenu = getMergedMenu().filter(m => m.cat === _sortPageCat);
+        const latestByKey = new Map(latestMenu.map(m => {
+          const k = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
+          return [k, m];
+        }));
+        // editKey が一致するもの優先、ダメなら name で照合
+        _sortPageItems = editKeys.map(k => {
+          const m = latestByKey.get(k);
+          return m || null;
+        });
+        // 名前ベースの fallback マッチング（docIdが変わった custom 用）
+        if (_sortPageItems.some(x => !x)) {
+          const nameByKey = new Map(_sortPageItems.map((x, i) => {
+            const row = rowsTmp[i];
+            const nm = row ? row.querySelector('.sp-name')?.textContent : null;
+            return [i, nm];
+          }));
+          _sortPageItems = _sortPageItems.map((x, i) => {
+            if (x) return x;
+            const nm = nameByKey.get(i);
+            if (!nm) return null;
+            return latestMenu.find(m => (m.name?.ja || '') === nm) || null;
+          });
+        }
+        _sortPageItems = _sortPageItems.filter(Boolean);
+      } else {
+        // DOM の現在の順序を読み取って _sortPageItems を更新
+        const rows = Array.from(listEl.querySelectorAll('.sortpage-row'));
+        const editKeyToItem = new Map(_sortPageItems.map(m => {
+          const k = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
+          return [k, m];
+        }));
+        _sortPageItems = rows.map(r => editKeyToItem.get(r.dataset.editKey)).filter(Boolean);
       }
-      // DOM の現在の順序を読み取って _sortPageItems を更新
-      const rows = Array.from(listEl.querySelectorAll('.sortpage-row'));
-      const editKeyToItem = new Map(_sortPageItems.map(m => {
-        const k = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
-        return [k, m];
-      }));
-      _sortPageItems = rows.map(r => editKeyToItem.get(r.dataset.editKey)).filter(Boolean);
+      // 念のため最終チェック：docId が依然として無い custom はスキップ
+      const skipped = _sortPageItems.filter(m => m._isCustom && (!m._docId || m._docId === 'undefined'));
+      if (skipped.length > 0) {
+        console.warn('[sortOrder] skipping items without docId:', skipped.map(m => m.name?.ja));
+      }
+      _sortPageItems = _sortPageItems.filter(m => !m._isCustom || (m._docId && m._docId !== 'undefined'));
       // 番号を更新
-      rows.forEach((r, i) => { const n = r.querySelector('.sp-num'); if (n) n.textContent = i + 1; });
+      const rowsForNum = Array.from(listEl.querySelectorAll('.sortpage-row'));
+      rowsForNum.forEach((r, i) => { const n = r.querySelector('.sp-num'); if (n) n.textContent = i + 1; });
       _sortPageItems.forEach((m, i) => { m._sortOrder = (i + 1) * 10; });
       const statusEl = document.getElementById('sortpageStatus');
       if (statusEl) { statusEl.textContent = '保存中…'; statusEl.className = 'sortpage-save-status'; }
