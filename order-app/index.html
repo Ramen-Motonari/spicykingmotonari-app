@@ -1563,7 +1563,7 @@ function renderMenu(){
       }
       if(item.night)                      badges+=`<span class="badge badge-night">${t.badgeNight}</span>`;
       if(item.ghost)                      badges+=`<span class="badge badge-ghost">${t.badgeGhost}</span>`;
-      if(Object.keys(item.custom).length) badges+=`<span class="badge badge-custom">${t.badgeCustom}</span>`;
+      // カスタムバッジは削除（お客様画面では区別しない）
 
       d.setAttribute('onclick', `openItem(${item.id})`);
       d.setAttribute('role', 'button');
