@@ -76,7 +76,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket-header{padding:6px 8px 4px;border-bottom:2px solid #e0e0e0;background:#fff}
 .ticket-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .ticket-table{font-family:'Oswald',sans-serif;font-size:42px;color:#111;font-weight:700}
-.ticket-time{font-size:11px;color:#666}
+.ticket-time{font-size:16px;color:#333;font-weight:700;font-family:'Oswald','Noto Sans JP',sans-serif;letter-spacing:0.5px}
 .ticket-visit{display:inline-block;font-size:13px;font-weight:900;padding:4px 12px;border-radius:8px;letter-spacing:1px}
 .visit-first{background:#f59e0b;color:#1a1008;border:2px solid #fbbf24;text-shadow:none}
 .visit-repeat{background:#10b981;color:#0a1a0e;border:2px solid #34d399;text-shadow:none}
@@ -124,6 +124,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-sep{color:#bbb;font-size:14px;margin:0 6px}
 .rg-sec-other{font-size:18px;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-sec-addons{padding-top:8px}
+.rg-sec-total{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:22px;font-weight:900;color:#1a1008;text-align:right;padding:8px 4px 4px;border-top:2px solid #e8d9b8;margin-top:4px;letter-spacing:1px}
+.ramen-group-card.served .rg-sec-total{color:#aaa;text-decoration:line-through}
 .rg-attached-label{font-size:10px;color:#a37915;letter-spacing:1.5px;font-weight:700;margin-bottom:4px;font-family:'Oswald',sans-serif}
 .rg-attached-item{display:flex;align-items:center;gap:6px;font-size:18px;color:#333;font-weight:800;line-height:1.45;padding:2px 0}
 .ra-bullet{color:#c8860a;font-weight:900;font-size:17px;flex-shrink:0;line-height:1}
@@ -149,7 +151,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   #kitchenContent > .ticket{flex:0 0 100vw;width:100vw;max-width:100vw}
   .ticket{border-radius:14px;border-width:1px}
   .ticket-table{font-size:30px}
-  .ticket-time{font-size:10px}
+  .ticket-time{font-size:14px;font-weight:700}
   .ticket-section-label{font-size:12px;letter-spacing:0.5px;margin-bottom:4px;padding-bottom:3px}
   .ticket-section{padding:6px 10px}
   .item-name-k{font-size:20px;letter-spacing:0.5px}
@@ -199,7 +201,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .ticket-top{margin-bottom:2px}
   .ticket-table{font-size:22px}
   .ticket-visit{font-size:10px;padding:2px 6px}
-  .ticket-time{font-size:9px}
+  .ticket-time{font-size:12px;font-weight:700}
   /* スマホ用：商品名・オプションを2列用に最適化 */
   .rg-main-name{font-size:17px;letter-spacing:0.3px}
   .rg-main-qty{font-size:15px}
@@ -1272,25 +1274,32 @@ function renderTableTicket(tt) {
   const visitLabel = first.visitType === 'first' ? '初回' : 'リピーター';
 
   // すべての注文から groups を収集（NEW フラグ付き）
+  // 追加注文の NEW 表示は、注文作成から 60 秒以内のものに限定
+  const NEW_BADGE_TTL_MS = 60 * 1000;
+  const nowMs = Date.now();
   const entries = []; // { grp, order, isNewOrder, _idx }
   orderList.forEach((order, orderIdx) => {
     const items = Array.isArray(order.items) ? order.items : [];
     const hasUnserved = items.some(i => !i.served);
-    const isNewOrder = orderIdx > 0 && hasUnserved;
+    // 注文作成時刻からの経過時間
+    let orderMs = 0;
+    if (order.createdAt) {
+      if (typeof order.createdAt.toMillis === 'function') orderMs = order.createdAt.toMillis();
+      else if (typeof order.createdAt.seconds === 'number') orderMs = order.createdAt.seconds * 1000;
+    }
+    const isWithinTTL = orderMs > 0 && (nowMs - orderMs) < NEW_BADGE_TTL_MS;
+    const isNewOrder = orderIdx > 0 && hasUnserved && isWithinTTL;
     const groups = buildItemGroups(items);
     groups.forEach(grp => {
       entries.push({ grp, order, isNewOrder, _idx: entries.length });
     });
   });
 
-  // ソート: カテゴリ → 提供状態（未提供先） → 元の順序
+  // ソート: カテゴリ → 元の順序 (提供済みでも位置は不変、グレーアウトのみ)
   entries.sort((a, b) => {
     const ca = getGroupCategoryOrder(a.grp);
     const cb = getGroupCategoryOrder(b.grp);
     if (ca !== cb) return ca - cb;
-    const sa = a.grp.items.every(i => i.served) ? 1 : 0;
-    const sb = b.grp.items.every(i => i.served) ? 1 : 0;
-    if (sa !== sb) return sa - sb;
     return a._idx - b._idx;
   });
 
@@ -1528,16 +1537,24 @@ function stripParens(s) {
 }
 function getAbbrevJa(item) {
   if (!item) return '';
-  // 管理APP の nameOverride を最優先で適用（→ canonical → 保存済み item.name の順）
   const id = item.itemId;
+  // 1. 管理APPの「キッチン伝票表示名」を最優先で使用
+  if (id !== undefined && id !== null) {
+    // canonical の nameOverride 保存値
+    const ov = _kitchenMenuOverrides[String(id)] || {};
+    if (ov.kitchenName && ov.kitchenName.trim()) return ov.kitchenName.trim();
+    // custom の kitchenName フィールド
+    const custom = _kitchenCustomMenuItems.find(c => c.id === id);
+    if (custom && custom.kitchenName && custom.kitchenName.trim()) return custom.kitchenName.trim();
+  }
+  // 2. nameOverride / canonical / 保存済み item.name の順
   let ja = '';
   if (id !== undefined && id !== null) {
     ja = getOverriddenNameJa(id);
   }
   if (!ja) ja = item.name || '';
+  // 3. abbrev 辞書による省略形
   const abbreviated = getAbbrev(ja);
-  // 省略形が適用された場合のみ括弧を除去（ラーメン名向け）
-  // 省略形が無いサイド類は括弧を保持（例: からあげ（3個）, ヤンニョム餃子（4個））
   if (abbreviated !== ja) return stripParens(abbreviated);
   return ja;
 }
@@ -1716,6 +1733,14 @@ function renderRamenGroupCard(orderId, grp) {
     ${addons.map(a => `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}</div>`).join('')}
   </div>` : '';
 
+  // ━━━ Section 5: 合計金額 (main + spicy + noodle extras + addons) ━━━
+  // main.price は order-app 側で unitPrice = base + spicy + noodleExtra で計算済み
+  const mainQty = main.qty || 1;
+  const mainTotal = getItemUnitPrice(main) * mainQty;
+  const addonsTotal = addons.reduce((s, a) => s + getItemUnitPrice(a) * (a.qty || 1), 0);
+  const groupTotal = mainTotal + addonsTotal;
+  const totalHtml = groupTotal > 0 ? `<div class="rg-sec rg-sec-total">¥${groupTotal.toLocaleString()}</div>` : '';
+
   return `<div class="ramen-group-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="rg-check"></div>
 <div class="rg-content">
@@ -1724,6 +1749,7 @@ ${noodleHtml}
 ${chashuHtml}
 ${otherHtml}
 ${addonsHtml}
+${totalHtml}
 </div>
 </div>`;
 }
@@ -2999,6 +3025,13 @@ setInterval(() => {
     audioCtx.resume().catch(()=>{});
   }
 }, 15000);
+
+// 追加注文の「新規」赤枠/フラグ表示を 1分後に消すため、10秒ごとに伝票を再描画
+setInterval(() => {
+  if (currentMode === 'kitchen' && document.getElementById('kitchenScreen')?.classList.contains('active')) {
+    renderKitchen();
+  }
+}, 10000);
 
 async function playBellSound() {
   const ctx = getAudioCtx();
