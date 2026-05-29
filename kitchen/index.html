@@ -1726,6 +1726,14 @@ function getAbbrevJa(item) {
   if (id === 40 && (item.lunchFree === true || (item.isKaedama && (item.price === 0 || item.total === 0)))) {
     return '無料替え玉';
   }
+  // チャーシュー3枚（id:62）は opts の 豚/鶏 を読み取り表示
+  if (id === 62 && Array.isArray(item.opts)) {
+    for (const opt of item.opts) {
+      const s = String(opt).trim();
+      if (/^(豚|Pork|猪|돼지)$/i.test(s)) return 'チャーシュー3枚（ブタ）';
+      if (/^(鶏|Chicken|鸡|닭)$/i.test(s)) return 'チャーシュー3枚（トリ）';
+    }
+  }
   // 1. 管理APPの「キッチン伝票表示名」を最優先で使用
   if (id !== undefined && id !== null) {
     // canonical の nameOverride 保存値
@@ -1876,20 +1884,16 @@ function renderRamenGroupCard(orderId, grp) {
 
   // ━━━ Section 2: 麺種 / 量 / 硬さ ━━━
   // 表示ルール:
-  //   - 麺タイプが変更されている場合（豚骨→平打ち、醤油→細麺）：麺名＋量（並含む）を必ず表示
-  //   - 麺タイプがデフォルト：量は「大」or「小」のときのみ表示、「並」は省略
+  //   - 麺タイプが変更されている場合（豚骨→平打ち、醤油→細麺）：「○○変更」と明記し、量も表示
+  //   - 麺タイプがデフォルト：量（並含む）は常に表示
   const noodleParts = [];
   if (p.noodleType && p.noodleChanged) {
-    noodleParts.push(`<span class="rg-noodle-change">${p.noodleType}</span>`);
+    // 変更ラベルは「平打ち変更」「細麺変更」のように明示
+    noodleParts.push(`<span class="rg-noodle-change">${p.noodleType}変更</span>`);
   }
+  // 量は常に表示（並も含めて）
   if (p.qty) {
-    if (p.noodleChanged) {
-      // 変更時は並も含めて表示
-      noodleParts.push(`<span class="rg-qty">${p.qty}</span>`);
-    } else if (p.qty === '大盛り' || p.qty === '無料大盛り' || p.qty === '少') {
-      // デフォルトのときは大盛り/無料大盛り/少のみ表示
-      noodleParts.push(`<span class="rg-qty">${p.qty}</span>`);
-    }
+    noodleParts.push(`<span class="rg-qty">${p.qty}</span>`);
   }
   if (p.firmness) noodleParts.push(`<span class="rg-firm">${p.firmness}</span>`);
   const noodleHtml = noodleParts.length
