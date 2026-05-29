@@ -297,7 +297,6 @@ window.adminLogout = adminLogout;
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
     <div class="nav-item" onclick="switchPage('service',this)"><span class="nav-icon">🎁</span><span>サービス集計</span></div>
     <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
-    <div class="nav-item" onclick="switchPage('sortorder',this)"><span class="nav-icon">↕️</span><span>表示順序</span></div>
     <div class="nav-item" onclick="switchPage('maintenance',this)"><span class="nav-icon">🛠️</span><span>メンテナンス</span></div>
   </div>
   <div class="fb-status">
@@ -508,19 +507,8 @@ window.adminLogout = adminLogout;
     <div class="menu-grid" id="menuGrid"></div>
   </div>
 
-  <!-- 表示順序ページ -->
-  <div class="page" id="page-sortorder">
-    <div class="page-title">↕️ 表示順序</div>
-    <div class="page-sub">カテゴリを選んで商品をドラッグで並び替え。オーダーAPPの表示順に反映されます。</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
-      <div class="sortpage-cats" id="sortpageCats" style="flex:1;margin:0"></div>
-      <button onclick="forceRefreshAndRender()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">🔄 再読み込み</button>
-      <button onclick="diagnoseSortOrderSystem()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--blue);background:transparent;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">🔧 動作テスト</button>
-    </div>
-    <div id="sortpageList" class="sortpage-list"></div>
-    <div class="sortpage-save-status" id="sortpageStatus"></div>
-    <div id="sortpageDiagnostic" style="margin-top:16px"></div>
-  </div>
+  <!-- 表示順序ページは廃止。並び替えは商品管理ページで行う -->
+  <div class="page" id="page-sortorder" style="display:none !important"></div>
 
   <!-- メンテナンスページ -->
   <div class="page" id="page-maintenance">
@@ -813,7 +801,7 @@ function startSoldoutListener() {
   const ref = doc(window.fb.db, 'soldout', todayKey());
   onSnapshot(ref, (snap) => {
     soldoutIds = snap.exists() ? (snap.data().ids || []) : [];
-    if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    if (document.getElementById('page-menu').classList.contains('active') && !_menuPageSaving) renderMenuPage();
   });
 }
 
@@ -823,7 +811,7 @@ function startMenuOverridesListener() {
   onSnapshot(collection(window.fb.db, 'menuOverrides'), (snap) => {
     menuOverrides = {};
     snap.forEach(d => { menuOverrides[d.id] = d.data(); });
-    if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    if (document.getElementById('page-menu').classList.contains('active') && !_menuPageSaving) renderMenuPage();
     // 表示順序ページ：保存中以外はデバウンスで再描画
     if (document.getElementById('page-sortorder')?.classList.contains('active')
         && !_sortPageSaving) {
@@ -842,7 +830,7 @@ function startCustomMenuItemsListener() {
   onSnapshot(collection(window.fb.db, 'customMenuItems'), (snap) => {
     customMenuItems = [];
     snap.forEach(d => { customMenuItems.push({ docId: d.id, ...d.data() }); });
-    if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    if (document.getElementById('page-menu').classList.contains('active') && !_menuPageSaving) renderMenuPage();
     // 表示順序ページの再描画：保存中（_sortPageSaving）はスキップしてレース回避
     if (document.getElementById('page-sortorder')?.classList.contains('active')
         && !_sortPageSaving) {
@@ -860,7 +848,7 @@ function startCustomCategoriesListener() {
     snap.forEach(d => { customCategories.push({ docId: d.id, ...d.data() }); });
     customCategories.sort((a,b) => (a.order||0) - (b.order||0));
     renderCategoryFilterButtons();
-    if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    if (document.getElementById('page-menu').classList.contains('active') && !_menuPageSaving) renderMenuPage();
     // カテゴリ管理モーダルが開いていれば更新
     if (document.getElementById('categoryOverlay').style.display === 'flex') renderCategoryModal();
   }, err => console.error('customCategories listener:', err));
@@ -2413,6 +2401,83 @@ function renderCategoryFilterButtons() {
     cats.map(c => `<button class="cf-btn ${currentCat===c.key?'active':''}" onclick="setCatFilter(this,'${c.key}')">${c.icon||''} ${c.name.ja||c.key}</button>`).join('');
 }
 
+// 商品管理ページの並び替え用：カテゴリ別の表示中アイテム
+let _menuPageItemsByCat = {};
+let _menuPageSaving = false;
+
+// editKey で _menuPageItemsByCat の指定カテゴリ内の位置を探す
+function findMenuItemIdxByEditKey(cat, editKey) {
+  const list = _menuPageItemsByCat[cat] || [];
+  return list.findIndex(m => {
+    const k = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
+    return k === editKey;
+  });
+}
+
+// 1つ上 or 1つ下へ移動
+async function moveMenuItem(editKey, cat, delta) {
+  if (_menuPageSaving) return;
+  const list = _menuPageItemsByCat[cat];
+  if (!list || !list.length) return;
+  const idx = findMenuItemIdxByEditKey(cat, editKey);
+  if (idx < 0) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  const [moved] = list.splice(idx, 1);
+  list.splice(newIdx, 0, moved);
+  await applyMenuSortSave(cat);
+}
+
+// 一気に最上位へ
+async function moveMenuItemToTop(editKey, cat) {
+  if (_menuPageSaving) return;
+  const list = _menuPageItemsByCat[cat];
+  if (!list || !list.length) return;
+  const idx = findMenuItemIdxByEditKey(cat, editKey);
+  if (idx <= 0) return;
+  const [moved] = list.splice(idx, 1);
+  list.unshift(moved);
+  await applyMenuSortSave(cat);
+}
+
+// カテゴリ内の全商品に新しい sortOrder を割り当てて保存
+async function applyMenuSortSave(cat) {
+  _menuPageSaving = true;
+  const list = _menuPageItemsByCat[cat] || [];
+  // docId未取得の custom があれば最新化
+  const hasInvalid = list.some(m => m._isCustom && (!m._docId || m._docId === 'undefined'));
+  if (hasInvalid) {
+    await forceRefreshMenuData();
+    // 名前ベースで現在の順序を保ったまま最新の m に差し替え
+    const latestMenu = getMergedMenu().filter(m => m.cat === cat);
+    const nameOrder = list.map(m => m.name?.ja || '');
+    const rebuilt = nameOrder.map(nm => latestMenu.find(m => (m.name?.ja || '') === nm)).filter(Boolean);
+    _menuPageItemsByCat[cat] = rebuilt;
+  }
+  const finalList = _menuPageItemsByCat[cat].filter(m => !m._isCustom || (m._docId && m._docId !== 'undefined'));
+  finalList.forEach((m, i) => { m._sortOrder = (i + 1) * 10; });
+  const updates = finalList.map((m, i) => ({
+    editKey: m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`,
+    sortOrder: (i + 1) * 10
+  }));
+  // 楽観的に再描画（即時反映）
+  renderMenuPage();
+  showToast('保存中…');
+  console.log('[menuSort] saving', updates.length, 'items:', updates);
+  const result = await saveSortOrders(updates);
+  console.log('[menuSort] result:', result);
+  await forceRefreshMenuData();
+  renderMenuPage();
+  if (result.failed.length === 0) {
+    showToast(`✅ ${result.ok.length}件の並び順を保存`);
+  } else {
+    showToast(`⚠️ ${result.failed.length}件失敗（成功: ${result.ok.length}）`, true);
+    console.error('[menuSort] failed details:', result.failed);
+  }
+  // 遅延リスナーによる巻き戻し防止のため 2.5秒保持
+  setTimeout(() => { _menuPageSaving = false; }, 2500);
+}
+
 function renderMenuPage() {
   const grid = document.getElementById('menuGrid');
   if (!grid) return;
@@ -2432,6 +2497,13 @@ function renderMenuPage() {
     const c = mergedCats.find(x => x.key === k);
     return c ? (c.name.ja || k) : k;
   };
+  // 並び替え用：表示中アイテムをカテゴリ別に分けてインデックスを記録
+  // _menuPageItemsByCat[cat] = [item1, item2, ...] （cat内の表示順）
+  _menuPageItemsByCat = {};
+  items.forEach(m => {
+    if (!_menuPageItemsByCat[m.cat]) _menuPageItemsByCat[m.cat] = [];
+    _menuPageItemsByCat[m.cat].push(m);
+  });
   grid.innerHTML = items.map(m => {
     const isSold = soldoutIds.includes(m.id);
     const isHidden = m._hidden;
@@ -2440,11 +2512,21 @@ function renderMenuPage() {
       ? `<img src="${m.imageUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
       : (m.img || '🍜');
     const displayPrice = (typeof m._overridePrice === 'number') ? m._overridePrice : (m.price || 0);
+    // カテゴリ内の位置（並び替えボタンの活性/非活性判定用）
+    const catList = _menuPageItemsByCat[m.cat] || [];
+    const idxInCat = catList.indexOf(m);
+    const isFirstInCat = idxInCat === 0;
+    const isLastInCat = idxInCat === catList.length - 1;
     return `<div class="menu-card" data-edit-key="${editKey}" data-cat="${m.cat}" style="${isSold||isHidden?'opacity:0.5':''};position:relative">
       <div class="menu-card-img" style="position:relative;overflow:hidden">
         ${imgHtml}
         ${isSold ? '<div style="position:absolute;top:8px;right:8px;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🚫 売切</div>' : ''}
         ${isHidden ? '<div style="position:absolute;top:8px;left:8px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
+        <div style="position:absolute;top:8px;${isSold?'left:8px':'right:8px'};display:flex;flex-direction:column;gap:4px;z-index:2">
+          <button onclick="event.stopPropagation();moveMenuItem('${editKey}','${m.cat}',-1)" ${isFirstInCat?'disabled':''} title="1つ上へ" style="width:36px;height:36px;border-radius:8px;border:1.5px solid var(--accent);background:rgba(0,0,0,0.7);color:var(--accent);font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isFirstInCat?'opacity:0.3;cursor:not-allowed':''}">▲</button>
+          <button onclick="event.stopPropagation();moveMenuItem('${editKey}','${m.cat}',1)" ${isLastInCat?'disabled':''} title="1つ下へ" style="width:36px;height:36px;border-radius:8px;border:1.5px solid var(--accent);background:rgba(0,0,0,0.7);color:var(--accent);font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isLastInCat?'opacity:0.3;cursor:not-allowed':''}">▼</button>
+          <button onclick="event.stopPropagation();moveMenuItemToTop('${editKey}','${m.cat}')" ${isFirstInCat?'disabled':''} title="一番上へ" style="padding:0 8px;height:30px;border-radius:8px;border:1.5px solid #22c55e;background:rgba(0,0,0,0.7);color:#22c55e;font-size:10px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;${isFirstInCat?'opacity:0.3;cursor:not-allowed':''}">⇧最上位</button>
+        </div>
       </div>
       <div class="menu-card-body">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -2471,7 +2553,6 @@ function renderMenuPage() {
       </div>
     </div>`;
   }).join('');
-  // ※ 並び替えは「表示順序」ページ（左サイドバー）で行う
 }
 
 // 並び順を1件ずつ順番に保存（並列だと一つ失敗で全体停止するので逐次に変更）
@@ -3413,6 +3494,9 @@ window.saveItemEdit = saveItemEdit;
 window.confirmDeleteCustomItem = confirmDeleteCustomItem;
 window.confirmHideCanonicalItem = confirmHideCanonicalItem;
 window.confirmDeleteCanonicalItem = confirmDeleteCanonicalItem;
+// 商品管理ページの並び替え
+window.moveMenuItem = moveMenuItem;
+window.moveMenuItemToTop = moveMenuItemToTop;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
