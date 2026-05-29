@@ -803,7 +803,7 @@ function closeSoldoutFullPage() { document.getElementById('soldoutFullPage').sty
 
 function renderSoldoutFullList() {
 const ids = getSoldoutIds();
-const catOrderArr = ['豚骨','醤油','定食','テイクアウト','トッピング','サイド','夜限定','ドリンク'];
+const catOrderArr = ['豚骨','醤油','定食','トッピング','サイド','夜限定','ドリンク','テイクアウト'];
 let html = '';
 catOrderArr.forEach(cat => {
 // 非表示は除外。各カテゴリ内は商品管理ページと同じく _sortOrder 昇順で並べる。
