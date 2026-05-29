@@ -401,17 +401,16 @@ window.adminLogout = adminLogout;
   <div class="page" id="page-analytics">
     <div class="page-title">売上分析</div>
     <div class="page-sub">期間と営業時間帯別に売上・人気商品を確認できます</div>
-    <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
-      <div class="period-tabs">
-        <button class="ptab active" onclick="switchPeriod(this,'day')">日</button>
-        <button class="ptab" onclick="switchPeriod(this,'week')">週</button>
-        <button class="ptab" onclick="switchPeriod(this,'month')">月</button>
-      </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
       <div class="session-tabs" style="margin:0">
         <button class="stab active" onclick="switchSession(this,'all','analytics-chart')">合算</button>
         <button class="stab" onclick="switchSession(this,'lunch','analytics-chart')">ランチ</button>
         <button class="stab" onclick="switchSession(this,'dinner','analytics-chart')">夜営業</button>
       </div>
+      <input type="date" id="analyticsDateFrom" class="form-input" style="width:130px">
+      <span style="color:var(--muted);font-size:13px">〜</span>
+      <input type="date" id="analyticsDateTo" class="form-input" style="width:130px">
+      <button onclick="renderAnalytics()" style="padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">検索</button>
     </div>
     <div class="kpi-grid" style="margin-bottom:20px">
       <div class="kpi-card"><div class="kpi-label">期間売上合計</div><div class="kpi-value" style="color:var(--accent)" id="an-sales">¥0</div></div>
@@ -583,20 +582,10 @@ window.adminLogout = adminLogout;
     <div class="page-title">来店分析</div>
     <div class="page-sub">初回・リピーター・言語別の来店データを確認</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
-      <div class="period-tabs">
-        <button class="ptab active" id="vtab-week" onclick="switchVisitsMode(this,'week')">直近7日</button>
-        <button class="ptab" id="vtab-day" onclick="switchVisitsMode(this,'day')">単日</button>
-        <button class="ptab" id="vtab-range" onclick="switchVisitsMode(this,'range')">期間指定</button>
-        <button class="ptab" id="vtab-month" onclick="switchVisitsMode(this,'month')">当月</button>
-      </div>
-      <div id="visits-day-picker" style="display:none">
-        <input type="date" id="visits-date" onchange="renderVisits()" style="padding:6px 10px;border-radius:8px;background:var(--surface2);color:#fff;border:1px solid var(--border);font-size:13px">
-      </div>
-      <div id="visits-range-picker" style="display:none;gap:6px;align-items:center">
-        <input type="date" id="visits-range-from" onchange="renderVisits()" style="padding:6px 10px;border-radius:8px;background:var(--surface2);color:#fff;border:1px solid var(--border);font-size:13px">
-        <span style="color:var(--muted)">〜</span>
-        <input type="date" id="visits-range-to" onchange="renderVisits()" style="padding:6px 10px;border-radius:8px;background:var(--surface2);color:#fff;border:1px solid var(--border);font-size:13px">
-      </div>
+      <input type="date" id="visitsDateFrom" class="form-input" style="width:130px">
+      <span style="color:var(--muted);font-size:13px">〜</span>
+      <input type="date" id="visitsDateTo" class="form-input" style="width:130px">
+      <button onclick="renderVisits()" style="padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">検索</button>
       <div id="visits-range-info" style="font-size:11px;color:var(--muted);margin-left:auto"></div>
     </div>
     <div class="chart-grid" style="margin-bottom:20px">
@@ -2119,34 +2108,54 @@ function copyDailyReport() {
 
 // ────── Analytics ──────
 function getAnalyticsRange() {
-  const now = new Date();
-  if (currentPeriod === 'day') {
-    // 直近7日
+  const fromEl = document.getElementById('analyticsDateFrom');
+  const toEl = document.getElementById('analyticsDateTo');
+  // 初期値（月初め〜現在）
+  if (fromEl && !fromEl.value) {
+    const now = new Date();
+    fromEl.value = dateKey(new Date(now.getFullYear(), now.getMonth(), 1));
+  }
+  if (toEl && !toEl.value) {
+    toEl.value = dateKey(new Date());
+  }
+  const fromStr = fromEl ? fromEl.value : dateKey(new Date());
+  const toStr = toEl ? toEl.value : dateKey(new Date());
+  const [fy, fm, fd] = fromStr.split('-').map(n => parseInt(n));
+  const [ty, tm, td] = toStr.split('-').map(n => parseInt(n));
+  const start = new Date(fy, fm-1, fd);
+  const end = new Date(ty, tm-1, td);
+  // 日数を計算
+  const dayCount = Math.floor((end - start) / 86400000) + 1;
+  // 60日以下なら日別、それ以上は週別、180日以上は月別
+  if (dayCount <= 60) {
     const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(d.getDate() - i);
-      days.push(dateKey(d));
-    }
-    return { keys: days, labelFn: k => k.slice(5).replace('-','/') };
+    const cursor = new Date(start);
+    while (cursor <= end) { days.push(dateKey(cursor)); cursor.setDate(cursor.getDate()+1); }
+    return { keys: days, labelFn: k => k.slice(5).replace('-','/'), mode: 'day', start, end };
   }
-  if (currentPeriod === 'week') {
-    // 直近4週
+  if (dayCount <= 180) {
+    // 週別
     const weeks = [];
-    for (let i = 3; i >= 0; i--) {
-      const start = new Date(now);
-      start.setDate(start.getDate() - (i*7) - now.getDay());
-      const end = new Date(start); end.setDate(end.getDate() + 6);
-      weeks.push({ start, end, label: `${start.getMonth()+1}/${start.getDate()}〜` });
+    const cursor = new Date(start);
+    // 週初め（日曜）に合わせる
+    while (cursor.getDay() !== 0 && cursor > new Date(start.getTime() - 7*86400000)) cursor.setDate(cursor.getDate()-1);
+    while (cursor <= end) {
+      const wStart = new Date(cursor);
+      const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
+      weeks.push({ start: wStart, end: wEnd, label: `${wStart.getMonth()+1}/${wStart.getDate()}〜` });
+      cursor.setDate(cursor.getDate()+7);
     }
-    return { keys: weeks.map(w => w.label), labelFn: l => l, ranges: weeks };
+    return { keys: weeks.map(w => w.label), labelFn: l => l, ranges: weeks, mode: 'week', start, end };
   }
-  // month: 直近6ヶ月
+  // 月別
   const months = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push({ year: d.getFullYear(), month: d.getMonth(), label: `${d.getMonth()+1}月` });
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cursor <= endMonth) {
+    months.push({ year: cursor.getFullYear(), month: cursor.getMonth(), label: `${cursor.getFullYear()}/${cursor.getMonth()+1}` });
+    cursor.setMonth(cursor.getMonth()+1);
   }
-  return { keys: months.map(m => m.label), labelFn: l => l, months };
+  return { keys: months.map(m => m.label), labelFn: l => l, months, mode: 'month', start, end };
 }
 
 function renderAnalytics() {
@@ -2160,10 +2169,10 @@ function renderAnalytics() {
 
   filtered.forEach(o => {
     const d = getOrderTimestamp(o); if (!d) return;
-    if (currentPeriod === 'day') {
+    if (range.mode === 'day') {
       const k = dateKey(d);
       if (dataByKey[k]) { dataByKey[k].sales += (o.total||0); dataByKey[k].count++; }
-    } else if (currentPeriod === 'week') {
+    } else if (range.mode === 'week') {
       range.ranges.forEach((w, idx) => {
         if (d >= w.start && d <= new Date(w.end.getTime() + 86399999)) {
           dataByKey[w.label].sales += (o.total||0); dataByKey[w.label].count++;
@@ -2178,11 +2187,11 @@ function renderAnalytics() {
     }
   });
 
-  // KPI
+  // KPI：期間内 (start <= d <= end) で絞り込み
+  const endIncl = new Date(range.end.getTime() + 86399999);
   const allFiltered = filtered.filter(o => {
     const d = getOrderTimestamp(o); if (!d) return false;
-    if (currentPeriod === 'day') return range.keys.includes(dateKey(d));
-    return true;
+    return d >= range.start && d <= endIncl;
   });
   const totalSales = allFiltered.reduce((s,o) => s + (o.total||0), 0);
   const totalCount = allFiltered.length;
@@ -3266,67 +3275,35 @@ async function confirmDeleteCategory(docId, name) {
 }
 
 // ────── Visits ──────
-function switchVisitsMode(btn, mode) {
-  document.querySelectorAll('#page-visits .ptab').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  currentVisitsMode = mode;
-  document.getElementById('visits-day-picker').style.display = (mode === 'day') ? 'inline-block' : 'none';
-  document.getElementById('visits-range-picker').style.display = (mode === 'range') ? 'inline-flex' : 'none';
-  // 期間モード初回で空ならデフォルト値をセット（直近7日）
-  if (mode === 'day') {
-    const el = document.getElementById('visits-date');
-    if (!el.value) el.value = todayKey();
-  } else if (mode === 'range') {
-    const f = document.getElementById('visits-range-from');
-    const t = document.getElementById('visits-range-to');
-    if (!t.value) t.value = todayKey();
-    if (!f.value) {
-      const d = new Date(); d.setDate(d.getDate() - 6);
-      f.value = dateKey(d);
-    }
-  }
-  renderVisits();
-}
+// 旧APIの後方互換用（タブ削除済み・実体は何もしない）
+function switchVisitsMode(btn, mode) { renderVisits(); }
 
-// モードに応じた対象日付配列と表示ラベルを返す
+// 日付ピッカーから対象日付配列を取得
+// 初期値：月初め〜現在
 function getVisitsRange() {
-  const today = new Date();
-  if (currentVisitsMode === 'day') {
-    const dv = document.getElementById('visits-date');
-    const d = (dv && dv.value) ? dv.value : todayKey();
-    return { days: [d], label: d, isDayMode: true };
+  const fromEl = document.getElementById('visitsDateFrom');
+  const toEl = document.getElementById('visitsDateTo');
+  // 初期値（月初め〜現在）
+  if (fromEl && !fromEl.value) {
+    const now = new Date();
+    fromEl.value = dateKey(new Date(now.getFullYear(), now.getMonth(), 1));
   }
-  if (currentVisitsMode === 'range') {
-    const fv = document.getElementById('visits-range-from');
-    const tv = document.getElementById('visits-range-to');
-    const from = (fv && fv.value) ? fv.value : '';
-    const to = (tv && tv.value) ? tv.value : '';
-    if (!from || !to) {
-      // フォールバック：直近7日
-      const days = [];
-      for (let i = 6; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); days.push(dateKey(d)); }
-      return { days, label: '直近7日', isDayMode: false };
-    }
-    const days = [];
-    const [fy, fm, fd] = from.split('-').map(n => parseInt(n));
-    const [ty, tm, td] = to.split('-').map(n => parseInt(n));
-    const start = new Date(fy, fm-1, fd);
-    const end = new Date(ty, tm-1, td);
-    const cursor = new Date(start);
-    while (cursor <= end) { days.push(dateKey(cursor)); cursor.setDate(cursor.getDate()+1); }
-    return { days, label: `${from} 〜 ${to}（${days.length}日間）`, isDayMode: false };
+  if (toEl && !toEl.value) {
+    toEl.value = dateKey(new Date());
   }
-  if (currentVisitsMode === 'month') {
-    const ym = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-    const lastDay = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
-    const days = [];
-    for (let d = 1; d <= lastDay; d++) days.push(`${ym}-${String(d).padStart(2,'0')}`);
-    return { days, label: `${ym}（当月 ${days.length}日間）`, isDayMode: false };
-  }
-  // week（デフォルト）：直近7日
+  const from = fromEl ? fromEl.value : dateKey(new Date());
+  const to = toEl ? toEl.value : dateKey(new Date());
+  const [fy, fm, fd] = from.split('-').map(n => parseInt(n));
+  const [ty, tm, td] = to.split('-').map(n => parseInt(n));
+  const start = new Date(fy, fm-1, fd);
+  const end = new Date(ty, tm-1, td);
   const days = [];
-  for (let i = 6; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); days.push(dateKey(d)); }
-  return { days, label: '直近7日', isDayMode: false };
+  const cursor = new Date(start);
+  while (cursor <= end) { days.push(dateKey(cursor)); cursor.setDate(cursor.getDate()+1); }
+  // 単日モード判定：開始と終了が同日
+  const isDayMode = (from === to);
+  const label = isDayMode ? from : `${from} 〜 ${to}（${days.length}日間）`;
+  return { days, label, isDayMode };
 }
 
 function renderVisits() {
@@ -3517,6 +3494,17 @@ function bootstrap() {
   const dateToEl = document.getElementById('soupDateTo');
   if (dateFromEl) dateFromEl.value = dateKey(weekAgo);
   if (dateToEl) dateToEl.value = dateKey(today);
+
+  // 売上分析・来店分析の日付ピッカー：初期値は「月初め〜現在」
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const analyticsFromEl = document.getElementById('analyticsDateFrom');
+  const analyticsToEl = document.getElementById('analyticsDateTo');
+  if (analyticsFromEl && !analyticsFromEl.value) analyticsFromEl.value = dateKey(monthStart);
+  if (analyticsToEl && !analyticsToEl.value) analyticsToEl.value = dateKey(today);
+  const visitsFromEl = document.getElementById('visitsDateFrom');
+  const visitsToEl = document.getElementById('visitsDateTo');
+  if (visitsFromEl && !visitsFromEl.value) visitsFromEl.value = dateKey(monthStart);
+  if (visitsToEl && !visitsToEl.value) visitsToEl.value = dateKey(today);
 
   const tryBoot = () => {
     if (!window.fbApi) { setTimeout(tryBoot, 50); return; }
