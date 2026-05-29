@@ -961,24 +961,26 @@ function openPastTicketPanel() {
   if (!listEl) return;
   panel.style.display = 'flex';
   const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
-  // 本日の支払い済を新しい順
-  const todays = paidOrders.filter(o => {
+  // 本日のすべての注文（支払い済 + 未会計）を取得
+  const isToday = (o) => {
     const ts = (o.updatedAt && o.updatedAt.toDate) ? o.updatedAt.toDate() : ((o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null);
     if (!ts) return false;
     const k = `${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')}`;
     return k === today;
-  }).sort((a, b) => {
-    const ta = (a.updatedAt && a.updatedAt.toMillis) ? a.updatedAt.toMillis() : 0;
-    const tb = (b.updatedAt && b.updatedAt.toMillis) ? b.updatedAt.toMillis() : 0;
-    return tb - ta;
-  });
-  if (!todays.length) {
-    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#9a8366;font-size:13px">本日の支払い済オーダーはありません</div>`;
+  };
+  // キャンセル系・空注文は除外
+  const isValidOrder = (o) => o.paymentType !== 'cancelled_by_edit' && o.status !== 'cancelled' && Array.isArray(o.items) && o.items.length > 0;
+  const allTodayOrders = [
+    ...paidOrders.filter(isToday).filter(isValidOrder),
+    ...orders.filter(o => o.status !== 'paid').filter(isToday).filter(isValidOrder)
+  ];
+  if (!allTodayOrders.length) {
+    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#9a8366;font-size:13px">本日の伝票はまだありません</div>`;
     return;
   }
-  // テーブル単位で集計
+  // テーブル単位で集計（追加注文も同じテーブルとしてまとめる）
   const byTable = new Map();
-  todays.forEach(o => {
+  allTodayOrders.forEach(o => {
     const tl = o.tableLabel || o.table || '?';
     if (!byTable.has(tl)) byTable.set(tl, []);
     byTable.get(tl).push(o);
@@ -991,6 +993,7 @@ function openPastTicketPanel() {
   });
   listEl.innerHTML = tablesSorted.map(([tl, list]) => {
     const total = list.reduce((s,o) => s + (o.total || 0), 0);
+    // 全注文（メイン + 追加）のアイテムを合算
     const allItems = list.flatMap(o => o.items || []);
     const itemsHtml = allItems.map(it => {
       const name = (it.name || '').slice(0, 30);
@@ -999,33 +1002,58 @@ function openPastTicketPanel() {
     }).join('');
     const firstTs = (list[0].updatedAt && list[0].updatedAt.toDate) ? list[0].updatedAt.toDate() : null;
     const timeStr = firstTs ? `${String(firstTs.getHours()).padStart(2,'0')}:${String(firstTs.getMinutes()).padStart(2,'0')}` : '';
+    // 全部 paid なら「会計済み」、1件でも未会計なら「未会計」
+    const allPaid = list.every(o => o.status === 'paid');
+    const orderCount = list.length;
+    const orderCountBadge = orderCount > 1
+      ? `<span style="font-size:10px;color:#9a8366;background:rgba(154,131,102,0.18);padding:2px 8px;border-radius:8px;margin-left:8px;font-family:'Noto Sans JP',sans-serif">${orderCount}件まとめ</span>`
+      : '';
+    const statusBadge = allPaid
+      ? `<span style="font-size:11px;font-weight:900;color:#22c55e;background:rgba(34,197,94,0.15);padding:3px 10px;border-radius:10px;border:1px solid #22c55e;font-family:'Noto Sans JP',sans-serif">✓ 会計済み</span>`
+      : `<span style="font-size:11px;font-weight:900;color:var(--accent);background:rgba(200,134,10,0.15);padding:3px 10px;border-radius:10px;border:1px solid var(--accent);font-family:'Noto Sans JP',sans-serif">⚠️ 未会計</span>`;
+    // 1テーブル1ボタン：未会計のテーブルのみ再表示可能。会計済みはボタン非表示
+    const allOrderIds = list.map(o => o.id).join(',');
+    const restoreBtn = !allPaid
+      ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #3a2810">
+          <button onclick="restorePastTicket('${allOrderIds}','${(tl||'').replace(/'/g,"\\'")}')" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--accent);background:rgba(200,134,10,0.15);color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📋 伝票を再表示</button>
+        </div>`
+      : '';
     return `<div style="background:#231708;border:1px solid #3a2810;border-radius:10px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #3a2810">
-        <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent);font-weight:700">${tl} <span style="font-size:11px;color:#9a8366;margin-left:8px">${timeStr}</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #3a2810;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:0">
+          <span style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent);font-weight:700">${tl}</span>
+          <span style="font-size:11px;color:#9a8366">${timeStr}</span>
+          ${statusBadge}
+          ${orderCountBadge}
+        </div>
         <div style="font-family:'Oswald',sans-serif;font-size:18px;color:#fff;font-weight:900">¥${(total||0).toLocaleString()}</div>
       </div>
       ${itemsHtml}
-      <div style="display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #3a2810">
-        ${list.map(o => `<button onclick="restorePastTicket('${o.id}')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--accent);background:rgba(200,134,10,0.15);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📋 伝票を再表示</button>`).join('')}
-      </div>
+      ${restoreBtn}
     </div>`;
   }).join('');
 }
 
-// 過去伝票を「再表示」：その注文を一時的にステータス preparing に戻して伝票一覧に再登場させる
-async function restorePastTicket(orderId) {
-  const order = paidOrders.find(o => o.id === orderId) || orders.find(o => o.id === orderId);
-  if (!order) { showToast('注文が見つかりません'); return; }
-  if (!confirm(`${order.tableLabel || order.table || '?'} の伝票を再表示しますか？\n（キッチン伝票一覧に戻ります）`)) return;
+// 過去伝票を「再表示」：テーブル単位で全ての未会計注文をキッチン伝票に戻す
+// 引数 orderIdsCsv: 同テーブルの全 orderId（カンマ区切り）
+async function restorePastTicket(orderIdsCsv, tableLabel) {
+  const ids = orderIdsCsv.split(',').filter(x => x);
+  if (!ids.length) return;
+  // 対象は未会計のみ（paid は除外）
+  const targets = ids
+    .map(id => orders.find(o => o.id === id) || paidOrders.find(o => o.id === id))
+    .filter(o => o && o.status !== 'paid');
+  if (!targets.length) { showToast('再表示対象がありません'); return; }
+  if (!confirm(`${tableLabel} の伝票（${targets.length}件まとめ）をキッチン伝票一覧に再表示しますか？`)) return;
   try {
-    const { doc, updateDoc } = window.fbApi;
-    await updateDoc(doc(window.fb.db, 'orders', orderId), {
+    const { doc, updateDoc, serverTimestamp } = window.fbApi;
+    await Promise.all(targets.map(o => updateDoc(doc(window.fb.db, 'orders', o.id), {
       status: 'preparing',
-      _paidBackup: { total: order.total || 0, paymentMethod: order.paymentMethod || '', paymentType: order.paymentType || '' },
-      _restoredAt: window.fbApi.serverTimestamp()
-    });
-    showToast(`${order.tableLabel || order.table || '?'} の伝票を再表示しました`);
-    document.getElementById('pastTicketPanel').style.display = 'none';
+      _restoredAt: serverTimestamp()
+    })));
+    showToast(`${tableLabel} の伝票を再表示しました（${targets.length}件）`);
+    // パネルを再描画して状態を反映
+    openPastTicketPanel();
   } catch(e) { console.error(e); showToast('再表示に失敗しました', true); }
 }
 
