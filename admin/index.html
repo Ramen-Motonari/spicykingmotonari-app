@@ -2103,9 +2103,9 @@ function buildReportText(session) {
     });
   });
   txt += `\n`;
-  const spicyLine1 = [0,1,2,3,4,5].map(i => `${i}辛x${spicyCounts[i]}`).join('、');
-  const spicyLine2 = [6,7,8,9,10].map(i => `${i}辛x${spicyCounts[i]}`).join('、');
-  txt += `${spicyLine1}、\n`;
+  const spicyLine1 = [0,1,2,3,4,5].map(i => `${i}辛x${spicyCounts[i]}`).join(' / ');
+  const spicyLine2 = [6,7,8,9,10].map(i => `${i}辛x${spicyCounts[i]}`).join(' / ');
+  txt += `${spicyLine1}\n`;
   txt += `${spicyLine2}\n`;
   return txt;
 }
