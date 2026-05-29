@@ -486,21 +486,40 @@ let _kitchenCustomMenuItems = [];
 // 管理APPからの名前/価格オーバーライド（メニュー名変更を即時反映するため）
 let _kitchenMenuOverrides = {};
 function rebuildAllMenuItems() {
+  // 商品管理ページと連動：
+  //   - night フラグ：canonical の night を menuOverrides.nightOverride で上書き可能に
+  //   - sortOrder：menuOverrides.sortOrder / customMenuItems.sortOrder を反映
+  //   - hidden / deleted も尊重
   const base = MOTONARI.MENU_ITEMS
-    .filter(m => {
+    .map((m, idx) => {
       const ov = _kitchenMenuOverrides[String(m.id)] || {};
-      return !ov.deleted; // 完全削除されたメニューは除外
-    })
-    .map(m => {
-      const ov = _kitchenMenuOverrides[String(m.id)] || {};
+      if (ov.deleted) return null; // 完全削除されたメニューは除外
       const nameJa = (ov.nameOverride && ov.nameOverride.ja) || m.name.ja;
-      return { id: m.id, name: nameJa, cat: kitchenCatLabel(m), _hidden: !!ov.hidden };
-    });
-  const custom = _kitchenCustomMenuItems.map(c => ({
+      // night override：boolean なら上書き、それ以外は canonical を採用
+      const finalNight = (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : !!m.night;
+      const finalSpicy = (typeof ov.spicyOverride === 'boolean') ? ov.spicyOverride : !!m.spicy;
+      return {
+        id: m.id, name: nameJa,
+        cat: kitchenCatLabel({ cat: m.cat, spicy: finalSpicy, night: finalNight }),
+        _origCat: m.cat,
+        night: finalNight,
+        spicy: finalSpicy,
+        _hidden: !!ov.hidden,
+        _sortOrder: (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1)
+      };
+    })
+    .filter(Boolean);
+  const custom = _kitchenCustomMenuItems.map((c, idx) => ({
     id: c.id, name: (c.name && c.name.ja) || '?',
     cat: kitchenCatLabel({ cat: c.cat, spicy: c.spicy, night: c.night }),
-    _hidden: !!c.hidden
+    _origCat: c.cat,
+    night: !!c.night,
+    spicy: !!c.spicy,
+    _hidden: !!c.hidden,
+    _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
   }));
+  // 各カテゴリ内では sortOrder 昇順に並ぶよう、最終配列を構築
+  // ただしカテゴリの大枠順は呼び出し側 (catOrderArr) が決定するので、ここではフラットに保持
   allMenuItems = [...base, ...custom];
 }
 // 名前オーバーライドを適用したカノニカル名（ja）を返す
@@ -705,6 +724,9 @@ function startCustomMenuListener() {
     // 名前変更を画面に即時反映
     if (currentMode === 'kitchen' && document.getElementById('kitchenScreen').classList.contains('active')) renderKitchen();
         if (currentMode === 'register' && document.getElementById('registerScreen').classList.contains('active')) renderRegister();
+    // 売り切れ管理画面（フルページ）が開いていれば再描画
+    const soldoutPage = document.getElementById('soldoutFullPage');
+    if (soldoutPage && soldoutPage.style.display !== 'none') renderSoldoutFullList();
   }, err => console.error('customMenuItems listener:', err));
 }
 
@@ -723,6 +745,9 @@ function startMenuOverridesListener() {
     if (detailModal && detailModal.style.display !== 'none' && typeof refreshDetailModal === 'function') {
       refreshDetailModal();
     }
+    // 売り切れ管理画面（フルページ）が開いていれば再描画
+    const soldoutPage = document.getElementById('soldoutFullPage');
+    if (soldoutPage && soldoutPage.style.display !== 'none') renderSoldoutFullList();
   }, err => console.error('menuOverrides listener:', err));
 }
 
@@ -781,7 +806,11 @@ const ids = getSoldoutIds();
 const catOrderArr = ['豚骨','醤油','定食','テイクアウト','トッピング','サイド','夜限定','ドリンク'];
 let html = '';
 catOrderArr.forEach(cat => {
-const items = allMenuItems.filter(m => m.cat === cat);
+// 非表示は除外。各カテゴリ内は商品管理ページと同じく _sortOrder 昇順で並べる。
+const items = allMenuItems
+  .filter(m => m.cat === cat && !m._hidden)
+  .slice()
+  .sort((a, b) => (a._sortOrder || 0) - (b._sortOrder || 0));
 if (!items.length) return;
 html += `<div style="font-size:11px;font-weight:700;color:var(--accent2);letter-spacing:1px;padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">${cat}</div>`;
 items.forEach(item => {
