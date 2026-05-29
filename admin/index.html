@@ -1162,10 +1162,15 @@ function renderSortPageList() {
     // CUSTOMバッジは削除（管理APPでも識別不要）
     if (m.night) tags.push('<span class="sp-tag">🌙夜</span>');
     if (m.spicy) tags.push('<span class="sp-tag">🌶</span>');
+    // sortOrder値（デバッグ表示）
+    const sortVal = (typeof m._sortOrder === 'number') ? m._sortOrder : '?';
+    const isOverridden = m._isCustom ? (typeof m._sortOrder === 'number' && m._sortOrder < 9000) : (menuOverrides[String(m.id)]?.sortOrder !== undefined);
+    const sortColor = isOverridden ? '#22c55e' : '#888';
     return `<div class="sortpage-row" data-edit-key="${editKey}">
       <span class="sp-handle">⋮⋮</span>
       <span class="sp-num">${idx + 1}</span>
       <span class="sp-name">${m.name.ja || '(無名)'}</span>
+      <span style="font-family:'Oswald',monospace;font-size:10px;color:${sortColor};padding:2px 6px;background:rgba(255,255,255,0.06);border-radius:6px;flex-shrink:0">SO:${sortVal}</span>
       <span class="sp-tags">${tags.join('')}</span>
     </div>`;
   }).join('');
@@ -2428,7 +2433,8 @@ async function diagnoseSortOrderSystem() {
   };
 
   const { doc, setDoc, getDoc, updateDoc, deleteDoc, serverTimestamp } = window.fbApi;
-  const testDocId = '__sort_diagnostic__';
+  // 予約ID（前後ダブルアンダースコア）を避けるためタイムスタンプ付きの一意なIDを使用
+  const testDocId = 'diag_test_' + Date.now();
   const testRef = doc(window.fb.db, 'menuOverrides', testDocId);
   const results = [];
 
@@ -2495,17 +2501,37 @@ async function diagnoseSortOrderSystem() {
     }
   }
 
-  // テスト4: 実際の menuOverrides/89 に書き込んでみる（ミニチャーシューエッグ丼を最上位に）
+  // テスト4: 「ミニチャーシューエッグ丼」を最上位に固定
+  // canonical (#89) と custom (#10001) の両方に書き込む（同じ名前でも両方対応）
   addStep('--- テスト4: ミニチャーシューエッグ丼を最上位設定 ---');
   let test4Ok = false;
+  let test4Details = [];
+  // canonical #89
   try {
     const ref89 = doc(window.fb.db, 'menuOverrides', '89');
     await setDoc(ref89, { sortOrder: 1, updatedAt: serverTimestamp() }, { merge: true });
-    addStep('✓ menuOverrides/89 sortOrder=1 書込成功！');
+    test4Details.push('✓ canonical #89 sortOrder=1 書込成功');
     test4Ok = true;
   } catch(e) {
-    addStep('✗ menuOverrides/89 書込失敗: ' + (e.code || '') + ' ' + (e.message || e));
+    test4Details.push('⚠️ canonical #89 書込失敗: ' + (e.message || e));
   }
+  // custom items: 名前が「ミニチャーシューエッグ丼」のもの全部を最上位
+  const targetCustoms = customMenuItems.filter(c => (c.name?.ja || '').includes('ミニチャーシューエッグ丼'));
+  if (targetCustoms.length === 0) {
+    test4Details.push('-- カスタム商品「ミニチャーシューエッグ丼」が見つかりません');
+  } else {
+    for (const c of targetCustoms) {
+      try {
+        const refC = doc(window.fb.db, 'customMenuItems', c.docId);
+        await setDoc(refC, { sortOrder: 1, updatedAt: serverTimestamp() }, { merge: true });
+        test4Details.push(`✓ custom #${c.id} (${c.docId.slice(0,8)}…) sortOrder=1 書込成功`);
+        test4Ok = true;
+      } catch(e) {
+        test4Details.push(`✗ custom #${c.id} 書込失敗: ` + (e.code || '') + ' ' + (e.message || e));
+      }
+    }
+  }
+  test4Details.forEach(line => addStep(line));
   results.push({ step: 'mini-chashu', ok: test4Ok });
 
   // 結果サマリ
