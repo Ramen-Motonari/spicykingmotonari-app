@@ -1229,9 +1229,11 @@ function toggleLangMenu(e) {
   const open = menu.style.display === 'flex';
   menu.style.display = open ? 'none' : 'flex';
   if (!open) {
+    // 現在の言語をハイライト
     menu.querySelectorAll('.lang-opt').forEach(b => {
       b.classList.toggle('current', b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${lang}'`));
     });
+    // 外側タップで閉じる
     setTimeout(() => {
       document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     }, 0);
@@ -1242,6 +1244,7 @@ function closeLangMenuOnOutside(e) {
   const btn = document.getElementById('langSwitchBtn');
   if (!menu || !btn) return;
   if (menu.contains(e.target) || btn.contains(e.target)) {
+    // 中をタップした場合は再登録
     document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     return;
   }
@@ -1249,13 +1252,17 @@ function closeLangMenuOnOutside(e) {
 }
 function changeLang(l) {
   lang = l;
+  // フラッグ更新
   const flag = document.getElementById('langSwitchFlag');
   if (flag) flag.textContent = LANG_FLAGS[l] || '🌐';
+  // メニュー閉じる
   const menu = document.getElementById('langSwitchMenu');
   if (menu) menu.style.display = 'none';
+  // 翻訳適用 + メニュー再描画
   applyLang();
   if (typeof renderMenu === 'function') renderMenu();
   if (typeof renderCart === 'function') renderCart();
+  // 開いている履歴・支払い画面も更新
   if (typeof renderHistory === 'function') renderHistory();
   if (typeof renderPayment === 'function') renderPayment();
 }
@@ -1783,8 +1790,8 @@ function addonSection(key,label,cat,t,isFirstShown){
     } else if (item.id === 62) {
       // チャーシュー3枚は 豚/鶏 のバリアントを別カードで表示
       const variants = [
-        {kJa:'豚', kEn:'Pork', label:{ja:'チャーシュー3枚（豚）',en:'Chashu ×3 (Pork)',zh:'叉烧3片（猪）',ko:'차슈 3장（돼지）'}},
-        {kJa:'鶏', kEn:'Chicken', label:{ja:'チャーシュー3枚（鶏）',en:'Chashu ×3 (Chicken)',zh:'叉烧3片（鸡）',ko:'차슈 3장（닭）'}}
+        {kJa:'豚', label:{ja:'チャーシュー3枚（豚）',en:'Chashu ×3 (Pork)',zh:'叉烧3片（猪）',ko:'차슈 3장（돼지）'}},
+        {kJa:'鶏', label:{ja:'チャーシュー3枚（鶏）',en:'Chashu ×3 (Chicken)',zh:'叉烧3片（鸡）',ko:'차슈 3장（닭）'}}
       ];
       variants.forEach(v => {
         const compKey = `${item.id}:${v.kJa}`;

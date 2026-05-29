@@ -177,7 +177,7 @@
      price:300, spicy:false, night:false, custom:{}},
     {id:62, cat:'topping', img:'🥩',
      name:{ja:'チャーシュー3枚', en:'Chashu ×3', zh:'叉烧3片', ko:'차슈 3장'},
-     price:250, spicy:false, night:false, custom:{chashu:1}},
+     price:250, spicy:false, night:false, custom:{}},
     {id:63, cat:'topping', img:'🌿',
      name:{ja:'のり3枚', en:'Nori ×3', zh:'海苔3片', ko:'김 3장'},
      price:150, spicy:false, night:false, custom:{}},
