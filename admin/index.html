@@ -137,9 +137,14 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .sortpage-cat-btn:hover{border-color:var(--accent);color:var(--accent)}
 .sortpage-cat-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .sortpage-list{display:flex;flex-direction:column;gap:8px;max-width:600px}
-.sortpage-row{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;transition:background .12s,border-color .12s}
+.sortpage-row{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;user-select:none;-webkit-user-select:none;transition:background .12s,border-color .12s}
 .sortpage-row:hover{border-color:var(--accent);background:var(--surface2)}
-.sortpage-row:active{cursor:grabbing}
+.sortpage-row .sp-arrows{display:flex;gap:4px;flex-shrink:0;align-items:center}
+.sortpage-row .sp-arrow-btn,.sortpage-row .sp-top-btn{width:38px;height:38px;border-radius:8px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;transition:all .12s;-webkit-tap-highlight-color:transparent}
+.sortpage-row .sp-arrow-btn:hover:not(:disabled),.sortpage-row .sp-top-btn:hover:not(:disabled){background:var(--accent);color:#fff}
+.sortpage-row .sp-arrow-btn:active:not(:disabled),.sortpage-row .sp-top-btn:active:not(:disabled){transform:scale(0.92)}
+.sortpage-row .sp-arrow-btn:disabled,.sortpage-row .sp-top-btn:disabled{opacity:0.25;cursor:not-allowed}
+.sortpage-row .sp-top-btn{font-size:18px}
 .sortpage-row .sp-handle{font-size:22px;color:#888;flex-shrink:0;line-height:1;padding:0 4px}
 .sortpage-row .sp-num{font-family:'Oswald',sans-serif;font-size:16px;color:var(--accent);min-width:32px;text-align:center;flex-shrink:0}
 .sortpage-row .sp-name{flex:1;font-size:15px;font-weight:700;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1130,6 +1135,78 @@ async function deleteAllOrders() {
 let _sortPageCat = null;
 let _sortPageItems = [];
 let _sortPageSortable = null;
+let _sortPageSaving = false;
+
+// ↑↓ボタン方式：1つ上 or 1つ下へ移動
+async function moveSortItem(idx, delta) {
+  if (_sortPageSaving) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= _sortPageItems.length) return;
+  // 入れ替え
+  const items = _sortPageItems.slice();
+  const [moved] = items.splice(idx, 1);
+  items.splice(newIdx, 0, moved);
+  _sortPageItems = items;
+  await applySortOrderSave();
+}
+
+// 一気に最上位へ
+async function moveSortItemToTop(idx) {
+  if (_sortPageSaving) return;
+  if (idx === 0) return;
+  const items = _sortPageItems.slice();
+  const [moved] = items.splice(idx, 1);
+  items.unshift(moved);
+  _sortPageItems = items;
+  await applySortOrderSave();
+}
+
+// 共通の保存処理
+async function applySortOrderSave() {
+  _sortPageSaving = true;
+  // docId未取得の custom があれば最新化
+  const hasInvalid = _sortPageItems.some(m => m._isCustom && (!m._docId || m._docId === 'undefined'));
+  if (hasInvalid) {
+    await forceRefreshMenuData();
+    const latestMenu = getMergedMenu().filter(m => m.cat === _sortPageCat);
+    const nameOrder = _sortPageItems.map(m => m.name?.ja || '');
+    _sortPageItems = nameOrder.map(nm => latestMenu.find(m => (m.name?.ja || '') === nm)).filter(Boolean);
+  }
+  // docId が依然として無い custom はスキップ
+  _sortPageItems = _sortPageItems.filter(m => !m._isCustom || (m._docId && m._docId !== 'undefined'));
+  // sortOrder 再付与
+  _sortPageItems.forEach((m, i) => { m._sortOrder = (i + 1) * 10; });
+  const updates = _sortPageItems.map((m, i) => ({
+    editKey: m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`,
+    sortOrder: (i + 1) * 10
+  }));
+  const statusEl = document.getElementById('sortpageStatus');
+  if (statusEl) { statusEl.textContent = '保存中…'; statusEl.className = 'sortpage-save-status'; }
+  // 楽観的に再描画（即時反映）
+  renderSortPageList();
+  console.log('[sortOrder] saving', updates.length, 'items:', updates);
+  const result = await saveSortOrders(updates);
+  console.log('[sortOrder] result:', result);
+  await forceRefreshMenuData();
+  _sortPageItems = getMergedMenu().filter(m => m.cat === _sortPageCat);
+  renderSortPageList();
+  if (result.failed.length === 0) {
+    if (statusEl) { statusEl.textContent = `✅ ${result.ok.length}件の並び順を保存しました`; statusEl.className = 'sortpage-save-status saved'; }
+    setTimeout(() => { if (statusEl && statusEl.classList.contains('saved')) statusEl.textContent = ''; }, 3000);
+  } else {
+    const detailLines = result.failed.map(f => `• ${f.editKey}\n  ${(f.error && f.error.message ? f.error.message : 'unknown').slice(0, 150)}`).join('\n');
+    if (statusEl) {
+      statusEl.innerHTML = `<div style="background:rgba(192,57,43,0.15);border:1.5px solid var(--accent2);border-radius:10px;padding:14px 16px;color:#ffb3a8;font-size:12px;line-height:1.6">
+        <div style="font-weight:900;font-size:13px;margin-bottom:6px">⚠️ ${result.failed.length}件の保存に失敗（成功: ${result.ok.length}件）</div>
+        <div style="font-size:11px;color:#ffd4cc;white-space:pre-wrap;font-family:'Oswald',monospace">${detailLines}</div>
+        <div style="font-size:10px;color:#fff;margin-top:8px;opacity:0.75">F12コンソールで詳細確認可能（[sortOrder] ✗ の行）</div>
+      </div>`;
+      statusEl.className = 'sortpage-save-status error';
+    }
+  }
+  _sortPageSaving = false;
+}
+
 function renderSortOrderPage() {
   const mergedCats = getMergedCategories();
   if (!_sortPageCat && mergedCats.length) _sortPageCat = mergedCats[0].key;
@@ -1155,27 +1232,35 @@ function renderSortPageList() {
     if (_sortPageSortable) { _sortPageSortable.destroy(); _sortPageSortable = null; }
     return;
   }
+  const total = _sortPageItems.length;
   listEl.innerHTML = _sortPageItems.map((m, idx) => {
     const editKey = m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
     const tags = [];
     if (m._hidden) tags.push('<span class="sp-tag" style="background:#444;color:#fff">非表示</span>');
-    // CUSTOMバッジは削除（管理APPでも識別不要）
     if (m.night) tags.push('<span class="sp-tag">🌙夜</span>');
     if (m.spicy) tags.push('<span class="sp-tag">🌶</span>');
     // sortOrder値（デバッグ表示）
     const sortVal = (typeof m._sortOrder === 'number') ? m._sortOrder : '?';
     const isOverridden = m._isCustom ? (typeof m._sortOrder === 'number' && m._sortOrder < 9000) : (menuOverrides[String(m.id)]?.sortOrder !== undefined);
     const sortColor = isOverridden ? '#22c55e' : '#888';
+    const isFirst = idx === 0;
+    const isLast = idx === total - 1;
     return `<div class="sortpage-row" data-edit-key="${editKey}">
-      <span class="sp-handle">⋮⋮</span>
       <span class="sp-num">${idx + 1}</span>
       <span class="sp-name">${m.name.ja || '(無名)'}</span>
       <span style="font-family:'Oswald',monospace;font-size:10px;color:${sortColor};padding:2px 6px;background:rgba(255,255,255,0.06);border-radius:6px;flex-shrink:0">SO:${sortVal}</span>
       <span class="sp-tags">${tags.join('')}</span>
+      <div class="sp-arrows">
+        <button class="sp-arrow-btn" onclick="moveSortItem(${idx}, -1)" ${isFirst?'disabled':''} title="上へ">▲</button>
+        <button class="sp-arrow-btn" onclick="moveSortItem(${idx}, 1)" ${isLast?'disabled':''} title="下へ">▼</button>
+        <button class="sp-top-btn" onclick="moveSortItemToTop(${idx})" ${isFirst?'disabled':''} title="最上位へ">⤒</button>
+      </div>
     </div>`;
   }).join('');
-  // SortableJS 起動
+  // SortableJS は使わない（↑↓ボタン方式へ変更）。残コードは互換のため保持。
   if (_sortPageSortable) { _sortPageSortable.destroy(); _sortPageSortable = null; }
+  return;
+  // 以下、未使用（ドラッグ方式時代のコード）
   if (typeof Sortable === 'undefined') return;
   _sortPageSortable = new Sortable(listEl, {
     animation: 180,
@@ -1981,6 +2066,8 @@ function buildReportText(session) {
     if (!grouped[key].length) return;
     txt += `${sectionEmojis[key]}\n`;
     grouped[key].forEach(item => {
+      // 替え玉（id 40）は追加トッピング欄から除外（末尾で別集計）
+      if (key === 'topping' && item.id === 40) return;
       const cnt = r.counts[item.id] || 0;
       txt += `${item.name}　x ${cnt}\n`;
     });
@@ -1989,17 +2076,44 @@ function buildReportText(session) {
 
   // 麺オプション集計
   const noc = calcNoodleOptionCounts(r.orders);
+  // ラーメン杯数（替え玉率の分母）
+  let ramenTotal = 0;
+  r.orders.forEach(o => {
+    (o.items||[]).forEach(item => {
+      if (getItemLogicalCat(item) === 'ramen') ramenTotal += (item.qty || 0);
+    });
+  });
+  const kaedamaRate = ramenTotal > 0 ? Math.round((noc.kaedama / ramenTotal) * 100) : 0;
   txt += `${SEP}\n`;
   txt += `替え玉　x ${noc.kaedama}\n`;
+  txt += `替え玉率　${kaedamaRate}%\n`;
   txt += `細麺大盛り　x ${noc.thinLarge}\n`;
   txt += `平打ち麺小盛り（並料金）　x ${noc.flatSmall}\n`;
   txt += `平打ち麺大盛り　x ${noc.flatLarge}\n`;
-  txt += `※ランチタイム無料除く\n`;
   txt += `\n`;
   txt += `細麺→平打ち麺変更\n`;
   txt += `・小（並料金）　x ${noc.tonkotsuFlatSmall}\n`;
   txt += `・並　x ${noc.tonkotsuFlatRegular}\n`;
   txt += `・大盛り　x ${noc.tonkotsuFlatLarge}\n`;
+
+  // 辛さレベル別集計（当日分のみ／辛さ選択可能なアイテムのみ）
+  const spicyCounts = {};
+  for (let i = 0; i <= 10; i++) spicyCounts[i] = 0;
+  r.orders.forEach(o => {
+    (o.items||[]).forEach(item => {
+      const m = MOTONARI.getMenuById(item.itemId);
+      if (!m || !m.spicy) return;
+      const lvlStr = MOTONARI.extractSpicyLevel(item.opts || []);
+      const lvl = parseInt(lvlStr, 10);
+      if (isNaN(lvl) || lvl < 0 || lvl > 10) return;
+      spicyCounts[lvl] += (item.qty || 0);
+    });
+  });
+  txt += `\n`;
+  const spicyLine1 = [0,1,2,3,4,5].map(i => `${i}辛x${spicyCounts[i]}`).join('、');
+  const spicyLine2 = [6,7,8,9,10].map(i => `${i}辛x${spicyCounts[i]}`).join('、');
+  txt += `${spicyLine1}、\n`;
+  txt += `${spicyLine2}\n`;
   return txt;
 }
 
@@ -2533,6 +2647,67 @@ async function diagnoseSortOrderSystem() {
   }
   test4Details.forEach(line => addStep(line));
   results.push({ step: 'mini-chashu', ok: test4Ok });
+
+  // テスト5: customMenuItems の create/update 分離テスト（本命）
+  // 「追加はOKだが更新NG」のルールパターンを検出
+  addStep('--- テスト5: customMenuItems 追加/更新の権限分離テスト ---');
+  const { addDoc, collection } = window.fbApi;
+  let test5CreateOk = false;
+  let test5UpdateOk = false;
+  let newCustomDocId = null;
+  // 5a: 新規追加（addDoc）テスト
+  try {
+    const colRef = collection(window.fb.db, 'customMenuItems');
+    const newRef = await addDoc(colRef, {
+      id: 99999, cat: '_diag_test', name: { ja: '_診断用_削除予定', en: 'test', zh: 'test', ko: 'test' },
+      price: 0, hidden: true, _diag: true,
+      createdAt: serverTimestamp()
+    });
+    newCustomDocId = newRef.id;
+    addStep(`✓ addDoc 成功（新規追加OK）docId=${newCustomDocId.slice(0,8)}…`);
+    test5CreateOk = true;
+  } catch(e) {
+    addStep('✗ addDoc 失敗: ' + (e.code || '') + ' ' + (e.message || e));
+  }
+  // 5b: 更新（setDoc merge）テスト
+  if (test5CreateOk && newCustomDocId) {
+    try {
+      const updRef = doc(window.fb.db, 'customMenuItems', newCustomDocId);
+      await setDoc(updRef, { sortOrder: 12345, updatedAt: serverTimestamp() }, { merge: true });
+      addStep('✓ setDoc(merge) 更新成功');
+      test5UpdateOk = true;
+    } catch(e) {
+      addStep('✗ setDoc(merge) 失敗: ' + (e.code || '') + ' ' + (e.message || e));
+    }
+    if (!test5UpdateOk) {
+      try {
+        const updRef = doc(window.fb.db, 'customMenuItems', newCustomDocId);
+        await updateDoc(updRef, { sortOrder: 12345, updatedAt: serverTimestamp() });
+        addStep('✓ updateDoc 成功（fallback）');
+        test5UpdateOk = true;
+      } catch(e) {
+        addStep('✗ updateDoc も失敗: ' + (e.code || '') + ' ' + (e.message || e));
+      }
+    }
+    // クリーンアップ
+    try {
+      await deleteDoc(doc(window.fb.db, 'customMenuItems', newCustomDocId));
+      addStep('✓ 診断用テストアイテム削除完了');
+    } catch(e) {
+      addStep('⚠️ 削除失敗（手動削除推奨）: ' + (e.code || '') + ' ' + (e.message || e));
+    }
+  }
+  // 結果分析
+  if (test5CreateOk && !test5UpdateOk) {
+    addStep('');
+    addStep('🔴 重大：「追加はOK、更新NG」 ← この症状が並び替えエラーの原因です！');
+    addStep('   → Firestoreルールで customMenuItems の update が拒否されています');
+  } else if (!test5CreateOk) {
+    addStep('🔴 追加自体が失敗。ルールで create も拒否されています');
+  } else if (test5UpdateOk) {
+    addStep('✓ 追加・更新ともに正常 → 並び替えできない原因は別にあります');
+  }
+  results.push({ step: 'create-vs-update', ok: test5CreateOk && test5UpdateOk });
 
   // 結果サマリ
   const allOk = results.every(r => r.ok);
