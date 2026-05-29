@@ -823,12 +823,13 @@ function startMenuOverridesListener() {
     menuOverrides = {};
     snap.forEach(d => { menuOverrides[d.id] = d.data(); });
     if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
-    // 表示順序ページ：ドラッグ中以外はデバウンスで再描画
+    // 表示順序ページ：保存中以外はデバウンスで再描画
     if (document.getElementById('page-sortorder')?.classList.contains('active')
-        && !document.querySelector('.sortpage-row.sortable-chosen')
-        && !document.querySelector('.sortpage-row.sortable-drag')) {
+        && !_sortPageSaving) {
       clearTimeout(window._sortPageRefreshTimer);
-      window._sortPageRefreshTimer = setTimeout(() => { renderSortOrderPage(); }, 600);
+      window._sortPageRefreshTimer = setTimeout(() => {
+        if (!_sortPageSaving) renderSortOrderPage();
+      }, 600);
     }
     // メニュー名変更を集計画面・ダッシュボードへ即時反映
     if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard();
@@ -841,11 +842,13 @@ function startCustomMenuItemsListener() {
     customMenuItems = [];
     snap.forEach(d => { customMenuItems.push({ docId: d.id, ...d.data() }); });
     if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
+    // 表示順序ページの再描画：保存中（_sortPageSaving）はスキップしてレース回避
     if (document.getElementById('page-sortorder')?.classList.contains('active')
-        && !document.querySelector('.sortpage-row.sortable-chosen')
-        && !document.querySelector('.sortpage-row.sortable-drag')) {
+        && !_sortPageSaving) {
       clearTimeout(window._sortPageRefreshTimer);
-      window._sortPageRefreshTimer = setTimeout(() => { renderSortOrderPage(); }, 600);
+      window._sortPageRefreshTimer = setTimeout(() => {
+        if (!_sortPageSaving) renderSortOrderPage();
+      }, 600);
     }
   }, err => console.error('customMenuItems listener:', err));
 }
