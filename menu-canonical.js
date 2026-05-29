@@ -186,6 +186,9 @@
     {id:89, cat:'side', img:'🍳',
      name:{ja:'ミニチャーシューエッグ丼', en:'Mini Chashu Egg Bowl', zh:'迷你叉烧鸡蛋盖饭', ko:'미니 차슈 에그 동'},
      price:550, spicy:false, night:false, custom:{}},
+    {id:80, cat:'side', img:'🍳',
+     name:{ja:'鉄板ミニチャーハン', en:'Mini Fried Rice', zh:'迷你铁板炒饭', ko:'미니 철판볶음밥'},
+     price:400, spicy:false, night:false, custom:{}},
     {id:66, cat:'side', img:'🥟',
      name:{ja:'餃子2個＋半ライスセット', en:'Gyoza ×2 + Half Rice Set', zh:'饺子2个+半碗饭套餐', ko:'교자2개+하프라이스 세트'},
      price:300, spicy:false, night:false, custom:{}},
@@ -227,9 +230,8 @@
      price:400, spicy:false, night:false, custom:{}},
 
     // ── サイド（夜限定） ──
-    {id:80, cat:'side', img:'🍳',
-     name:{ja:'鉄板ミニチャーハン', en:'Mini Fried Rice', zh:'迷你铁板炒饭', ko:'미니 철판볶음밥'},
-     price:400, spicy:false, night:true, custom:{}},
+    // 鉄板ミニチャーハンは「通常サイドメニュー」へ移動（夜限定解除）。位置は↓のサイド先頭側に挿入済み。
+    // ── 旧位置はプレースホルダなし（再掲を避ける） ──
     {id:81, cat:'side', img:'🍳',
      name:{ja:'鉄板チャーハン', en:'Fried Rice', zh:'铁板炒饭', ko:'철판볶음밥'},
      price:800, spicy:false, night:true, custom:{}},

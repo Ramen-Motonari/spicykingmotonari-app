@@ -593,7 +593,7 @@ let allCatKeys = [...BASE_CAT_ORDER]; // rebuildMenuで動的更新
 
 const chashuOpts = {ja:['豚','鶏'],en:['Pork','Chicken'],zh:['猪肉','鸡肉'],ko:['돼지','닭']};
 const kataOpts   = {ja:['かため','ふつう','やわ'],en:['Firm','Medium','Soft'],zh:['硬','普通','软'],ko:['단단히','보통','부드럽게']};
-const topOpts    = {ja:['とんかつ（一枚）','チキンカツ（２枚）'],en:['Tonkatsu (1pc)','Chicken Katsu (2pc)'],zh:['炸猪排（1块）','炸鸡排（2块）'],ko:['돈카츠（1장）','치킨카츠（2장）']};
+const topOpts    = {ja:['とんかつ','チキンカツ'],en:['Tonkatsu','Chicken Katsu'],zh:['炸猪排','炸鸡排'],ko:['돈카츠','치킨카츠']};
 const riceOpts   = {ja:['普通盛り','大盛り（無料）'],en:['Regular','Large (Free)'],zh:['普通量','大碗（免费）'],ko:['보통','곱배기（무료）']};
 // 麺サイズ選択（とんこつ）：細麺(並・大盛り) / 平打ち麺(少・並・大盛り)
 const noodleSizeOptsWeekday = {
@@ -684,6 +684,7 @@ function rebuildMenu() {
   // canonical + overrides
   MOTONARI.MENU_ITEMS.forEach((m, idx) => {
     const ov = _menuOverrides[String(m.id)] || {};
+    if (ov.deleted) return; // 完全削除済み（管理APP で「完全削除」されたもの）はオーダーAPPからも除外
     if (ov.hidden) return; // 非表示
     let item = { ...m };
     // name override 反映
@@ -1779,6 +1780,27 @@ function addonSection(key,label,cat,t,isFirstShown){
           <button onclick="addonQty('${key}',${item.id},1)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent)">＋</button>
         </div>
       </div>`;
+    } else if (item.id === 62) {
+      // チャーシュー3枚は 豚/鶏 のバリアントを別カードで表示
+      const variants = [
+        {kJa:'豚', kEn:'Pork', label:{ja:'チャーシュー3枚（豚）',en:'Chashu ×3 (Pork)',zh:'叉烧3片（猪）',ko:'차슈 3장（돼지）'}},
+        {kJa:'鶏', kEn:'Chicken', label:{ja:'チャーシュー3枚（鶏）',en:'Chashu ×3 (Chicken)',zh:'叉烧3片（鸡）',ko:'차슈 3장（닭）'}}
+      ];
+      variants.forEach(v => {
+        const compKey = `${item.id}:${v.kJa}`;
+        const qtyV = (curOpts[key+'Items'] && curOpts[key+'Items'][compKey]) || 0;
+        h+=`<div style="display:flex;flex-direction:column;justify-content:space-between;padding:10px;border-radius:10px;border:1.5px solid ${qtyV>0?'var(--accent)':'var(--border)'};background:${qtyV>0?'rgba(200,134,10,.06)':'transparent'};min-height:96px">
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.3;word-break:break-word">${v.label[lang]||v.label.ja}</div>
+            <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--accent);margin-top:4px">+¥${item.price.toLocaleString()}</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px">
+            <button onclick="addonQty('${key}','${compKey}',-1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)">−</button>
+            <span style="font-family:'Oswald',sans-serif;font-size:16px;width:20px;text-align:center">${qtyV}</span>
+            <button onclick="addonQty('${key}','${compKey}',1)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent)">＋</button>
+          </div>
+        </div>`;
+      });
     } else {
       h+=`<div style="display:flex;flex-direction:column;justify-content:space-between;padding:10px;border-radius:10px;border:1.5px solid ${qty>0?'var(--accent)':'var(--border)'};background:${qty>0?'rgba(200,134,10,.06)':'transparent'};min-height:96px">
         <div style="min-width:0">
@@ -1891,7 +1913,9 @@ function calcAddonExtra(){
     const items=curOpts[key+'Items'];
     if(!items) return;
     Object.entries(items).forEach(([id,qty])=>{
-      const m=menu.find(m=>m.id===Number(id));
+      // コンポジットキー（"62:豚" 等）対応：":" 以前がベース itemId
+      const baseId = parseInt(String(id).split(':')[0], 10);
+      const m=menu.find(m=>m.id===baseId);
       if(m) extra += m.price*qty;
     });
   });
@@ -1957,7 +1981,12 @@ function addCart(){
     const items=curOpts[key+'Items'];
     if(!items) return;
     Object.entries(items).forEach(([itemId,qty])=>{
-      const m=menu.find(m=>m.id===Number(itemId));
+      // コンポジットキー対応："62:豚" "62:鶏" などの場合は baseId + variant を分離
+      const idStr = String(itemId);
+      const hasVariant = idStr.includes(':');
+      const baseId = parseInt(idStr.split(':')[0], 10);
+      const variant = hasVariant ? idStr.split(':')[1] : null;
+      const m=menu.find(m=>m.id===baseId);
       if(m && qty>0){
         if(isItemSoldout(m.id)){
           skippedSoldout.push(m.name[lang] || m.name.ja);
@@ -1965,7 +1994,8 @@ function addCart(){
         }
         // ラーメンと一緒に頼む初回注文の替え玉は硬さ選択なし（食後の追加注文時のみ硬さあり）
         const isKaedamaAddon = (m.id === 40);
-        const addonOpts = [];
+        // variant がある場合は opts に格納（伝票で「ブタ/トリ」識別に使用）
+        const addonOpts = variant ? [variant] : [];
         const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:isKaedamaAddon, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
         if (isKaedamaAddon){
           // 「呼ぶ」ボタンは廃止（口頭オペレーションに移行）。最初から「作る対象」として送る。
