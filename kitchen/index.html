@@ -7,7 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700;400&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;--surface3:#262626;--accent:#c8860a;--accent2:#c0392b;--green:#22c55e;--blue:#3b82f6;--purple:#a855f7;--yellow:#eab308;--text:#f0ece4;--muted:#b8b8b8;--border:#2a2a2a}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+/* ダブルタップによる意図しないズームを完全に防止 */
+html,body{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;overflow-x:hidden;text-align:left}
 #modeScreen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:48px 24px 60px;text-align:center;background:radial-gradient(ellipse at 50% 0%,rgba(200,134,10,0.15) 0%,transparent 60%);overflow-y:auto;-webkit-overflow-scrolling:touch}
 .mode-logo{font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;color:var(--accent);margin-bottom:4px}
@@ -1145,14 +1147,15 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   });
 }).map(([tl, list]) => {
   // 表示用：
-  //   - テーブル全体の全アイテムが提供完了するまで、すべての注文（追加注文含む）を表示し続ける
-  //   - 提供済みアイテムはグレーアウトのみ（消えない・並び順も変えない）
-  //   - 全アイテム提供完了で初めてテーブル単位で消える
+  //   - 「未提供アイテムを持つ注文」だけを表示
+  //   - 全アイテム提供済みの注文（過去の提供済オーダー）は非表示
+  //   - 例：1回目を全提供 → 一旦消える → 追加注文が来たら追加注文だけ表示（過去の提供済は出てこない）
   const visibleOrders = list.filter(o => {
     if (o.status !== 'pending' && o.status !== 'preparing' && o.status !== 'served') return false;
     const items = Array.isArray(o.items) ? o.items : [];
-    if (items.length === 0) return false; // 空注文のみ除外
-    return true; // 全アイテム提供済みでも、テーブル内に未提供があれば残す
+    if (items.length === 0) return false; // 空注文除外
+    // 未提供アイテムが1件もない注文（全提供済）は非表示
+    return items.some(i => !i.served);
   });
   const sorted = visibleOrders.slice().sort((a, b) => {
     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
@@ -1730,8 +1733,8 @@ function getAbbrevJa(item) {
   if (id === 62 && Array.isArray(item.opts)) {
     for (const opt of item.opts) {
       const s = String(opt).trim();
-      if (/^(豚|Pork|猪|돼지)$/i.test(s)) return 'チャーシュー3枚（ブタ）';
-      if (/^(鶏|Chicken|鸡|닭)$/i.test(s)) return 'チャーシュー3枚（トリ）';
+      if (/^(豚|Pork|猪|돼지)$/i.test(s)) return 'チャーシュー（ブタ）3枚';
+      if (/^(鶏|Chicken|鸡|닭)$/i.test(s)) return 'チャーシュー（トリ）3枚';
     }
   }
   // 1. 管理APPの「キッチン伝票表示名」を最優先で使用
@@ -3763,6 +3766,27 @@ tryBoot();
 rebuildTables();
 
 window.addEventListener('load', bootstrap);
+
+// ── 2連続タップによる意図しないズーム拡大を防止 ──
+// iOS Safari など一部ブラウザは CSS touch-action だけでは効かないため
+// JavaScript で dblclick / gesturestart を防止する
+(() => {
+  // gesturestart（iOS のピンチ・ダブルタップ ズーム開始）
+  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
+  // dblclick による拡大防止
+  document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+  // 300ms以内の2連続タップを検知してデフォルト動作を抑制
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 350) {
+      e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+})();
 </script>
 </body>
 </html>
