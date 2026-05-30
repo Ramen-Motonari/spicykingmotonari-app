@@ -713,6 +713,12 @@ function rebuildMenu() {
     });
   });
   // カテゴリ内で sortOrder 昇順にソート（カテゴリ自体の順序は BASE_CAT_ORDER/_customCategories 側で決定）
+  // 特例：サイドカテゴリの「ミニチャーシューエッグ丼」は強制的に最上位に固定
+  merged.forEach(m => {
+    if (m.cat === 'side' && (m.name?.ja || '').includes('ミニチャーシューエッグ丼')) {
+      m._sortOrder = -1; // 他のどんな値より小さくして必ず最上位へ
+    }
+  });
   merged.sort((a, b) => {
     if (a.cat !== b.cat) return 0;
     return (a._sortOrder || 0) - (b._sortOrder || 0);
@@ -1229,11 +1235,9 @@ function toggleLangMenu(e) {
   const open = menu.style.display === 'flex';
   menu.style.display = open ? 'none' : 'flex';
   if (!open) {
-    // 現在の言語をハイライト
     menu.querySelectorAll('.lang-opt').forEach(b => {
       b.classList.toggle('current', b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${lang}'`));
     });
-    // 外側タップで閉じる
     setTimeout(() => {
       document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     }, 0);
@@ -1244,7 +1248,6 @@ function closeLangMenuOnOutside(e) {
   const btn = document.getElementById('langSwitchBtn');
   if (!menu || !btn) return;
   if (menu.contains(e.target) || btn.contains(e.target)) {
-    // 中をタップした場合は再登録
     document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     return;
   }
@@ -1252,17 +1255,13 @@ function closeLangMenuOnOutside(e) {
 }
 function changeLang(l) {
   lang = l;
-  // フラッグ更新
   const flag = document.getElementById('langSwitchFlag');
   if (flag) flag.textContent = LANG_FLAGS[l] || '🌐';
-  // メニュー閉じる
   const menu = document.getElementById('langSwitchMenu');
   if (menu) menu.style.display = 'none';
-  // 翻訳適用 + メニュー再描画
   applyLang();
   if (typeof renderMenu === 'function') renderMenu();
   if (typeof renderCart === 'function') renderCart();
-  // 開いている履歴・支払い画面も更新
   if (typeof renderHistory === 'function') renderHistory();
   if (typeof renderPayment === 'function') renderPayment();
 }
@@ -1377,10 +1376,10 @@ async function tryStartRecovery(){
     return;
   }
   _recoveryAttempted = true;
-  try {
-    const result = await attemptSessionRecovery();
-    console.log('[recovery] result:', result);
-  } catch(e){ console.warn('Recovery error:', e); }
+  // 自動セッション復元は無効化（QRコード読込時は毎回 言語選択 → 初回/リピート選択 を表示）
+  // 注文中のお客様がリロードした場合は新規セッションになりますが、
+  // QRスキャン後に常に最初の選択画面が表示されないバグを修正するための変更です。
+  console.log('[recovery] auto-recovery disabled — show langScreen for every QR scan');
 }
 
 async function attemptSessionRecovery(){
@@ -1790,8 +1789,8 @@ function addonSection(key,label,cat,t,isFirstShown){
     } else if (item.id === 62) {
       // チャーシュー3枚は 豚/鶏 のバリアントを別カードで表示
       const variants = [
-        {kJa:'豚', label:{ja:'チャーシュー3枚（豚）',en:'Chashu ×3 (Pork)',zh:'叉烧3片（猪）',ko:'차슈 3장（돼지）'}},
-        {kJa:'鶏', label:{ja:'チャーシュー3枚（鶏）',en:'Chashu ×3 (Chicken)',zh:'叉烧3片（鸡）',ko:'차슈 3장（닭）'}}
+        {kJa:'豚', kEn:'Pork', label:{ja:'チャーシュー（豚）3枚',en:'Chashu (Pork) ×3',zh:'叉烧（猪）3片',ko:'차슈（돼지）3장'}},
+        {kJa:'鶏', kEn:'Chicken', label:{ja:'チャーシュー（鶏）3枚',en:'Chashu (Chicken) ×3',zh:'叉烧（鸡）3片',ko:'차슈（닭）3장'}}
       ];
       variants.forEach(v => {
         const compKey = `${item.id}:${v.kJa}`;
