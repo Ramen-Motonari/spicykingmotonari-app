@@ -2798,7 +2798,9 @@ async function confirmCashPayment() {
 }
 
 async function finalizePayment(type, payMethod, mergeFlag) {
-document.getElementById('payMethodOverlay').remove();
+// 電卓経由（現金）で呼ばれた場合は既に削除済みなので、安全に取得して remove
+const _pmOverlay = document.getElementById('payMethodOverlay');
+if (_pmOverlay) _pmOverlay.remove();
 const payLabel = payMethod === 'cash' ? '現金' : 'クレジット';
 const payIcon = payMethod === 'cash' ? '💴' : '💳';
 const { doc, updateDoc, serverTimestamp } = window.fbApi;
