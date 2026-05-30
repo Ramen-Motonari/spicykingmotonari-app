@@ -684,6 +684,7 @@ function rebuildMenu() {
   // canonical + overrides
   MOTONARI.MENU_ITEMS.forEach((m, idx) => {
     const ov = _menuOverrides[String(m.id)] || {};
+    if (ov.deleted) return; // 完全削除済み（管理APP で「完全削除」されたもの）はオーダーAPPからも除外
     if (ov.hidden) return; // 非表示
     let item = { ...m };
     // name override 反映
@@ -712,6 +713,12 @@ function rebuildMenu() {
     });
   });
   // カテゴリ内で sortOrder 昇順にソート（カテゴリ自体の順序は BASE_CAT_ORDER/_customCategories 側で決定）
+  // 特例：サイドカテゴリの「ミニチャーシューエッグ丼」は強制的に最上位に固定
+  merged.forEach(m => {
+    if (m.cat === 'side' && (m.name?.ja || '').includes('ミニチャーシューエッグ丼')) {
+      m._sortOrder = -1; // 他のどんな値より小さくして必ず最上位へ
+    }
+  });
   merged.sort((a, b) => {
     if (a.cat !== b.cat) return 0;
     return (a._sortOrder || 0) - (b._sortOrder || 0);
@@ -1376,10 +1383,10 @@ async function tryStartRecovery(){
     return;
   }
   _recoveryAttempted = true;
-  try {
-    const result = await attemptSessionRecovery();
-    console.log('[recovery] result:', result);
-  } catch(e){ console.warn('Recovery error:', e); }
+  // 自動セッション復元は無効化（QRコード読込時は毎回 言語選択 → 初回/リピート選択 を表示）
+  // 注文中のお客様がリロードした場合は新規セッションになりますが、
+  // QRスキャン後に常に最初の選択画面が表示されないバグを修正するための変更です。
+  console.log('[recovery] auto-recovery disabled — show langScreen for every QR scan');
 }
 
 async function attemptSessionRecovery(){
@@ -1789,8 +1796,8 @@ function addonSection(key,label,cat,t,isFirstShown){
     } else if (item.id === 62) {
       // チャーシュー3枚は 豚/鶏 のバリアントを別カードで表示
       const variants = [
-        {kJa:'豚', label:{ja:'チャーシュー3枚（豚）',en:'Chashu ×3 (Pork)',zh:'叉烧3片（猪）',ko:'차슈 3장（돼지）'}},
-        {kJa:'鶏', label:{ja:'チャーシュー3枚（鶏）',en:'Chashu ×3 (Chicken)',zh:'叉烧3片（鸡）',ko:'차슈 3장（닭）'}}
+        {kJa:'豚', label:{ja:'チャーシュー（豚）3枚',en:'Chashu (Pork) ×3',zh:'叉烧（猪）3片',ko:'차슈（돼지）3장'}},
+        {kJa:'鶏', label:{ja:'チャーシュー（鶏）3枚',en:'Chashu (Chicken) ×3',zh:'叉烧（鸡）3片',ko:'차슈（닭）3장'}}
       ];
       variants.forEach(v => {
         const compKey = `${item.id}:${v.kJa}`;
