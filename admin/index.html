@@ -1172,17 +1172,62 @@ async function uploadImageToStorage(file, itemKey) {
   const snap = await uploadBytes(ref, file);
   return await getDownloadURL(snap.ref);
 }
-// MyMemory APIで自動翻訳（無料・APIキー不要）
+// 自動翻訳：Google 公開エンドポイント（gtx）を主、MyMemory を予備、
+// 結果が想定スクリプトでなければさらに代替で再試行
+//   targetLang: 'en' | 'zh' | 'ko'
 async function translateText(text, targetLang) {
   if (!text || !text.trim()) return '';
-  const langPair = 'ja|' + (targetLang === 'zh' ? 'zh-CN' : targetLang);
-  try {
+  const tlMap = { en: 'en', zh: 'zh-CN', ko: 'ko' };
+  const tl = tlMap[targetLang] || targetLang;
+
+  // 期待するスクリプト判定
+  const hasCJKHan  = (s) => /[一-鿿]/.test(s);     // 漢字（中国語＝主に漢字のみ）
+  const hasHangul  = (s) => /[가-힯]/.test(s);     // ハングル
+  const hasLatin   = (s) => /[A-Za-z]/.test(s);
+  const hasKana    = (s) => /[぀-ヿ]/.test(s);     // ひらがな/カタカナ（日本語の名残）
+  const isValidFor = (s, lang) => {
+    if (!s || !s.trim()) return false;
+    if (lang === 'zh') return hasCJKHan(s) && !hasKana(s); // 中国語は漢字あり・かな無し
+    if (lang === 'ko') return hasHangul(s);
+    if (lang === 'en') return hasLatin(s) && !hasKana(s);
+    return true;
+  };
+
+  // 1) Google gtx（無料公開）
+  const tryGoogle = async () => {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('google http ' + res.status);
+    const arr = await res.json();
+    // arr[0] = [ [translated, original, ...], ... ] — 複数チャンクを連結
+    if (!Array.isArray(arr) || !Array.isArray(arr[0])) return '';
+    return arr[0].map(seg => (seg && seg[0]) || '').join('').trim();
+  };
+
+  // 2) MyMemory（予備）
+  const tryMyMemory = async () => {
+    const langPair = 'ja|' + tl;
     const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`);
     const json = await res.json();
-    if (json.responseData && json.responseData.translatedText) {
-      return json.responseData.translatedText;
-    }
-  } catch(e) { console.error('translate error:', e); }
+    return (json && json.responseData && json.responseData.translatedText) || '';
+  };
+
+  // まず Google
+  try {
+    const out = await tryGoogle();
+    if (isValidFor(out, targetLang)) return out;
+    console.warn(`[translate] google returned invalid script for ${targetLang}:`, out);
+  } catch(e) { console.warn('[translate] google failed:', e.message || e); }
+
+  // 次に MyMemory
+  try {
+    const out = await tryMyMemory();
+    if (isValidFor(out, targetLang)) return out;
+    console.warn(`[translate] mymemory returned invalid script for ${targetLang}:`, out);
+    // 不正でも空よりはマシなので、最後の手段として返す
+    if (out) return out;
+  } catch(e) { console.error('[translate] mymemory failed:', e); }
+
   return '';
 }
 // menuOverrides に保存（canonical アイテムの編集）
