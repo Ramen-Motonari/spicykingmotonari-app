@@ -2624,11 +2624,10 @@ overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-in
 overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:360px;padding:28px 24px;text-align:center">
 <div style="font-size:13px;color:var(--muted);margin-bottom:4px">${tableDisp}</div>
 <div style="font-family:'Oswald',sans-serif;font-size:40px;color:var(--accent);margin-bottom:6px">¥${total.toLocaleString()}</div>
-<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:14px">お支払い方法を選択</div>
-<div data-regI18n="paySelectAfterMsg" style="background:rgba(231,76,60,0.15);border:2px solid #e74c3c;color:#ff9a90;font-size:14px;font-weight:900;padding:10px 12px;border-radius:10px;margin-bottom:18px;line-height:1.4;animation:newOrderPulse 1.8s ease infinite">⚠️ お会計終了後にタップ</div>
+<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:18px">お支払い方法を選択</div>
 <div style="display:flex;flex-direction:column;gap:12px">
 <button onclick="openCashCalculator('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💴</span> <span data-regI18n="payCash">現金</span></button>
-<button onclick="finalizePayment('${type}','card',${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💳</span> <span data-regI18n="payCard">クレジットカード</span></button>
+<button onclick="openSquareInputConfirm('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💳</span> <span data-regI18n="payCard">クレジットカード</span></button>
 <button onclick="document.getElementById('payMethodOverlay').remove()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px" data-regI18n="cancel">キャンセル</button>
 </div>
 </div>`;
@@ -2797,8 +2796,35 @@ async function confirmCashPayment() {
   await finalizePayment(type, 'cash', mergeFlag);
 }
 
+// クレジットカード会計用：合計金額をスクエアに入力してもらう確認モーダル
+function openSquareInputConfirm(type, total, mergeFlag) {
+  // 支払方法選択モーダルを閉じる
+  const pm = document.getElementById('payMethodOverlay');
+  if (pm) pm.remove();
+  const realMergeFlag = (mergeFlag === '__merge__' ? '__merge__' : null);
+  const overlay = document.createElement('div');
+  overlay.id = 'squareInputOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:700;display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:380px;padding:32px 24px;text-align:center">
+    <div style="font-family:'Oswald',sans-serif;font-size:54px;color:var(--blue);margin-bottom:14px;letter-spacing:1px">¥${Number(total).toLocaleString()}</div>
+    <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:24px;line-height:1.5">合計金額をスクエアに入力</div>
+    <button id="squareInputDoneBtn" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">完了</button>
+    <button id="squareInputCancelBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:10px">キャンセル</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('squareInputDoneBtn').onclick = async () => {
+    overlay.remove();
+    await finalizePayment(type, 'card', realMergeFlag);
+  };
+  document.getElementById('squareInputCancelBtn').onclick = () => {
+    overlay.remove();
+    // merge データのクリーンアップ（finalizePayment に進まないため）
+    if (realMergeFlag === '__merge__') window._pendingMergeData = null;
+  };
+}
+
 async function finalizePayment(type, payMethod, mergeFlag) {
-// 電卓経由（現金）で呼ばれた場合は既に削除済みなので、安全に取得して remove
+// 電卓経由（現金）/スクエア確認経由（カード）で呼ばれた場合は既に削除済みなので、安全に取得して remove
 const _pmOverlay = document.getElementById('payMethodOverlay');
 if (_pmOverlay) _pmOverlay.remove();
 const payLabel = payMethod === 'cash' ? '現金' : 'クレジット';
@@ -3716,6 +3742,7 @@ window.toggleShowDeleted = toggleShowDeleted;
 window.renderHistoryList = renderHistoryList; window.toggleServed = toggleServed;
 window.openTable = openTable; window.filterReg = filterReg;
 window.completePayment = completePayment; window.finalizePayment = finalizePayment;
+window.openSquareInputConfirm = openSquareInputConfirm;
 window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
 window.completeService = completeService;
 window.openSeparatePayment = openSeparatePayment; window.toggleBetsuItem = toggleBetsuItem;
