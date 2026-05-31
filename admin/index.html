@@ -633,6 +633,7 @@ let menuFilter = { search: '', cat: 'all' };
 let menuOverrides = {};      // {itemId: {imageUrl, priceOverride, hidden, ...}}
 let customMenuItems = [];    // [{docId, id, cat, name:{ja,en,zh,ko}, price, imageUrl, ...}]
 let customCategories = [];   // [{docId, key, name:{ja,en,zh,ko}, icon, order}]
+let _categoryOrder = null;   // Firestore appConfig/categoryOrder で管理する全カテゴリの並び順（配列 of keys）
 let _editingItem = null;     // 編集中アイテム（新規時はnullに近い形）
 let _pendingImageFile = null;
 let currentPeriod = 'day';
@@ -819,6 +820,8 @@ function startCustomMenuItemsListener() {
   onSnapshot(collection(window.fb.db, 'customMenuItems'), (snap) => {
     customMenuItems = [];
     snap.forEach(d => { customMenuItems.push({ docId: d.id, ...d.data() }); });
+    // 一度だけ実行する自動クリーンアップ（指定アイテムを削除）
+    _runOneTimeCleanup();
     if (document.getElementById('page-menu').classList.contains('active') && !_menuPageSaving) renderMenuPage();
     // 表示順序ページの再描画：保存中（_sortPageSaving）はスキップしてレース回避
     if (document.getElementById('page-sortorder')?.classList.contains('active')
@@ -829,6 +832,41 @@ function startCustomMenuItemsListener() {
       }, 600);
     }
   }, err => console.error('customMenuItems listener:', err));
+}
+
+// 一度だけ実行する自動クリーンアップ：
+//   「ミニチャーシュー〜」「チーズ」「島唐辛子〜」を含むカスタムメニューを削除
+let _cleanupRunning = false;
+async function _runOneTimeCleanup() {
+  const FLAG_KEY = 'motonari_cleanup_v1_done';
+  if (_cleanupRunning) return;
+  try { if (localStorage.getItem(FLAG_KEY)) return; } catch(_) {}
+  // 削除対象のキーワード（名前に含まれていれば削除）
+  const targets = ['ミニチャーシュー', 'チーズ', '島唐辛子'];
+  const toDelete = customMenuItems.filter(c => {
+    const name = String((c.name && c.name.ja) || '').trim();
+    return targets.some(t => name.includes(t));
+  });
+  if (toDelete.length === 0) {
+    try { localStorage.setItem(FLAG_KEY, 'done'); } catch(_) {}
+    return;
+  }
+  _cleanupRunning = true;
+  console.log('[cleanup] 対象:', toDelete.map(c => c.name?.ja));
+  const { doc, deleteDoc } = window.fbApi;
+  try {
+    for (const c of toDelete) {
+      if (!c.docId) continue;
+      await deleteDoc(doc(window.fb.db, 'customMenuItems', c.docId));
+      console.log('[cleanup] ✓ deleted:', c.name?.ja, c.docId);
+    }
+    try { localStorage.setItem(FLAG_KEY, 'done'); } catch(_) {}
+    showToast(`🗑 自動クリーンアップ：${toDelete.length}件削除`);
+  } catch(e) {
+    console.error('[cleanup] error:', e);
+  } finally {
+    _cleanupRunning = false;
+  }
 }
 function startCustomCategoriesListener() {
   const { collection, onSnapshot } = window.fbApi;
@@ -841,6 +879,22 @@ function startCustomCategoriesListener() {
     // カテゴリ管理モーダルが開いていれば更新
     if (document.getElementById('categoryOverlay').style.display === 'flex') renderCategoryModal();
   }, err => console.error('customCategories listener:', err));
+}
+
+// カテゴリ順序の Firestore リスナー（appConfig/categoryOrder の keys 配列を購読）
+function startCategoryOrderListener() {
+  const { doc, onSnapshot } = window.fbApi;
+  onSnapshot(doc(window.fb.db, 'appConfig', 'categoryOrder'), (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      _categoryOrder = Array.isArray(data.keys) ? data.keys : null;
+    } else {
+      _categoryOrder = null;
+    }
+    renderCategoryFilterButtons();
+    if (document.getElementById('page-menu').classList.contains('active') && !_menuPageSaving) renderMenuPage();
+    if (document.getElementById('categoryOverlay').style.display === 'flex') renderCategoryModal();
+  }, err => console.error('categoryOrder listener:', err));
 }
 
 // ────── 商品管理: ヘルパー関数 ──────
@@ -878,6 +932,9 @@ function getMergedMenu() {
     });
   });
   // custom メニュー
+  // canonical の _sortOrder は idx*10+1（1, 11, 21...）なので、
+  // custom のデフォルトは「canonical の最大値 + 余裕」で連続するようにする
+  const canonicalMaxSort = MOTONARI.MENU_ITEMS.length * 10 + 100; // 余裕を持って +100
   customMenuItems.forEach((c, idx) => {
     merged.push({
       id: c.id,
@@ -893,7 +950,8 @@ function getMergedMenu() {
       _hidden: !!c.hidden,
       _isCustom: true,
       _docId: c.docId,
-      _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
+      // canonical と整合性ある桁数で初期 sortOrder を設定
+      _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (canonicalMaxSort + idx * 10)
     });
   });
   // カテゴリ内で sortOrder 昇順にソート
@@ -961,11 +1019,21 @@ async function deleteCustomCategoryById(docId) {
   const { doc, deleteDoc } = window.fbApi;
   await deleteDoc(doc(window.fb.db, 'customCategories', docId));
 }
-// 新規customMenuItemのIDを自動採番（canonical衝突回避のため10000+）
+// 新規customMenuItemのIDを自動採番
+// canonical との視覚的整合性を保つため、200番台から開始（canonical は 1〜199 範囲）
+// canonical の最大ID + 既存customの最大IDの両方を考慮して採番
 function generateNewItemId() {
-  let maxId = 10000;
-  customMenuItems.forEach(c => { if (typeof c.id === 'number' && c.id > maxId) maxId = c.id; });
-  return maxId + 1;
+  // canonical 最大ID（衝突回避）
+  let maxCanonicalId = 0;
+  MOTONARI.MENU_ITEMS.forEach(m => { if (typeof m.id === 'number' && m.id > maxCanonicalId) maxCanonicalId = m.id; });
+  // custom 既存最大ID
+  let maxCustomId = 0;
+  customMenuItems.forEach(c => { if (typeof c.id === 'number' && c.id > maxCustomId) maxCustomId = c.id; });
+  // 200 を下限とし、canonical/custom の両方を上回る値を採番
+  // 例：canonical max=105、custom max=0 → 200
+  //     canonical max=105、custom max=205 → 206
+  const minStart = 200;
+  return Math.max(minStart, maxCanonicalId + 1, maxCustomId + 1);
 }
 
 function rerenderActivePage() {
@@ -2404,7 +2472,7 @@ function filterMenu(query) {
 function renderCategoryFilterButtons() {
   const row = document.getElementById('catFilterRow');
   if (!row) return;
-  const cats = getMergedCategories();
+  const cats = getOrderedCategoriesForReorder();
   const currentCat = menuFilter.cat;
   row.innerHTML = `<button class="cf-btn ${currentCat==='all'?'active':''}" onclick="setCatFilter(this,'all')">すべて</button>` +
     cats.map(c => `<button class="cf-btn ${currentCat===c.key?'active':''}" onclick="setCatFilter(this,'${c.key}')">${c.icon||''} ${c.name.ja||c.key}</button>`).join('');
@@ -3189,26 +3257,30 @@ function closeCategoryModal() {
 function renderCategoryModal() {
   const body = document.getElementById('categoryBody');
   if (!body) return;
-  const cats = getMergedCategories();
-  const canonHtml = cats.filter(c => c.isCanonical).map(c => `
-    <div class="cat-row">
-      <div class="cat-row-icon">${c.icon || '🏷'}</div>
-      <div class="cat-row-main">
-        <div class="cat-row-name">${c.name.ja || c.key}</div>
-        <div class="cat-row-sub">基本カテゴリ（編集不可）</div>
+  // 並び替えに使う順序付きリストを生成（保存済 order → fallback で canonical → custom）
+  const orderedCats = getOrderedCategoriesForReorder();
+  const orderHtml = orderedCats.map((c, idx) => {
+    const isFirst = idx === 0;
+    const isLast = idx === orderedCats.length - 1;
+    const isCanonicalBadge = c.isCanonical
+      ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;background:rgba(200,134,10,0.15);color:var(--accent);border:1px solid var(--accent);margin-left:6px">基本</span>'
+      : '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid var(--blue);margin-left:6px">追加</span>';
+    const delBtn = !c.isCanonical
+      ? `<button class="cat-row-btn" style="background:var(--accent2);color:#fff" onclick="confirmDeleteCategory('${c.docId}','${(c.name.ja||c.key).replace(/'/g,"\\'")}')">削除</button>`
+      : '';
+    return `<div class="cat-row" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+      <div class="cat-row-icon" style="font-size:22px;flex-shrink:0">${c.icon || '🏷'}</div>
+      <div class="cat-row-main" style="flex:1;min-width:0">
+        <div class="cat-row-name" style="font-size:14px;font-weight:700;color:#fff">${c.name.ja || c.key}${isCanonicalBadge}</div>
+        <div class="cat-row-sub" style="font-size:10px;color:var(--muted);margin-top:2px">key: ${c.key}</div>
       </div>
-    </div>`).join('');
-  const customHtml = cats.filter(c => !c.isCanonical).map(c => `
-    <div class="cat-row">
-      <div class="cat-row-icon">${c.icon || '🏷'}</div>
-      <div class="cat-row-main">
-        <div class="cat-row-name">${c.name.ja || c.key}</div>
-        <div class="cat-row-sub">key: ${c.key} ${c.name.en?'/ '+c.name.en:''}</div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="moveCategoryOrder('${c.key}',-1)" ${isFirst?'disabled':''} title="1つ上へ" style="width:34px;height:34px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isFirst?'opacity:0.3;cursor:not-allowed':''}">▲</button>
+        <button onclick="moveCategoryOrder('${c.key}',1)" ${isLast?'disabled':''} title="1つ下へ" style="width:34px;height:34px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isLast?'opacity:0.3;cursor:not-allowed':''}">▼</button>
+        ${delBtn}
       </div>
-      <div class="cat-row-actions">
-        <button class="cat-row-btn" style="background:var(--accent2);color:#fff" onclick="confirmDeleteCategory('${c.docId}','${(c.name.ja||c.key).replace(/'/g,"\\'")}')">削除</button>
-      </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   body.innerHTML = `
     <div style="margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:10px">
       <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">＋ 新規カテゴリ追加</div>
@@ -3229,10 +3301,54 @@ function renderCategoryModal() {
         <button onclick="addNewCategory()" style="flex:1;padding:8px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">＋ 追加</button>
       </div>
     </div>
-    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">登録済カテゴリ</div>
-    ${canonHtml}
-    ${customHtml || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:14px">カスタムカテゴリはまだありません</div>'}
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">登録済カテゴリ（▲▼で並び替え可能）</div>
+    ${orderHtml || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:14px">カテゴリがありません</div>'}
   `;
+}
+
+// 保存済カテゴリ順を反映した順序付きリストを返す
+// （未保存のカテゴリは末尾に追加）
+function getOrderedCategoriesForReorder() {
+  const cats = getMergedCategories();
+  const savedKeys = Array.isArray(_categoryOrder) ? _categoryOrder : [];
+  const byKey = new Map(cats.map(c => [c.key, c]));
+  const result = [];
+  // 保存済の順序で追加
+  savedKeys.forEach(k => {
+    if (byKey.has(k)) {
+      result.push(byKey.get(k));
+      byKey.delete(k);
+    }
+  });
+  // 残り（新規追加されたカテゴリ等）を末尾に追加
+  byKey.forEach(c => result.push(c));
+  return result;
+}
+
+// カテゴリ順を 1つ上 or 1つ下 に移動して保存
+async function moveCategoryOrder(catKey, delta) {
+  const ordered = getOrderedCategoriesForReorder();
+  const idx = ordered.findIndex(c => c.key === catKey);
+  if (idx < 0) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= ordered.length) return;
+  const [moved] = ordered.splice(idx, 1);
+  ordered.splice(newIdx, 0, moved);
+  const newKeys = ordered.map(c => c.key);
+  // 楽観的に更新
+  _categoryOrder = newKeys;
+  renderCategoryModal();
+  try {
+    const { doc, setDoc, serverTimestamp } = window.fbApi;
+    await setDoc(doc(window.fb.db, 'appConfig', 'categoryOrder'), {
+      keys: newKeys,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    showToast('✅ カテゴリ順を保存しました');
+  } catch(e) {
+    console.error('[categoryOrder] save error:', e);
+    showToast('保存失敗: ' + (e.message || e), true);
+  }
 }
 async function translateNewCatName() {
   const ja = document.getElementById('newCatNameJa').value.trim();
@@ -3482,6 +3598,7 @@ window.closeCategoryModal = closeCategoryModal;
 window.translateNewCatName = translateNewCatName;
 window.addNewCategory = addNewCategory;
 window.confirmDeleteCategory = confirmDeleteCategory;
+window.moveCategoryOrder = moveCategoryOrder;
 window.renderSoupRanking = renderSoupRanking;
 
 // ────── Bootstrap ──────
@@ -3517,6 +3634,7 @@ function bootstrap() {
         startMenuOverridesListener();
         startCustomMenuItemsListener();
         startCustomCategoriesListener();
+        startCategoryOrderListener();
       } else {
         signInAnonymously(window.fb.auth).catch(e => {
           console.error('signInAnonymously error:', e);
