@@ -671,6 +671,7 @@ let _menuOverrides = {};
 let _customMenuItems = [];
 let _customCategories = [];
 let _categoryOrder = null;   // appConfig/categoryOrder で管理する全カテゴリ並び順（配列 of keys）
+let _itemOrder = { byCategory: {} }; // appConfig/itemOrder（管理APPで設定する商品並び順）
 
 function wrapLunchFree(m) {
   if (!m.lunchFreeBase) return m;
@@ -713,15 +714,22 @@ function rebuildMenu() {
       _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
     });
   });
-  // カテゴリ内で sortOrder 昇順にソート（カテゴリ自体の順序は BASE_CAT_ORDER/_customCategories 側で決定）
-  // 特例：サイドカテゴリの「ミニチャーシューエッグ丼」は強制的に最上位に固定
-  merged.forEach(m => {
-    if (m.cat === 'side' && (m.name?.ja || '').includes('ミニチャーシューエッグ丼')) {
-      m._sortOrder = -1; // 他のどんな値より小さくして必ず最上位へ
-    }
+  // カテゴリ内ソート：appConfig/itemOrder（editKey配列）を優先、なければ旧 _sortOrder
+  const orderMap = (_itemOrder && _itemOrder.byCategory) || {};
+  _customMenuItems.forEach(c => {
+    const found = merged.find(x => x.id === c.id && x.cat === c.cat);
+    if (found && !found._docId) found._docId = c.docId;
   });
+  const editKeyOf = (m) => m._docId ? `custom:${m._docId}` : `canonical:${m.id}`;
+  const posOf = (m) => {
+    const arr = orderMap[m.cat] || [];
+    const i = arr.indexOf(editKeyOf(m));
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+  };
   merged.sort((a, b) => {
     if (a.cat !== b.cat) return 0;
+    const pa = posOf(a), pb = posOf(b);
+    if (pa !== pb) return pa - pb;
     return (a._sortOrder || 0) - (b._sortOrder || 0);
   });
   menu = merged;
@@ -921,6 +929,7 @@ window.addEventListener('fb-ready', () => {
   subscribeCustomMenuItems();
   subscribeCustomCategories();
   subscribeCategoryOrder();
+  subscribeItemOrder();
   // リロード時のセッション復元（fbReady & 認証完了の両方が揃ったタイミングで実行）
   tryStartRecovery();
   // fbReady より先にセッション開始してた場合の subscribeOrders 再試行
@@ -978,6 +987,22 @@ function subscribeCategoryOrder(){
     }
     rebuildMenu();
   }, err => console.error('categoryOrder listener:', err));
+}
+// appConfig/itemOrder を購読：管理APPで商品並び替えされたら即時反映
+let unsubItemOrder = null;
+function subscribeItemOrder(){
+  if(!fbReady) return;
+  if(unsubItemOrder) unsubItemOrder();
+  const docRef = window.FB.doc(window.FB.db, 'appConfig', 'itemOrder');
+  unsubItemOrder = window.FB.onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      _itemOrder = { byCategory: (data && data.byCategory) || {} };
+    } else {
+      _itemOrder = { byCategory: {} };
+    }
+    rebuildMenu();
+  }, err => console.error('itemOrder listener:', err));
 }
 
 window.addEventListener('fb-error', (e) => {
