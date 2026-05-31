@@ -666,10 +666,11 @@ function optToJa(opt, fromLang){
 
 /* ========== MENU DATA (dynamic; rebuilt when Firestore overrides arrive) ========== */
 let menu = [];
-// menuOverrides / customMenuItems / customCategories の最新値
+// menuOverrides / customMenuItems / customCategories / categoryOrder の最新値
 let _menuOverrides = {};
 let _customMenuItems = [];
 let _customCategories = [];
+let _categoryOrder = null;   // appConfig/categoryOrder で管理する全カテゴリ並び順（配列 of keys）
 
 function wrapLunchFree(m) {
   if (!m.lunchFreeBase) return m;
@@ -725,17 +726,30 @@ function rebuildMenu() {
   });
   menu = merged;
 
-  // カテゴリラベル更新
-  const newCatKeys = [...BASE_CAT_ORDER];
+  // カテゴリラベル更新（カスタムカテゴリのラベルを反映）
   _customCategories.forEach(c => {
-    if (c.key && !newCatKeys.includes(c.key)) {
-      newCatKeys.push(c.key);
+    if (c.key) {
       ['ja','en','zh','ko'].forEach(lng => {
         if (!catLabels[lng]) catLabels[lng] = {};
         catLabels[lng][c.key] = (c.name && c.name[lng]) || c.key;
       });
     }
   });
+  // カテゴリ並び順：appConfig/categoryOrder が指定されていればそれを使い、
+  // それ以外は BASE_CAT_ORDER + custom を順序通り採用
+  let newCatKeys;
+  if (Array.isArray(_categoryOrder) && _categoryOrder.length > 0) {
+    // 保存済の順序を使用（存在するカテゴリのみ）
+    const allValid = new Set([...BASE_CAT_ORDER, ..._customCategories.map(c => c.key).filter(Boolean)]);
+    newCatKeys = _categoryOrder.filter(k => allValid.has(k));
+    // 保存に含まれない（新規追加された）カテゴリを末尾に追加
+    allValid.forEach(k => { if (!newCatKeys.includes(k)) newCatKeys.push(k); });
+  } else {
+    newCatKeys = [...BASE_CAT_ORDER];
+    _customCategories.forEach(c => {
+      if (c.key && !newCatKeys.includes(c.key)) newCatKeys.push(c.key);
+    });
+  }
   allCatKeys = newCatKeys;
 
   // 表示中なら再描画
@@ -902,10 +916,11 @@ window.addEventListener('fb-ready', () => {
   setFbStatus('online', T[lang].connected);
   // Subscribe to soldout changes globally
   subscribeSoldout();
-  // メニューオーバーライド・カスタムメニュー・カスタムカテゴリの監視
+  // メニューオーバーライド・カスタムメニュー・カスタムカテゴリ・カテゴリ並び順の監視
   subscribeMenuOverrides();
   subscribeCustomMenuItems();
   subscribeCustomCategories();
+  subscribeCategoryOrder();
   // リロード時のセッション復元（fbReady & 認証完了の両方が揃ったタイミングで実行）
   tryStartRecovery();
   // fbReady より先にセッション開始してた場合の subscribeOrders 再試行
@@ -947,6 +962,22 @@ function subscribeCustomCategories(){
     _customCategories.sort((a,b) => (a.order||0)-(b.order||0));
     rebuildMenu();
   }, err => console.error('customCategories listener:', err));
+}
+// appConfig/categoryOrder を購読：管理APPでカテゴリ並び替えされたら即時反映
+let unsubCategoryOrder = null;
+function subscribeCategoryOrder(){
+  if(!fbReady) return;
+  if(unsubCategoryOrder) unsubCategoryOrder();
+  const docRef = window.FB.doc(window.FB.db, 'appConfig', 'categoryOrder');
+  unsubCategoryOrder = window.FB.onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      _categoryOrder = Array.isArray(data.keys) ? data.keys : null;
+    } else {
+      _categoryOrder = null;
+    }
+    rebuildMenu();
+  }, err => console.error('categoryOrder listener:', err));
 }
 
 window.addEventListener('fb-error', (e) => {
