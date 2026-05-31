@@ -131,7 +131,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .manual-field input:focus,.weather-select:focus{border-color:var(--accent)}
 .form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none}
 @media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
-/* === 表示順序ページ（ドラッグ＆ドロップ） === */
+/* === 新 表示順序ページ（SortableJS） === */
+.item-order-card{transition:background .15s,border-color .15s}
+.item-order-card:hover{border-color:var(--accent)}
+.item-order-card.item-order-chosen{background:rgba(255,107,0,0.12);border-color:var(--accent);cursor:grabbing}
+.item-order-card.item-order-dragging{opacity:0.5}
+.item-order-ghost{opacity:0.3;background:rgba(255,107,0,0.2)!important;border:2px dashed var(--accent)!important}
+/* === 旧 表示順序ページ（ドラッグ＆ドロップ） === */
 .sortpage-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .sortpage-cat-btn{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
 .sortpage-cat-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -297,6 +303,7 @@ window.adminLogout = adminLogout;
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
     <div class="nav-item" onclick="switchPage('service',this)"><span class="nav-icon">🎁</span><span>サービス集計</span></div>
     <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
+    <div class="nav-item" onclick="switchPage('itemorder',this)"><span class="nav-icon">🔀</span><span>表示順序</span></div>
     <div class="nav-item" onclick="switchPage('maintenance',this)"><span class="nav-icon">🛠️</span><span>メンテナンス</span></div>
   </div>
   <div class="fb-status">
@@ -506,8 +513,21 @@ window.adminLogout = adminLogout;
     <div class="menu-grid" id="menuGrid"></div>
   </div>
 
-  <!-- 表示順序ページは廃止。並び替えは商品管理ページで行う -->
+  <!-- 旧 表示順序ページ（無効） -->
   <div class="page" id="page-sortorder" style="display:none !important"></div>
+
+  <!-- 新 表示順序ページ（ドラッグ&ドロップ・canonical/custom 区別なし） -->
+  <div class="page" id="page-itemorder">
+    <div class="page-title">🔀 表示順序</div>
+    <div class="page-sub">カードを <b style="color:var(--accent)">ドラッグ＆ドロップ</b> でカテゴリ内の順番を入れ替えてください。スマホは長押しでドラッグ開始。</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="itemOrderCatTabs"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <button id="itemOrderSaveBtn" onclick="saveItemOrder()" style="padding:10px 22px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:none">💾 並び順を保存</button>
+      <button onclick="resetItemOrderDraft()" style="padding:10px 16px;border-radius:10px;background:#444;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">↩ 変更を破棄</button>
+      <div id="itemOrderDirtyHint" style="font-size:11px;color:var(--accent2);font-weight:700;display:none">⚠️ 未保存の変更があります</div>
+    </div>
+    <div id="itemOrderList" style="display:flex;flex-direction:column;gap:8px;padding-bottom:60px"></div>
+  </div>
 
   <!-- メンテナンスページ -->
   <div class="page" id="page-maintenance">
@@ -602,6 +622,9 @@ window.adminLogout = adminLogout;
 
 <div class="toast" id="toast"></div>
 
+<!-- SortableJS (drag & drop, supports mouse + touch) -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
@@ -634,6 +657,10 @@ let menuOverrides = {};      // {itemId: {imageUrl, priceOverride, hidden, ...}}
 let customMenuItems = [];    // [{docId, id, cat, name:{ja,en,zh,ko}, price, imageUrl, ...}]
 let customCategories = [];   // [{docId, key, name:{ja,en,zh,ko}, icon, order}]
 let _categoryOrder = null;   // Firestore appConfig/categoryOrder で管理する全カテゴリの並び順（配列 of keys）
+let _itemOrder = { byCategory: {} };   // Firestore appConfig/itemOrder - カテゴリ内の商品並び順（editKey配列）
+let _itemOrderDraft = null;            // 編集中の表示順序ページのドラフト（保存前）
+let _itemOrderCat = null;              // 現在表示中の表示順序ページのカテゴリ
+let _itemOrderSortable = null;         // SortableJS インスタンス（破棄管理用）
 let _editingItem = null;     // 編集中アイテム（新規時はnullに近い形）
 let _pendingImageFile = null;
 let currentPeriod = 'day';
@@ -897,6 +924,22 @@ function startCategoryOrderListener() {
   }, err => console.error('categoryOrder listener:', err));
 }
 
+// 新: 商品の並び順（appConfig/itemOrder）リスナー
+function startItemOrderListener() {
+  const { doc, onSnapshot } = window.fbApi;
+  onSnapshot(doc(window.fb.db, 'appConfig', 'itemOrder'), (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      _itemOrder = { byCategory: (data && data.byCategory) || {} };
+    } else {
+      _itemOrder = { byCategory: {} };
+    }
+    // 表示中ページを再描画（編集中ドラフトがある場合はスキップ）
+    if (document.getElementById('page-menu')?.classList.contains('active') && !_menuPageSaving) renderMenuPage();
+    if (document.getElementById('page-itemorder')?.classList.contains('active') && !_itemOrderDraft) renderItemOrderPage();
+  }, err => console.error('itemOrder listener:', err));
+}
+
 // ────── 商品管理: ヘルパー関数 ──────
 // canonical + customCategories のマージ
 function getMergedCategories() {
@@ -950,17 +993,175 @@ function getMergedMenu() {
       _hidden: !!c.hidden,
       _isCustom: true,
       _docId: c.docId,
-      // canonical と整合性ある桁数で初期 sortOrder を設定
+      // 旧 sortOrder（互換性用フォールバック）
       _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (canonicalMaxSort + idx * 10)
     });
   });
-  // カテゴリ内で sortOrder 昇順にソート
+  // ★ 新ソート: appConfig/itemOrder の編集キー配列を優先（canonical/customを区別しない）
+  //   editKey = canonical:<id> | custom:<docId>
+  //   _itemOrder.byCategory[cat] = [editKey, editKey, ...]
+  const orderMap = (_itemOrder && _itemOrder.byCategory) || {};
+  const editKeyOf = (m) => m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
+  const posOf = (m) => {
+    const arr = orderMap[m.cat] || [];
+    const i = arr.indexOf(editKeyOf(m));
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i; // 未登録は末尾扱い
+  };
   merged.sort((a, b) => {
-    if (a.cat !== b.cat) return 0;
+    if (a.cat !== b.cat) return 0; // カテゴリ間の相対順は維持（カテゴリ並び順は別管理）
+    const pa = posOf(a), pb = posOf(b);
+    if (pa !== pb) return pa - pb;
+    // 同じ位置（両方未登録）は旧 sortOrder で安定化
     return (a._sortOrder || 0) - (b._sortOrder || 0);
   });
   return merged;
 }
+// ────── 新 表示順序ページ（ドラッグ＆ドロップ・canonical/custom 同等扱い） ──────
+
+// editKey 互換ヘルパー（canonical / custom を統一形式で扱う）
+function itemEditKey(m) {
+  return m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
+}
+
+// カテゴリタブ生成 + 並び替えリスト描画
+function renderItemOrderPage() {
+  const tabsEl = document.getElementById('itemOrderCatTabs');
+  const listEl = document.getElementById('itemOrderList');
+  if (!tabsEl || !listEl) return;
+
+  // 表示対象カテゴリ：getMergedCategories の順序で表示
+  const cats = getMergedCategories();
+  // 並び順カテゴリ設定があれば反映
+  let catKeys = cats.map(c => c.key);
+  if (Array.isArray(_categoryOrder) && _categoryOrder.length) {
+    const set = new Set(catKeys);
+    catKeys = [..._categoryOrder.filter(k => set.has(k)), ...catKeys.filter(k => !_categoryOrder.includes(k))];
+  }
+  if (!_itemOrderCat || !catKeys.includes(_itemOrderCat)) _itemOrderCat = catKeys[0];
+
+  // タブ
+  tabsEl.innerHTML = catKeys.map(k => {
+    const c = cats.find(x => x.key === k);
+    const label = c ? (c.name.ja || k) : k;
+    const active = k === _itemOrderCat;
+    return `<button onclick="switchItemOrderCat('${k}')" style="padding:8px 16px;border-radius:10px;border:2px solid ${active?'var(--accent)':'var(--border)'};background:${active?'var(--accent)':'transparent'};color:${active?'#fff':'#ccc'};font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${label}</button>`;
+  }).join('');
+
+  // 現在カテゴリのアイテム一覧（ドラフトがあればそれを優先）
+  const merged = getMergedMenu().filter(m => m.cat === _itemOrderCat);
+  let items;
+  if (_itemOrderDraft && _itemOrderDraft.cat === _itemOrderCat) {
+    // ドラフト順に並べる
+    const map = new Map(merged.map(m => [itemEditKey(m), m]));
+    items = _itemOrderDraft.order.map(k => map.get(k)).filter(Boolean);
+    // 新規追加で merged にあるがドラフトに無い分は末尾に
+    merged.forEach(m => { if (!_itemOrderDraft.order.includes(itemEditKey(m))) items.push(m); });
+  } else {
+    items = merged;
+  }
+
+  // リスト描画
+  listEl.innerHTML = items.map((m, i) => {
+    const key = itemEditKey(m);
+    const isCustom = !!m._isCustom;
+    const isHidden = m._hidden;
+    const imgHtml = m.imageUrl
+      ? `<img src="${m.imageUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+      : `<div style="width:64px;height:64px;background:rgba(255,255,255,0.05);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0">${m.img || '🍜'}</div>`;
+    const price = (typeof m._overridePrice === 'number') ? m._overridePrice : (m.price || 0);
+    return `<div class="item-order-card" data-edit-key="${key}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;cursor:grab;user-select:none;touch-action:none;${isHidden?'opacity:0.45':''}">
+      <div style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--accent);width:32px;text-align:center;flex-shrink:0">${i+1}</div>
+      <div style="font-size:22px;color:var(--muted);flex-shrink:0">⋮⋮</div>
+      ${imgHtml}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name.ja || '(無名)'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">#${m.id} ・ ¥${price.toLocaleString()}${isHidden?' ・ <span style="color:var(--accent2)">👁 非表示</span>':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (!items.length) {
+    listEl.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px">このカテゴリには商品がありません</div>';
+  }
+
+  // SortableJS を初期化（既存があれば破棄）
+  if (_itemOrderSortable) { try { _itemOrderSortable.destroy(); } catch(_) {} _itemOrderSortable = null; }
+  if (typeof Sortable !== 'undefined' && items.length) {
+    _itemOrderSortable = Sortable.create(listEl, {
+      animation: 180,
+      ghostClass: 'item-order-ghost',
+      chosenClass: 'item-order-chosen',
+      dragClass: 'item-order-dragging',
+      delay: 150,           // 長押し150ms（モバイル誤タッチ防止）
+      delayOnTouchOnly: true,
+      touchStartThreshold: 5,
+      onEnd: () => {
+        // 現在の DOM 順から editKey 配列を再構築 → ドラフトに反映
+        const newOrder = Array.from(listEl.querySelectorAll('[data-edit-key]')).map(el => el.dataset.editKey);
+        _itemOrderDraft = { cat: _itemOrderCat, order: newOrder };
+        // 番号の振り直しのみ再描画
+        Array.from(listEl.children).forEach((el, i) => {
+          const numEl = el.querySelector('div');
+          if (numEl) numEl.textContent = i + 1;
+        });
+        updateItemOrderDirtyUI();
+      }
+    });
+  }
+  updateItemOrderDirtyUI();
+}
+
+function switchItemOrderCat(catKey) {
+  if (_itemOrderDraft && _itemOrderDraft.cat !== catKey) {
+    if (!confirm('未保存の変更があります。破棄して別カテゴリに切り替えますか？')) return;
+    _itemOrderDraft = null;
+  }
+  _itemOrderCat = catKey;
+  renderItemOrderPage();
+}
+
+function updateItemOrderDirtyUI() {
+  const dirty = !!_itemOrderDraft;
+  const btn = document.getElementById('itemOrderSaveBtn');
+  const hint = document.getElementById('itemOrderDirtyHint');
+  if (btn) btn.style.display = dirty ? 'inline-block' : 'none';
+  if (hint) hint.style.display = dirty ? 'block' : 'none';
+}
+
+function resetItemOrderDraft() {
+  if (!_itemOrderDraft) return;
+  if (!confirm('変更を破棄して保存済みの並び順に戻しますか？')) return;
+  _itemOrderDraft = null;
+  renderItemOrderPage();
+}
+
+async function saveItemOrder() {
+  if (!_itemOrderDraft) return;
+  const { doc, setDoc, serverTimestamp } = window.fbApi;
+  const cat = _itemOrderDraft.cat;
+  const order = _itemOrderDraft.order.slice();
+  const btn = document.getElementById('itemOrderSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中…'; }
+  try {
+    // 現在の byCategory に新カテゴリ分をマージ
+    const newByCat = { ...(_itemOrder.byCategory || {}), [cat]: order };
+    await setDoc(doc(window.fb.db, 'appConfig', 'itemOrder'), {
+      byCategory: newByCat,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    // ローカル状態を即更新（listener より先に）
+    _itemOrder = { byCategory: newByCat };
+    _itemOrderDraft = null;
+    showToast('✅ 並び順を保存しました');
+    renderItemOrderPage();
+  } catch(e) {
+    console.error('[itemOrder] save failed:', e);
+    alert('⚠️ 並び順の保存に失敗しました\n\n' + (e.message || '不明なエラー'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 並び順を保存'; }
+  }
+}
+
 // 画像をFirebase Storageへアップロード
 async function uploadImageToStorage(file, itemKey) {
   if (!file) return null;
@@ -1056,11 +1257,10 @@ function switchPage(name, btn) {
   if (name === 'soup') renderSoupRanking();
   if (name === 'visits') renderVisits();
   if (name === 'menu') renderMenuPage();
-  if (name === 'sortorder') {
-    // ページ遷移時は必ず最新データを取得してから描画（新規追加直後の docId 不整合を防ぐ）
+  if (name === 'itemorder') {
     (async () => {
       await forceRefreshMenuData();
-      renderSortOrderPage();
+      renderItemOrderPage();
     })();
   }
   if (name === 'maintenance') renderMaintenancePage();
@@ -2590,13 +2790,6 @@ function renderMenuPage() {
     const c = mergedCats.find(x => x.key === k);
     return c ? (c.name.ja || k) : k;
   };
-  // 並び替え用：表示中アイテムをカテゴリ別に分けてインデックスを記録
-  // _menuPageItemsByCat[cat] = [item1, item2, ...] （cat内の表示順）
-  _menuPageItemsByCat = {};
-  items.forEach(m => {
-    if (!_menuPageItemsByCat[m.cat]) _menuPageItemsByCat[m.cat] = [];
-    _menuPageItemsByCat[m.cat].push(m);
-  });
   grid.innerHTML = items.map(m => {
     const isSold = soldoutIds.includes(m.id);
     const isHidden = m._hidden;
@@ -2605,21 +2798,11 @@ function renderMenuPage() {
       ? `<img src="${m.imageUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
       : (m.img || '🍜');
     const displayPrice = (typeof m._overridePrice === 'number') ? m._overridePrice : (m.price || 0);
-    // カテゴリ内の位置（並び替えボタンの活性/非活性判定用）
-    const catList = _menuPageItemsByCat[m.cat] || [];
-    const idxInCat = catList.indexOf(m);
-    const isFirstInCat = idxInCat === 0;
-    const isLastInCat = idxInCat === catList.length - 1;
     return `<div class="menu-card" data-edit-key="${editKey}" data-cat="${m.cat}" style="${isSold||isHidden?'opacity:0.5':''};position:relative">
       <div class="menu-card-img" style="position:relative;overflow:hidden">
         ${imgHtml}
         ${isSold ? '<div style="position:absolute;top:8px;right:8px;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🚫 売切</div>' : ''}
         ${isHidden ? '<div style="position:absolute;top:8px;left:8px;background:#444;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">👁 非表示</div>' : ''}
-        <div style="position:absolute;top:8px;${isSold?'left:8px':'right:8px'};display:flex;flex-direction:column;gap:4px;z-index:2">
-          <button onclick="event.stopPropagation();moveMenuItem('${editKey}','${m.cat}',-1)" ${isFirstInCat?'disabled':''} title="1つ上へ" style="width:36px;height:36px;border-radius:8px;border:1.5px solid var(--accent);background:rgba(0,0,0,0.7);color:var(--accent);font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isFirstInCat?'opacity:0.3;cursor:not-allowed':''}">▲</button>
-          <button onclick="event.stopPropagation();moveMenuItem('${editKey}','${m.cat}',1)" ${isLastInCat?'disabled':''} title="1つ下へ" style="width:36px;height:36px;border-radius:8px;border:1.5px solid var(--accent);background:rgba(0,0,0,0.7);color:var(--accent);font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isLastInCat?'opacity:0.3;cursor:not-allowed':''}">▼</button>
-          <button onclick="event.stopPropagation();moveMenuItemToTop('${editKey}','${m.cat}')" ${isFirstInCat?'disabled':''} title="一番上へ" style="padding:0 8px;height:30px;border-radius:8px;border:1.5px solid #22c55e;background:rgba(0,0,0,0.7);color:#22c55e;font-size:10px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;${isFirstInCat?'opacity:0.3;cursor:not-allowed':''}">⇧最上位</button>
-        </div>
       </div>
       <div class="menu-card-body">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -3606,6 +3789,11 @@ window.confirmDeleteCanonicalItem = confirmDeleteCanonicalItem;
 // 商品管理ページの並び替え
 window.moveMenuItem = moveMenuItem;
 window.moveMenuItemToTop = moveMenuItemToTop;
+// 新 表示順序ページ（ドラッグ&ドロップ）
+window.switchItemOrderCat = switchItemOrderCat;
+window.saveItemOrder = saveItemOrder;
+window.resetItemOrderDraft = resetItemOrderDraft;
+window.renderItemOrderPage = renderItemOrderPage;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
@@ -3651,6 +3839,7 @@ function bootstrap() {
         startCustomMenuItemsListener();
         startCustomCategoriesListener();
         startCategoryOrderListener();
+        startItemOrderListener();
       } else {
         signInAnonymously(window.fb.auth).catch(e => {
           console.error('signInAnonymously error:', e);
