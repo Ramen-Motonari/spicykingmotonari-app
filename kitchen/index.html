@@ -450,15 +450,13 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-functions.js";
 const firebaseConfig = { apiKey:"AIzaSyAJ7Z0b0ex74nUPsnsiXXJqcxytJlU9wD0", authDomain:"motonari-4f9ee.firebaseapp.com", projectId:"motonari-4f9ee", storageBucket:"motonari-4f9ee.firebasestorage.app", messagingSenderId:"614951238402", appId:"1:614951238402:web:bb5a9d6ace6f4e6900e01b" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const functions = getFunctions(app, "asia-northeast1");
 try { await enableIndexedDbPersistence(db); } catch(e) {}
-window.fb = { app, auth, db, functions };
-window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, signInAnonymously, onAuthStateChanged, httpsCallable };
+window.fb = { app, auth, db };
+window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, signInAnonymously, onAuthStateChanged };
 </script>
 
 <script>
@@ -2630,7 +2628,7 @@ overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;wi
 <div data-regI18n="paySelectAfterMsg" style="background:rgba(231,76,60,0.15);border:2px solid #e74c3c;color:#ff9a90;font-size:14px;font-weight:900;padding:10px 12px;border-radius:10px;margin-bottom:18px;line-height:1.4;animation:newOrderPulse 1.8s ease infinite">⚠️ お会計終了後にタップ</div>
 <div style="display:flex;flex-direction:column;gap:12px">
 <button onclick="openCashCalculator('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💴</span> <span data-regI18n="payCash">現金</span></button>
-<button onclick="openSquareTerminalPay('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💳</span> <span data-regI18n="payCard">クレジットカード</span></button>
+<button onclick="finalizePayment('${type}','card',${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💳</span> <span data-regI18n="payCard">クレジットカード</span></button>
 <button onclick="document.getElementById('payMethodOverlay').remove()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px" data-regI18n="cancel">キャンセル</button>
 </div>
 </div>`;
@@ -2797,183 +2795,6 @@ async function confirmCashPayment() {
   if (overlay) overlay.remove();
   // 既存のお会計処理を呼ぶ
   await finalizePayment(type, 'cash', mergeFlag);
-}
-
-// ────── Square Terminal 決済連携 ──────
-// localStorage に保存する Device ID（実機ごとに違う）
-const SQUARE_DEVICE_ID_KEY = 'motonari_square_device_id';
-function getSquareDeviceId() {
-  try { return localStorage.getItem(SQUARE_DEVICE_ID_KEY) || ''; } catch(e) { return ''; }
-}
-function setSquareDeviceId(v) {
-  try { localStorage.setItem(SQUARE_DEVICE_ID_KEY, v); } catch(_) {}
-}
-
-// クレジットカード支払い：Square Terminal にリクエスト送信
-async function openSquareTerminalPay(type, total, mergeFlag) {
-  // 支払方法選択モーダルを閉じる
-  const pm = document.getElementById('payMethodOverlay');
-  if (pm) pm.remove();
-  // Device ID 取得（未設定なら入力モーダル）
-  let deviceId = getSquareDeviceId();
-  if (!deviceId) {
-    deviceId = await promptSquareDeviceId();
-    if (!deviceId) return; // キャンセル
-    setSquareDeviceId(deviceId);
-  }
-  // 対象 orderId を決定
-  let targetOrderId = null;
-  let tableLabel = '';
-  let realMergeFlag = (mergeFlag === '__merge__' ? '__merge__' : null);
-  if (realMergeFlag === '__merge__') {
-    const md = window._pendingMergeData;
-    if (!md || !md.mergedTables || !md.mergedTables.length) { showToast('合算データが不正です', true); return; }
-    // 合算の場合は最初のテーブルの最初の order を参照（実際の paid 更新は finalizePayment で複数まとめて行う）
-    for (const lbl of md.mergedTables) {
-      const o = orders.find(x => x.table === lbl && x.status !== 'paid');
-      if (o) { targetOrderId = o.id; break; }
-    }
-    tableLabel = md.labels || md.mergedTables.join('＋');
-  } else if (selectedTable) {
-    const o = orders.find(x => x.table === selectedTable && x.status !== 'paid');
-    if (!o) { showToast('注文が見つかりません', true); return; }
-    targetOrderId = o.id;
-    tableLabel = selectedTable;
-  } else {
-    showToast('テーブル未選択', true);
-    return;
-  }
-  // 進行中UI
-  const overlay = document.createElement('div');
-  overlay.id = 'squareTerminalOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:800;display:flex;align-items:center;justify-content:center;padding:20px';
-  overlay.innerHTML = `
-    <div style="background:var(--surface);border-radius:20px;width:100%;max-width:420px;padding:28px 24px;text-align:center">
-      <div style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">💳 SQUARE TERMINAL</div>
-      <div style="font-size:13px;color:#fff;margin-bottom:14px">${tableLabel}</div>
-      <div style="font-family:'Oswald',sans-serif;font-size:44px;color:var(--blue);margin-bottom:6px">¥${Number(total).toLocaleString()}</div>
-      <div id="sqStatusText" style="font-size:14px;color:#fff;margin:18px 0">Square Terminalへ送信中...</div>
-      <div id="sqSpinner" style="display:inline-block;width:36px;height:36px;border:4px solid rgba(255,255,255,0.18);border-top-color:var(--blue);border-radius:50%;animation:sqSpin 1s linear infinite;margin-bottom:14px"></div>
-      <div id="sqDetail" style="font-size:11px;color:var(--muted);margin-top:8px;font-family:'Oswald',monospace;letter-spacing:0.3px"></div>
-      <div style="display:flex;gap:8px;margin-top:20px">
-        <button id="sqCancelBtn" onclick="cancelSquareTerminal()" style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--accent2);background:rgba(192,57,43,0.15);color:var(--accent2);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
-      </div>
-    </div>
-    <style>@keyframes sqSpin{to{transform:rotate(360deg)}}</style>`;
-  document.body.appendChild(overlay);
-  // 状態保存（キャンセル用）
-  window._squareTerminalState = { checkoutId: null, type, total, mergeFlag: realMergeFlag, targetOrderId, tableLabel, deviceId, polling: true };
-  // Firebase Function 呼び出し
-  try {
-    const createFn = window.fbApi.httpsCallable(window.fb.functions, 'createSquarePayment');
-    const res = await createFn({ amount: Number(total), orderId: String(targetOrderId), deviceId });
-    if (!res.data || !res.data.success || !res.data.checkoutId) throw new Error('Square Terminal リクエストに失敗しました');
-    window._squareTerminalState.checkoutId = res.data.checkoutId;
-    document.getElementById('sqStatusText').textContent = 'Square Terminal でお客様の操作待ち...';
-    document.getElementById('sqDetail').textContent = `Checkout: ${res.data.checkoutId.slice(0,12)}...`;
-    pollSquareTerminalStatus();
-  } catch (e) {
-    console.error('[square] createPayment error:', e);
-    document.getElementById('sqStatusText').innerHTML = `<span style="color:var(--accent2)">❌ エラー</span>`;
-    document.getElementById('sqDetail').textContent = (e.message || '不明なエラー').slice(0, 150);
-    const btn = document.getElementById('sqCancelBtn');
-    if (btn) btn.textContent = '閉じる';
-  }
-}
-
-// ステータスを2秒ごとにポーリング
-async function pollSquareTerminalStatus() {
-  const state = window._squareTerminalState;
-  if (!state || !state.polling || !state.checkoutId) return;
-  try {
-    const getFn = window.fbApi.httpsCallable(window.fb.functions, 'getSquareCheckout');
-    const res = await getFn({ checkoutId: state.checkoutId });
-    const data = res.data || {};
-    const status = data.status || 'UNKNOWN';
-    const detailEl = document.getElementById('sqDetail');
-    if (detailEl) detailEl.textContent = `Status: ${status}`;
-    if (status === 'COMPLETED') {
-      state.polling = false;
-      document.getElementById('sqStatusText').innerHTML = `<span style="color:var(--green)">✅ 決済完了</span>`;
-      const sp = document.getElementById('sqSpinner'); if (sp) sp.style.display = 'none';
-      // Firestore の orders を paid に更新
-      await finalizePayment(state.type, 'card', state.mergeFlag);
-      setTimeout(() => {
-        const ov = document.getElementById('squareTerminalOverlay');
-        if (ov) ov.remove();
-      }, 1200);
-      return;
-    }
-    if (status === 'CANCELED' || status === 'CANCEL_REQUESTED') {
-      state.polling = false;
-      document.getElementById('sqStatusText').innerHTML = `<span style="color:var(--accent2)">⚠️ 決済キャンセル</span>`;
-      const sp = document.getElementById('sqSpinner'); if (sp) sp.style.display = 'none';
-      const btn = document.getElementById('sqCancelBtn');
-      if (btn) btn.textContent = '閉じる';
-      return;
-    }
-    // 継続
-    setTimeout(pollSquareTerminalStatus, 2000);
-  } catch (e) {
-    console.warn('[square] poll error:', e);
-    // 一時的なエラーはリトライ
-    if (state.polling) setTimeout(pollSquareTerminalStatus, 3000);
-  }
-}
-
-// キャンセルボタン
-async function cancelSquareTerminal() {
-  const state = window._squareTerminalState;
-  if (!state) {
-    const ov = document.getElementById('squareTerminalOverlay');
-    if (ov) ov.remove();
-    return;
-  }
-  state.polling = false;
-  if (state.checkoutId) {
-    try {
-      const cancelFn = window.fbApi.httpsCallable(window.fb.functions, 'cancelSquareCheckout');
-      await cancelFn({ checkoutId: state.checkoutId });
-    } catch (e) { console.warn('[square] cancel error:', e); }
-  }
-  const ov = document.getElementById('squareTerminalOverlay');
-  if (ov) ov.remove();
-  window._squareTerminalState = null;
-}
-
-// Device ID を入力するモーダル
-async function promptSquareDeviceId() {
-  return new Promise((resolve) => {
-    const old = document.getElementById('sqDeviceIdOverlay');
-    if (old) old.remove();
-    const overlay = document.createElement('div');
-    overlay.id = 'sqDeviceIdOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:801;display:flex;align-items:center;justify-content:center;padding:20px';
-    overlay.innerHTML = `
-      <div style="background:var(--surface);border-radius:20px;width:100%;max-width:420px;padding:24px 22px">
-        <div style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;text-align:center">💳 SQUARE TERMINAL</div>
-        <div style="font-size:15px;color:#fff;text-align:center;margin-bottom:14px;font-weight:700">初回設定：Device ID 登録</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
-          Square Terminal の Device ID を入力してください。<br>
-          Sandbox 検証用には以下の仮ID（後で本物に変更可）：<br>
-          <span style="color:var(--accent);font-family:'Oswald',monospace;font-size:10px">da40d603-c2ea-4a65-8cfd-f42e36dab0c7</span>
-        </div>
-        <input id="sqDeviceIdInput" type="text" placeholder="Device ID（UUID形式）" style="width:100%;padding:14px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:#fff;font-size:13px;font-family:'Oswald',monospace;outline:none;margin-bottom:14px">
-        <div style="display:flex;gap:8px">
-          <button id="sqDevCancel" style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
-          <button id="sqDevSave" style="flex:2;padding:13px;border-radius:10px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">登録</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    setTimeout(() => { document.getElementById('sqDeviceIdInput').focus(); }, 50);
-    document.getElementById('sqDevCancel').onclick = () => { overlay.remove(); resolve(null); };
-    document.getElementById('sqDevSave').onclick = () => {
-      const val = (document.getElementById('sqDeviceIdInput').value || '').trim();
-      if (!val) { showToast('Device ID を入力してください', true); return; }
-      overlay.remove();
-      resolve(val);
-    };
-  });
 }
 
 async function finalizePayment(type, payMethod, mergeFlag) {
@@ -3895,9 +3716,6 @@ window.toggleShowDeleted = toggleShowDeleted;
 window.renderHistoryList = renderHistoryList; window.toggleServed = toggleServed;
 window.openTable = openTable; window.filterReg = filterReg;
 window.completePayment = completePayment; window.finalizePayment = finalizePayment;
-// Square Terminal 決済連携
-window.openSquareTerminalPay = openSquareTerminalPay;
-window.cancelSquareTerminal = cancelSquareTerminal;
 window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
 window.completeService = completeService;
 window.openSeparatePayment = openSeparatePayment; window.toggleBetsuItem = toggleBetsuItem;
