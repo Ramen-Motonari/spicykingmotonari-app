@@ -841,11 +841,11 @@ async function _runOneTimeCleanup() {
   const FLAG_KEY = 'motonari_cleanup_v1_done';
   if (_cleanupRunning) return;
   try { if (localStorage.getItem(FLAG_KEY)) return; } catch(_) {}
-  // 削除対象のキーワード（名前に含まれていれば削除）
+  // 削除対象（完全一致のみ。「ミニチャーシューエッグ丼」など派生名は保護）
   const targets = ['ミニチャーシュー', 'チーズ', '島唐辛子'];
   const toDelete = customMenuItems.filter(c => {
     const name = String((c.name && c.name.ja) || '').trim();
-    return targets.some(t => name.includes(t));
+    return targets.some(t => name === t);
   });
   if (toDelete.length === 0) {
     try { localStorage.setItem(FLAG_KEY, 'done'); } catch(_) {}
@@ -2533,6 +2533,19 @@ async function applyMenuSortSave(cat) {
   }
   const finalList = _menuPageItemsByCat[cat].filter(m => !m._isCustom || (m._docId && m._docId !== 'undefined'));
   finalList.forEach((m, i) => { m._sortOrder = (i + 1) * 10; });
+  // ★ 楽観的UIを正しく機能させるため、ローカルの menuOverrides / customMenuItems も即時更新
+  //   （getMergedMenu はこれらを参照して _sortOrder を再計算するため、ここを更新しないと
+  //    再描画時に元の順序に戻ってしまう）
+  finalList.forEach((m, i) => {
+    const sortVal = (i + 1) * 10;
+    if (m._isCustom) {
+      const c = customMenuItems.find(cm => cm.docId === m._docId);
+      if (c) c.sortOrder = sortVal;
+    } else {
+      if (!menuOverrides[String(m.id)]) menuOverrides[String(m.id)] = {};
+      menuOverrides[String(m.id)].sortOrder = sortVal;
+    }
+  });
   const updates = finalList.map((m, i) => ({
     editKey: m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`,
     sortOrder: (i + 1) * 10
@@ -2550,6 +2563,9 @@ async function applyMenuSortSave(cat) {
   } else {
     showToast(`⚠️ ${result.failed.length}件失敗（成功: ${result.ok.length}）`, true);
     console.error('[menuSort] failed details:', result.failed);
+    // 失敗が明確に分かるようにダイアログ表示
+    const detail = result.failed.map(f => `・${f.editKey}: ${f.error?.message || '不明'}`).join('\n');
+    alert(`⚠️ ${result.failed.length}件の並び順保存に失敗しました\n\n${detail}\n\n（Firestore のルールや権限を確認してください）`);
   }
   // 遅延リスナーによる巻き戻し防止のため 2.5秒保持
   setTimeout(() => { _menuPageSaving = false; }, 2500);
