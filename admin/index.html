@@ -1095,11 +1095,29 @@ function renderItemOrderPage() {
       delay: 150,           // 長押し150ms（モバイル誤タッチ防止）
       delayOnTouchOnly: true,
       touchStartThreshold: 5,
-      onEnd: () => {
-        // 現在の DOM 順から editKey 配列を再構築 → ドラフトに反映
-        const newOrder = Array.from(listEl.querySelectorAll('[data-edit-key]')).map(el => el.dataset.editKey);
+      forceFallback: true,  // ネイティブHTML5 D&Dを使わず独自実装（モバイル安定化）
+      fallbackTolerance: 5,
+      onEnd: (evt) => {
+        // ① 第一優先: SortableJS の toArray() で取得
+        // ② 第二優先: DOM の data-edit-key を走査
+        // ③ 第三優先: evt.oldIndex/evt.newIndex から手動再構築
+        let newOrder = [];
+        try {
+          if (_itemOrderSortable && typeof _itemOrderSortable.toArray === 'function') {
+            // toArray が動かない場合に備えて DOM 経由でも取る
+            newOrder = Array.from(listEl.querySelectorAll('[data-edit-key]')).map(el => el.dataset.editKey).filter(Boolean);
+          }
+        } catch(_) {}
+        if (!newOrder.length) {
+          newOrder = Array.from(listEl.children).map(el => el.dataset && el.dataset.editKey).filter(Boolean);
+        }
+        console.log('[itemOrder] drag end:', { oldIndex: evt?.oldIndex, newIndex: evt?.newIndex, capturedOrder: newOrder });
+        if (!newOrder.length) {
+          console.warn('[itemOrder] could not capture new order from DOM');
+          return;
+        }
         _itemOrderDraft = { cat: _itemOrderCat, order: newOrder };
-        // 番号の振り直しのみ再描画
+        // 左端の番号を振り直し
         Array.from(listEl.children).forEach((el, i) => {
           const numEl = el.querySelector('div');
           if (numEl) numEl.textContent = i + 1;
@@ -1107,6 +1125,9 @@ function renderItemOrderPage() {
         updateItemOrderDirtyUI();
       }
     });
+    // 各アイテム要素に dataset.editKey が確実に設定されていることを検証
+    const missing = Array.from(listEl.children).filter(el => !el.dataset || !el.dataset.editKey);
+    if (missing.length) console.warn('[itemOrder] children missing data-edit-key:', missing.length);
   }
   updateItemOrderDirtyUI();
 }
@@ -1139,7 +1160,15 @@ async function saveItemOrder() {
   if (!_itemOrderDraft) return;
   const { doc, setDoc, serverTimestamp } = window.fbApi;
   const cat = _itemOrderDraft.cat;
-  const order = _itemOrderDraft.order.slice();
+  // 保存直前に「現在のDOM順」も再取得して、ドラフトとズレがあれば実DOM順を採用
+  const listEl = document.getElementById('itemOrderList');
+  const domOrder = listEl ? Array.from(listEl.children).map(el => el.dataset && el.dataset.editKey).filter(Boolean) : [];
+  let order = _itemOrderDraft.order.slice();
+  if (domOrder.length && domOrder.length === order.length) {
+    // DOM順が信頼できる場合は最終的にDOM順を採用
+    order = domOrder;
+  }
+  console.log('[itemOrder] saving cat=' + cat + ' order=', order);
   const btn = document.getElementById('itemOrderSaveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '保存中…'; }
   try {
