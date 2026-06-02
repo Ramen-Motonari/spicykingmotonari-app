@@ -92,6 +92,9 @@ body.dark-bg{background:#111}
 
 .section-title{padding:18px 16px 14px;font-size:22px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#1a1a1a;border-bottom:2px solid #1a1a1a;display:flex;align-items:center;gap:4px;background:linear-gradient(to right,rgba(200,134,10,.08),transparent)}
 .section-title span{color:var(--accent);font-family:'Oswald',sans-serif;font-size:18px;margin-right:2px}
+.subcat-divider{display:flex;align-items:center;gap:14px;padding:18px 16px 8px 0;margin-top:6px}
+.subcat-divider .subcat-line{flex:1;height:0;border-bottom:1.5px solid #1a1a1a;margin-left:0}
+.subcat-divider .subcat-name{font-size:15px;font-weight:700;color:#1a1a1a;letter-spacing:2px;flex-shrink:0;padding-right:8px;white-space:nowrap}
 
 /* Menu items */
 .menu-item{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;transition:background .15s;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -672,6 +675,7 @@ let _customMenuItems = [];
 let _customCategories = [];
 let _categoryOrder = null;   // appConfig/categoryOrder で管理する全カテゴリ並び順（配列 of keys）
 let _itemOrder = { byCategory: {} }; // appConfig/itemOrder（管理APPで設定する商品並び順）
+let _subCategories = []; // subCategories collection
 
 function wrapLunchFree(m) {
   if (!m.lunchFreeBase) return m;
@@ -697,6 +701,7 @@ function rebuildMenu() {
     if (typeof ov.pirikaraOverride === 'boolean') item.pirikara = ov.pirikaraOverride;
     if (typeof ov.priceOverride === 'number') item.price = ov.priceOverride;
     if (ov.imageUrl) item.img = ov.imageUrl;
+    item.subCat = ov.subCatOverride || '';
     item._sortOrder = (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1);
     merged.push(wrapLunchFree(item));
   });
@@ -711,28 +716,41 @@ function rebuildMenu() {
       price: c.price || 0,
       spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara,
       custom: c.custom || {},
+      subCat: c.subCat || '',
       _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
     });
   });
-  // カテゴリ内ソート：appConfig/itemOrder（editKey配列）を優先、なければ旧 _sortOrder
-  const orderMap = (_itemOrder && _itemOrder.byCategory) || {};
+  // カテゴリ内ソート：appConfig/itemOrder（editKey配列）を真実の順序として直接使用
+  //   → ブラウザの Array.sort 実装差や comparator returning 0 の不安定さを完全に排除
   _customMenuItems.forEach(c => {
     const found = merged.find(x => x.id === c.id && x.cat === c.cat);
     if (found && !found._docId) found._docId = c.docId;
   });
+  const orderMap = (_itemOrder && _itemOrder.byCategory) || {};
   const editKeyOf = (m) => m._docId ? `custom:${m._docId}` : `canonical:${m.id}`;
-  const posOf = (m) => {
-    const arr = orderMap[m.cat] || [];
-    const i = arr.indexOf(editKeyOf(m));
-    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
-  };
-  merged.sort((a, b) => {
-    if (a.cat !== b.cat) return 0;
-    const pa = posOf(a), pb = posOf(b);
-    if (pa !== pb) return pa - pb;
-    return (a._sortOrder || 0) - (b._sortOrder || 0);
+  // ① カテゴリごとにグループ化（カテゴリ間の相対順は merged の元の順序を維持）
+  const groups = new Map();
+  const catOrder = [];
+  merged.forEach(m => {
+    if (!groups.has(m.cat)) { groups.set(m.cat, []); catOrder.push(m.cat); }
+    groups.get(m.cat).push(m);
   });
-  menu = merged;
+  // ② カテゴリごとに itemOrder で並び替え → 全体を再構築
+  const rebuilt = [];
+  catOrder.forEach(cat => {
+    const items = groups.get(cat) || [];
+    const savedOrder = orderMap[cat] || [];
+    const byKey = new Map(items.map(m => [editKeyOf(m), m]));
+    const used = new Set();
+    savedOrder.forEach(k => {
+      const it = byKey.get(k);
+      if (it) { rebuilt.push(it); used.add(k); }
+    });
+    const leftovers = items.filter(m => !used.has(editKeyOf(m)));
+    leftovers.sort((a, b) => (a._sortOrder || 0) - (b._sortOrder || 0));
+    rebuilt.push(...leftovers);
+  });
+  menu = rebuilt;
 
   // カテゴリラベル更新（カスタムカテゴリのラベルを反映）
   _customCategories.forEach(c => {
@@ -930,6 +948,7 @@ window.addEventListener('fb-ready', () => {
   subscribeCustomCategories();
   subscribeCategoryOrder();
   subscribeItemOrder();
+  subscribeSubCategories();
   // リロード時のセッション復元（fbReady & 認証完了の両方が揃ったタイミングで実行）
   tryStartRecovery();
   // fbReady より先にセッション開始してた場合の subscribeOrders 再試行
@@ -1003,6 +1022,19 @@ function subscribeItemOrder(){
     }
     rebuildMenu();
   }, err => console.error('itemOrder listener:', err));
+}
+// subCategories を購読
+let unsubSubCategories = null;
+function subscribeSubCategories(){
+  if(!fbReady) return;
+  if(unsubSubCategories) unsubSubCategories();
+  const colRef = window.FB.collection(window.FB.db, 'subCategories');
+  unsubSubCategories = window.FB.onSnapshot(colRef, (snap) => {
+    _subCategories = [];
+    snap.forEach(d => { _subCategories.push({ docId: d.id, ...d.data() }); });
+    _subCategories.sort((a,b) => (a.order||0) - (b.order||0));
+    if(typeof renderMenu === 'function') renderMenu();
+  }, err => console.error('subCategories listener:', err));
 }
 
 window.addEventListener('fb-error', (e) => {
@@ -1592,6 +1624,38 @@ function renderMenu(){
   const t=T[lang], cl=catLabels[lang] || {};
   const cats = currentCat==='all' ? allCatKeys : [currentCat];
 
+  const buildItemEl = (item) => {
+    const d=document.createElement('div');
+    const soldout = isItemSoldout(item.id);
+    d.className='menu-item' + (soldout?' soldout':'');
+    let badges='';
+    if(item.pirikara) badges+=`<span class="badge badge-pirikara">${t.badgePirikara}</span>`;
+    if(item.spicy){
+      const hasKarasa = item.custom && item.custom.karasaAdd;
+      if(hasKarasa){
+        const isCurry = item.name.ja?.includes('カレー');
+        badges += isCurry
+          ? `<span class="badge badge-spicy">${t.badgeSpicyCurry}</span>`
+          : `<span class="badge badge-spicy">${t.badgeSpicy}</span>`;
+      } else {
+        badges += `<span class="badge badge-spicy">${t.badgeSpicyPlain}</span>`;
+      }
+    }
+    if(item.night)                      badges+=`<span class="badge badge-night">${t.badgeNight}</span>`;
+    if(item.ghost)                      badges+=`<span class="badge badge-ghost">${t.badgeGhost}</span>`;
+    d.setAttribute('onclick', `openItem(${item.id})`);
+    d.setAttribute('role', 'button');
+    d.innerHTML=`
+      ${imgEl(item.img)}
+      <div class="item-info">
+        <div class="item-name">${item.name[lang]}</div>
+        <div class="item-price">¥${item.price.toLocaleString()}</div>
+        ${badges?`<div class="badges">${badges}</div>`:''}
+      </div>
+      <div class="add-btn${soldout?' disabled':''}" aria-hidden="true">＋</div>`;
+    return d;
+  };
+
   cats.forEach(cat=>{
     const items=menu.filter(m=>m.cat===cat);
     if(!items.length) return;
@@ -1600,39 +1664,52 @@ function renderMenu(){
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
       sec.innerHTML+=`<div class="night-notice">${t.nightNote}</div>`;
 
-    items.forEach(item=>{
-      const d=document.createElement('div');
-      const soldout = isItemSoldout(item.id);
-      d.className='menu-item' + (soldout?' soldout':'');
-      let badges='';
-      if(item.pirikara) badges+=`<span class="badge badge-pirikara">${t.badgePirikara}</span>`;
-      if(item.spicy){
-        const hasKarasa = item.custom && item.custom.karasaAdd;
-        if(hasKarasa){
-          const isCurry = item.name.ja?.includes('カレー');
-          badges += isCurry
-            ? `<span class="badge badge-spicy">${t.badgeSpicyCurry}</span>`
-            : `<span class="badge badge-spicy">${t.badgeSpicy}</span>`;
-        } else {
-          badges += `<span class="badge badge-spicy">${t.badgeSpicyPlain}</span>`;
+    const registeredSubs = (_subCategories || []).filter(s => s.cat === cat).sort((a,b) => (a.order||0) - (b.order||0));
+    const subNameFor = (s, langKey) => {
+      if (!s || !s.name) return '';
+      if (typeof s.name === 'string') return s.name;
+      return s.name[langKey] || s.name.ja || '';
+    };
+    const groupMap = new Map();
+    const unregisteredGroups = [];
+    let noneGroup = null;
+    items.forEach(item => {
+      if (!item.subCat) {
+        if (!noneGroup) noneGroup = { jaKey: '', subDoc: null, items: [] };
+        noneGroup.items.push(item);
+      } else {
+        if (!groupMap.has(item.subCat)) {
+          const subDoc = registeredSubs.find(s => subNameFor(s, 'ja') === item.subCat);
+          const g = { jaKey: item.subCat, subDoc, items: [] };
+          groupMap.set(item.subCat, g);
+          if (!subDoc) unregisteredGroups.push(g);
         }
+        groupMap.get(item.subCat).items.push(item);
       }
-      if(item.night)                      badges+=`<span class="badge badge-night">${t.badgeNight}</span>`;
-      if(item.ghost)                      badges+=`<span class="badge badge-ghost">${t.badgeGhost}</span>`;
-      // カスタムバッジは削除（お客様画面では区別しない）
-
-      d.setAttribute('onclick', `openItem(${item.id})`);
-      d.setAttribute('role', 'button');
-      d.innerHTML=`
-        ${imgEl(item.img)}
-        <div class="item-info">
-          <div class="item-name">${item.name[lang]}</div>
-          <div class="item-price">¥${item.price.toLocaleString()}</div>
-          ${badges?`<div class="badges">${badges}</div>`:''}
-        </div>
-        <div class="add-btn${soldout?' disabled':''}" aria-hidden="true">＋</div>`;
-      sec.appendChild(d);
     });
+    const orderedGroups = [];
+    registeredSubs.forEach(s => {
+      const ja = subNameFor(s, 'ja');
+      if (groupMap.has(ja)) orderedGroups.push(groupMap.get(ja));
+    });
+    unregisteredGroups.forEach(g => orderedGroups.push(g));
+    if (noneGroup) orderedGroups.unshift(noneGroup);
+
+    const hasNamedSubCat = orderedGroups.some(g => g.jaKey);
+    if (!hasNamedSubCat) {
+      items.forEach(item => sec.appendChild(buildItemEl(item)));
+    } else {
+      orderedGroups.forEach(g => {
+        if (g.jaKey) {
+          const h = document.createElement('div');
+          h.className = 'subcat-divider';
+          const displayName = g.subDoc ? (subNameFor(g.subDoc, lang) || g.jaKey) : g.jaKey;
+          h.innerHTML = `<span class="subcat-line"></span><span class="subcat-name">${displayName}</span>`;
+          sec.appendChild(h);
+        }
+        g.items.forEach(item => sec.appendChild(buildItemEl(item)));
+      });
+    }
     el.appendChild(sec);
   });
 }
