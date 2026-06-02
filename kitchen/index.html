@@ -1191,6 +1191,10 @@ const allNotPaid = orders.filter(o =>
 );
 const content = document.getElementById('kitchenContent');
 if (!content) return;
+// ★ スクロール位置を保持（提供済タップでページが上にジャンプするのを防ぐ）
+const scrollEl = document.getElementById('kitchenScreen') || document.scrollingElement || document.documentElement;
+const savedScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+const savedScrollLeft = content.scrollLeft || 0;
 
 // === テーブル単位グループ化 ===
 const tableMap = new Map();
@@ -1212,15 +1216,14 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   });
 }).map(([tl, list]) => {
   // 表示用：
-  //   - 「未提供アイテムを持つ注文」だけを表示
-  //   - 全アイテム提供済みの注文（過去の提供済オーダー）は非表示
-  //   - 例：1回目を全提供 → 一旦消える → 追加注文が来たら追加注文だけ表示（過去の提供済は出てこない）
+  //   テーブルに未提供アイテムが1つでも残っている限り、全提供済みの注文も含めて全表示
+  //   （提供済アイテムはグレーアウトで残り、調理スタッフが「最後まで全部見える」状態にする）
+  //   注: 既に上の filter で「テーブルに未提供あり」を担保しているので、ここは空注文だけ除外する
   const visibleOrders = list.filter(o => {
     if (o.status !== 'pending' && o.status !== 'preparing' && o.status !== 'served') return false;
     const items = Array.isArray(o.items) ? o.items : [];
-    if (items.length === 0) return false; // 空注文除外
-    // 未提供アイテムが1件もない注文（全提供済）は非表示
-    return items.some(i => !i.served);
+    if (items.length === 0) return false;
+    return true; // 全提供済みでもテーブル内なら表示維持
   });
   const sorted = visibleOrders.slice().sort((a, b) => {
     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
@@ -1343,6 +1346,17 @@ el.style.transform = '';
 }
 }
 });
+
+// ★ スクロール位置を復元（FLIPアニメーションは個別要素なので scrollEl は触らない）
+if (scrollEl && savedScrollTop > 0) {
+  // 即時 + 次フレームの2回復元（FLIPで一時的に位置変化があっても確実に戻す）
+  scrollEl.scrollTop = savedScrollTop;
+  requestAnimationFrame(() => { scrollEl.scrollTop = savedScrollTop; });
+}
+if (content && savedScrollLeft > 0) {
+  content.scrollLeft = savedScrollLeft;
+  requestAnimationFrame(() => { content.scrollLeft = savedScrollLeft; });
+}
 }
 
 // DOM ID 用に tableLabel を安全な文字列に変換
