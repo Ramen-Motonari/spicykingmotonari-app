@@ -4336,9 +4336,12 @@ function renderItemEditForm() {
           <option value="">— なし —</option>
           ${(() => {
             const subs = getSubCategoriesForCat(it.cat || '');
-            return subs.map(s => `<option value="${s.name}" ${it.subCat===s.name?'selected':''}>${s.name}</option>`).join('');
+            return subs.map(s => {
+              const ja = getSubCatName(s, 'ja');
+              return `<option value="${ja}" ${it.subCat===ja?'selected':''}>${ja}</option>`;
+            }).join('');
           })()}
-          ${it.subCat && !getSubCategoriesForCat(it.cat || '').some(s => s.name === it.subCat)
+          ${it.subCat && !getSubCategoriesForCat(it.cat || '').some(s => getSubCatName(s, 'ja') === it.subCat)
             ? `<option value="${it.subCat}" selected>${it.subCat} (未登録)</option>` : ''}
         </select>
         <div style="font-size:10px;color:var(--muted);margin-top:4px">※ サブカテゴリは「🗂 カテゴリ管理」から作成できます</div>
