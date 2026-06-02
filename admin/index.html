@@ -526,7 +526,12 @@ window.adminLogout = adminLogout;
       <button onclick="resetItemOrderDraft()" style="padding:10px 16px;border-radius:10px;background:#444;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">↩ 変更を破棄</button>
       <div id="itemOrderDirtyHint" style="font-size:11px;color:var(--accent2);font-weight:700;display:none">⚠️ 未保存の変更があります</div>
     </div>
-    <div id="itemOrderList" style="display:flex;flex-direction:column;gap:8px;padding-bottom:60px"></div>
+    <div id="itemOrderList" style="display:flex;flex-direction:column;gap:8px;padding-bottom:12px"></div>
+    <!-- 画面内デバッグログ（操作内容が見える） -->
+    <details style="margin-top:14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:10px 14px" id="itemOrderDebugWrap">
+      <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:700">🔍 操作ログ（並び替えのトラブル時に確認）</summary>
+      <pre id="itemOrderDebugLog" style="margin:8px 0 0;font-size:10px;color:#9ad;background:rgba(0,0,0,0.4);padding:8px;border-radius:6px;max-height:240px;overflow:auto;white-space:pre-wrap;font-family:'Oswald',monospace;line-height:1.5"></pre>
+    </details>
   </div>
 
   <!-- メンテナンスページ -->
@@ -1023,11 +1028,24 @@ function itemEditKey(m) {
   return m._isCustom ? `custom:${m._docId}` : `canonical:${m.id}`;
 }
 
+// 画面内デバッグログ（コンソールを開かなくても操作履歴が見える）
+function _itemOrderLog(label, data) {
+  const el = document.getElementById('itemOrderDebugLog');
+  if (!el) return;
+  const ts = new Date().toLocaleTimeString('ja-JP');
+  let line = `[${ts}] ${label}`;
+  if (data !== undefined) {
+    try { line += ' ' + (typeof data === 'string' ? data : JSON.stringify(data)); } catch(_) {}
+  }
+  el.textContent = (line + '\n' + el.textContent).slice(0, 6000);
+}
+
 // カテゴリタブ生成 + 並び替えリスト描画
 function renderItemOrderPage() {
   const tabsEl = document.getElementById('itemOrderCatTabs');
   const listEl = document.getElementById('itemOrderList');
   if (!tabsEl || !listEl) return;
+  _itemOrderLog('🔄 再描画 cat=' + (_itemOrderCat || '(未選択)') + ' draft=' + (_itemOrderDraft ? 'あり' : 'なし'));
 
   // 表示対象カテゴリ：getMergedCategories の順序で表示
   const cats = getMergedCategories();
@@ -1112,8 +1130,11 @@ function renderItemOrderPage() {
           newOrder = Array.from(listEl.children).map(el => el.dataset && el.dataset.editKey).filter(Boolean);
         }
         console.log('[itemOrder] drag end:', { oldIndex: evt?.oldIndex, newIndex: evt?.newIndex, capturedOrder: newOrder });
+        _itemOrderLog(`✋ ドラッグ完了 ${evt?.oldIndex}→${evt?.newIndex}（${newOrder.length}件キャプチャ）`);
+        _itemOrderLog('  順序:', newOrder.map(k => k.split(':').pop()).join(', '));
         if (!newOrder.length) {
           console.warn('[itemOrder] could not capture new order from DOM');
+          _itemOrderLog('⚠️ DOMから順序を取得できませんでした');
           return;
         }
         _itemOrderDraft = { cat: _itemOrderCat, order: newOrder };
@@ -1169,6 +1190,8 @@ async function saveItemOrder() {
     order = domOrder;
   }
   console.log('[itemOrder] saving cat=' + cat + ' order=', order);
+  _itemOrderLog(`💾 保存実行 cat=${cat}（${order.length}件）`);
+  _itemOrderLog('  保存内容:', order.map(k => k.split(':').pop()).join(', '));
   const btn = document.getElementById('itemOrderSaveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '保存中…'; }
   try {
@@ -1181,10 +1204,12 @@ async function saveItemOrder() {
     // ローカル状態を即更新（listener より先に）
     _itemOrder = { byCategory: newByCat };
     _itemOrderDraft = null;
+    _itemOrderLog('✅ Firestore書込み成功');
     showToast('✅ 並び順を保存しました');
     renderItemOrderPage();
   } catch(e) {
     console.error('[itemOrder] save failed:', e);
+    _itemOrderLog('❌ 保存失敗: ' + (e.message || e));
     alert('⚠️ 並び順の保存に失敗しました\n\n' + (e.message || '不明なエラー'));
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '💾 並び順を保存'; }
