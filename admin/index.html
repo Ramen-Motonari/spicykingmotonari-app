@@ -543,11 +543,15 @@ window.adminLogout = adminLogout;
     <div class="page-sub">夜の日報で保存した数値の閲覧・修正・CSV出力</div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
       <label style="font-size:13px;color:var(--muted)">対象月：</label>
-      <input type="month" id="kanritableMonth" class="form-input" style="width:160px" onchange="renderKanritable()">
+      <input type="month" id="kanritableMonth" class="form-input" style="width:160px">
+      <button onclick="loadKanritableData()" style="padding:10px 22px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">決定</button>
       <button onclick="exportKanritableCSV()" style="padding:10px 18px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV出力</button>
       <span id="kanritableStatus" style="font-size:11px;color:var(--muted)"></span>
     </div>
-    <div class="card" style="overflow:auto;max-height:calc(100vh - 200px)">
+    <div id="kanritableEmpty" style="padding:60px 20px;text-align:center;color:var(--muted);font-size:13px">
+      対象月を選んで「決定」ボタンを押してください
+    </div>
+    <div class="card" id="kanritableWrap" style="display:none;overflow:auto;max-height:calc(100vh - 200px)">
       <div style="overflow-x:auto">
         <table id="kanritableTable" style="width:100%;min-width:1500px;border-collapse:collapse;font-size:11px">
           <thead id="kanritableHead" style="position:sticky;top:0;background:var(--surface);z-index:5"></thead>
@@ -1514,18 +1518,34 @@ function subscribeDailyReportsForMonth(yyyyMm) {
   }, err => console.error('dailyReports listener:', err));
 }
 
+// ページ遷移時：月のデフォルト値だけ入れる。データ表示は「決定」ボタン押下時。
 function renderKanritable() {
   const monthEl = document.getElementById('kanritableMonth');
   if (!monthEl.value) {
     const now = new Date();
     monthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   }
+  // 既に決定済みなら表を維持、未決定なら案内を表示
+  if (!_kanritableLoaded) {
+    document.getElementById('kanritableEmpty').style.display = 'block';
+    document.getElementById('kanritableWrap').style.display = 'none';
+  }
+}
+
+// 「決定」ボタン押下時：購読＋描画
+let _kanritableLoaded = false;
+function loadKanritableData() {
+  const monthEl = document.getElementById('kanritableMonth');
+  if (!monthEl || !monthEl.value) { alert('対象月を選択してください'); return; }
+  document.getElementById('kanritableEmpty').style.display = 'none';
+  document.getElementById('kanritableWrap').style.display = 'block';
+  _kanritableLoaded = true;
   subscribeDailyReportsForMonth(monthEl.value);
   renderKanritableTable();
 }
 
-// 列定義: [{key, label, autoCalc, editable, fmt}, ...]
-//   autoCalc: 'app' = APP集計値 / 'computed' = 計算列 / undefined = 手入力
+// 列定義（紙の管理表に対応）
+//   auto:true = 日/曜日 / auto:'app' = APP集計値 / computed:true = 計算 / editable:true = 手入力 / saved:true = 夜の報告で保存された値
 function getKanritableColumns() {
   return [
     { key: 'day',         label: '日',     auto: true,  width: 36 },
@@ -1538,9 +1558,9 @@ function getKanritableColumns() {
     { key: 'targetSalesToday',       label: '目標売上 当日', editable: true, fmt: 'num', width: 100 },
     { key: 'targetSalesCum',         label: '目標売上 累計', computed: true, fmt: 'num', width: 110 },
     { key: 'achieveRate',            label: '達成率',       computed: true, fmt: 'pct', width: 64 },
-    { key: 'purchaseToday',          label: '仕入 当日',     editable: true, fmt: 'num', width: 90 },
-    { key: 'purchaseCum',            label: '仕入 累計',     computed: true, fmt: 'num', width: 110 },
-    { key: 'purchaseRate',           label: '仕入率',       computed: true, fmt: 'pct', width: 64 },
+    { key: 'purchaseToday',          label: '仕入高 当日',     editable: true, fmt: 'num', width: 90 },
+    { key: 'purchaseCum',            label: '仕入高 累計',     computed: true, fmt: 'num', width: 110 },
+    { key: 'purchaseRate',           label: '仕入率',       editable: true, fmt: 'pct', width: 64 },
     { key: 'targetWorkHours',        label: '労働H 目標',   editable: true, fmt: 'num1', width: 80 },
     { key: 'actualWorkHours',        label: '労働H 実績',   editable: true, fmt: 'num1', width: 80 },
     { key: 'targetSalesPerHour',     label: '人時売上 目標', editable: true, fmt: 'num', width: 90 },
@@ -1597,7 +1617,10 @@ function renderKanritableTable() {
     cumPurch += Number(data.purchaseToday || 0);
     const avgCum = cumCustomers > 0 ? Math.round(cumSales / cumCustomers) : 0;
     const achieveRate = (Number(data.targetSalesToday || 0) > 0) ? (salesToday / Number(data.targetSalesToday) * 100) : 0;
-    const purchRate = salesToday > 0 ? (Number(data.purchaseToday || 0) / salesToday * 100) : 0;
+    // 仕入率は夜の報告で保存された値を優先、無ければ自動計算
+    const purchRateSaved = (typeof data.purchaseRate === 'number') ? data.purchaseRate : null;
+    const purchRateComputed = salesToday > 0 ? (Number(data.purchaseToday || 0) / salesToday * 100) : 0;
+    const purchRate = (purchRateSaved !== null) ? purchRateSaved : purchRateComputed;
     const computed = {
       day: d,
       weekday: _wd(dateKey),
@@ -4407,6 +4430,7 @@ window.updateKanritableCell = updateKanritableCell;
 window.saveDailyReportFromDinner = saveDailyReportFromDinner;
 window.exportKanritableCSV = exportKanritableCSV;
 window.exportAnalyticsCSV = exportAnalyticsCSV;
+window.loadKanritableData = loadKanritableData;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
