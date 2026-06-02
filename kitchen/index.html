@@ -3325,7 +3325,8 @@ let eid = 0;
 // 既存アイテムをロード：served/servedIndices/groupId/isMain/isAddon 等の状態を保持
 // （注文変更で未提供商品を削除しても、提供済商品の状態が失われないように）
 window._editItems = tableOrders.flatMap(o => (o.items||[]).map(item => ({
-name: item.name,
+// 表示は必ず日本語に：オーバーライド名 > custom item の日本語名 > Firestore保存値 > canonical
+name: (typeof getOverriddenNameJa === 'function' && item.itemId ? getOverriddenNameJa(item.itemId) : '') || item.name || '',
 price: getItemUnitPrice(item),
 qty: item.qty,
 opts: item.opts || [],
