@@ -498,6 +498,7 @@ window.adminLogout = adminLogout;
       <span style="color:var(--muted);font-size:13px">〜</span>
       <input type="date" id="soupDateTo" class="form-input" style="width:130px">
       <button onclick="renderSoupRanking()" style="padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">検索</button>
+      <button onclick="exportSoupRankingCSV()" style="padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV出力</button>
     </div>
     <style>
       .soup-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:18px;flex-wrap:wrap}
@@ -3200,6 +3201,111 @@ function renderSoupRanking() {
   renderItemCountChart('spicySh', filtered, includeBaseline);
   renderItemCountChart('negitama', filtered, includeBaseline);
   renderItemCountChart('gyoza', filtered, includeBaseline);
+
+  // CSV出力用のスナップショット
+  _lastSoupRanking = { fromStr: fromEl.value, toStr: toEl.value, session, filtered, includeBaseline };
+}
+
+// スープランキングの CSV出力（辛さ別 / 商品別カウント）
+let _lastSoupRanking = null;
+function exportSoupRankingCSV() {
+  if (!_lastSoupRanking) renderSoupRanking();
+  const s = _lastSoupRanking;
+  if (!s) { alert('集計データがありません'); return; }
+  const sessionLabel = s.session === 'all' ? '合算' : (s.session === 'lunch' ? 'ランチ' : '夜営業');
+  let csv = '';
+  // ヘッダ
+  csv += '"期間","' + s.fromStr + ' 〜 ' + s.toStr + '","セッション","' + sessionLabel + '"\n';
+  if (s.includeBaseline) csv += '"※ 2026年5月ベースラインを加算"\n';
+  csv += '\n';
+
+  // 辛さ別カウントを計算するヘルパー
+  const countSpicy = (groupKey) => {
+    const grp = SOUP_GROUPS[groupKey];
+    const ids = grp.ids;
+    const counts = {};
+    for (let i = 0; i <= 10; i++) counts[i] = 0;
+    s.filtered.forEach(o => {
+      (o.items || []).forEach(item => {
+        if (!ids.includes(item.itemId)) return;
+        const lvl = MOTONARI.extractSpicyLevel(item.opts || []);
+        const key = parseInt(String(lvl).replace('辛', ''));
+        if (!isNaN(key)) counts[key] = (counts[key] || 0) + (item.qty || 0);
+      });
+    });
+    if (s.includeBaseline && SOUP_BASELINE[groupKey]) {
+      Object.entries(SOUP_BASELINE[groupKey]).forEach(([lvl, v]) => {
+        counts[parseInt(lvl)] = (counts[parseInt(lvl)] || 0) + v;
+      });
+    }
+    return counts;
+  };
+  // 商品別カウントを計算するヘルパー
+  const countItems = (groupKey) => {
+    const grp = SOUP_GROUPS[groupKey];
+    const ids = grp.ids;
+    const counts = {};
+    ids.forEach(id => counts[id] = 0);
+    s.filtered.forEach(o => {
+      (o.items || []).forEach(item => {
+        if (counts.hasOwnProperty(item.itemId)) counts[item.itemId] += (item.qty || 0);
+      });
+    });
+    if (s.includeBaseline && SOUP_BASELINE.items) {
+      ids.forEach(id => {
+        const v = SOUP_BASELINE.items[id];
+        if (typeof v === 'number') counts[id] = (counts[id] || 0) + v;
+      });
+    }
+    return counts;
+  };
+
+  // ① スパイシーキングシリーズ（辛さ別）
+  csv += '"■ スパイシーキングシリーズ（SK・SKSP・SKC 合算）"\n';
+  csv += '"辛さ","0辛","1辛","2辛","3辛","4辛","5辛","6辛","7辛","8辛","9辛","10辛","合計"\n';
+  const skCounts = countSpicy('sk');
+  const skTotal = Object.values(skCounts).reduce((a,b)=>a+b,0);
+  csv += '"杯数",' + Object.values(skCounts).join(',') + ',' + skTotal + '\n';
+  csv += '\n';
+
+  // ② カレーシリーズ（辛さ別）
+  csv += '"■ カレーシリーズ（カレー・チーズカレー・カレースペシャル 合算）"\n';
+  csv += '"辛さ","0辛","1辛","2辛","3辛","4辛","5辛","6辛","7辛","8辛","9辛","10辛","合計"\n';
+  const curryCounts = countSpicy('curry');
+  const curryTotal = Object.values(curryCounts).reduce((a,b)=>a+b,0);
+  csv += '"杯数",' + Object.values(curryCounts).join(',') + ',' + curryTotal + '\n';
+  csv += '\n';
+
+  // ③ 商品別（イカ墨・醤油・スパイシー醤油・ネギ玉・餃子）
+  const itemGroups = [
+    { key: 'ikasumi',  label: '■ イカスミラーメン' },
+    { key: 'shouyu',   label: '■ 醤油ラーメン' },
+    { key: 'spicySh',  label: '■ スパイシー醤油' },
+    { key: 'negitama', label: '■ ネギ玉シリーズ' },
+    { key: 'gyoza',    label: '■ 餃子定食' }
+  ];
+  itemGroups.forEach(g => {
+    const counts = countItems(g.key);
+    const total = Object.values(counts).reduce((a,b)=>a+b,0);
+    csv += '"' + g.label + '","合計: ' + total + '杯"\n';
+    csv += '"商品ID","商品名","杯数"\n';
+    SOUP_GROUPS[g.key].ids.forEach(id => {
+      const m = MOTONARI.getMenuById(id);
+      const name = m ? m.name.ja : '#' + id;
+      csv += id + ',"' + name.replace(/"/g, '""') + '",' + (counts[id] || 0) + '\n';
+    });
+    csv += '\n';
+  });
+
+  // BOM付きで保存（Excel日本語対応）
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `スープランキング_${s.fromStr}_${s.toStr}_${sessionLabel}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 スープランキング CSV出力完了');
 }
 
 function renderSpicyChart(groupKey, filtered, includeBaseline) {
@@ -4431,6 +4537,7 @@ window.saveDailyReportFromDinner = saveDailyReportFromDinner;
 window.exportKanritableCSV = exportKanritableCSV;
 window.exportAnalyticsCSV = exportAnalyticsCSV;
 window.loadKanritableData = loadKanritableData;
+window.exportSoupRankingCSV = exportSoupRankingCSV;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
