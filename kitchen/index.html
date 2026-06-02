@@ -419,6 +419,13 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div class="detail-table-num" id="detailTableNum">T1</div>
 <div class="detail-visit" id="detailVisit"></div>
 </div>
+<div style="display:flex;gap:10px;padding:6px 16px 10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:8px">
+  <span style="font-size:11px;color:var(--muted);letter-spacing:1px">👥 客数:</span>
+  <span id="detailCustomerCount" style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--accent);font-weight:700">0</span>
+  <span style="font-size:11px;color:var(--muted)">名</span>
+  <span id="detailCustomerCountSource" style="font-size:10px;color:var(--muted);font-style:italic"></span>
+  <button onclick="editCustomerCount()" style="margin-left:auto;padding:5px 12px;border-radius:8px;border:1px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️ 客数変更</button>
+</div>
 <div style="display:flex;gap:6px;padding:0 16px 8px;align-items:center;border-bottom:1px solid var(--border);margin-bottom:8px">
 <span style="font-size:10px;color:var(--muted);letter-spacing:1.5px;font-family:'Oswald',sans-serif;flex-shrink:0">LANG:</span>
 <button class="lang-btn active" data-lang="ja" onclick="setDetailLang('ja')">日本語</button>
@@ -449,14 +456,14 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, enableIndexedDbPersistence, deleteField } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 const firebaseConfig = { apiKey:"AIzaSyAJ7Z0b0ex74nUPsnsiXXJqcxytJlU9wD0", authDomain:"motonari-4f9ee.firebaseapp.com", projectId:"motonari-4f9ee", storageBucket:"motonari-4f9ee.firebasestorage.app", messagingSenderId:"614951238402", appId:"1:614951238402:web:bb5a9d6ace6f4e6900e01b" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 try { await enableIndexedDbPersistence(db); } catch(e) {}
 window.fb = { app, auth, db };
-window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, signInAnonymously, onAuthStateChanged };
+window.fbApi = { collection, doc, query, where, orderBy, onSnapshot, updateDoc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp, Timestamp, signInAnonymously, onAuthStateChanged, deleteField };
 </script>
 
 <script>
@@ -1133,6 +1140,27 @@ async function restorePastTicket(orderIdsCsv, tableLabel) {
 }
 
 // 本日分の売上・客数・単価を集計してボトムバーに表示
+// 客数集計ヘルパー（visit = sessionId + table 単位）。customerCountOverride があれば優先
+function countCustomersFromOrders(orders) {
+  const visits = new Map();
+  (orders || []).forEach(o => {
+    const sid = (o.sessionId || '') + '@' + (o.table || '?') + '|' + (o.id || '');
+    // sessionId が無い場合は order.id をキーにして 1 注文 = 1 visit
+    const key = o.sessionId ? (o.sessionId + '@' + (o.table || '?')) : ('order:' + (o.id || ''));
+    if (!visits.has(key)) visits.set(key, { auto: 0, override: null });
+    const v = visits.get(key);
+    if (typeof o.customerCountOverride === 'number') v.override = o.customerCountOverride;
+    (o.items || []).forEach(item => {
+      const canon = MOTONARI.getMenuById(item.itemId);
+      const cat = canon ? canon.cat : null;
+      if (cat === 'tonkotsu' || cat === 'shouyu' || cat === 'teishoku') v.auto += (item.qty || 0);
+    });
+  });
+  let total = 0;
+  visits.forEach(v => total += (v.override !== null) ? v.override : v.auto);
+  return total;
+}
+
 function updateKitchenStatsBar() {
   const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const todays = paidOrders.filter(o => {
@@ -1143,15 +1171,8 @@ function updateKitchenStatsBar() {
   });
   const salesTax = todays.reduce((s,o) => s + (o.total || 0), 0);
   const salesNoTax = Math.round(salesTax / 1.10);
-  // 客数 = ラーメン杯数 + 定食数
-  let customers = 0;
-  todays.forEach(o => {
-    (o.items||[]).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const cat = canon ? canon.cat : null;
-      if (cat === 'tonkotsu' || cat === 'shouyu' || cat === 'teishoku') customers += (item.qty || 0);
-    });
-  });
+  // 客数 = ラーメン杯数 + 定食数（customerCountOverride があれば優先）
+  const customers = countCustomersFromOrders(todays);
   const avg = customers > 0 ? Math.round(salesNoTax / customers) : 0;
   const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   setText('ksbSales', `¥${salesNoTax.toLocaleString()}`);
@@ -2234,6 +2255,50 @@ async function saveLineItemPrice(orderId, itemIdx) {
   }
 }
 
+// 客数を手動で変更（ラーメンなしの会計、テイクアウト単体などのイレギュラー対応）
+async function editCustomerCount() {
+  if (!selectedTable) { showToast('テーブル未選択', true); return; }
+  const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid' && o.status !== 'cancelled');
+  if (!tableOrders.length) { showToast('注文がありません', true); return; }
+  // 現在のデフォルト（自動）カウント
+  let autoCount = 0;
+  tableOrders.forEach(o => {
+    (o.items || []).forEach(item => {
+      const canon = MOTONARI.getMenuById(item.itemId);
+      const cat = canon ? canon.cat : null;
+      if (cat === 'tonkotsu' || cat === 'shouyu' || cat === 'teishoku') autoCount += (item.qty || 0);
+    });
+  });
+  const overrideOrder = tableOrders.find(o => typeof o.customerCountOverride === 'number');
+  const currentVal = overrideOrder ? overrideOrder.customerCountOverride : autoCount;
+  const msg = `${selectedTable} の客数を入力してください\n\nラーメン+定食 杯数: ${autoCount}名\n現在の客数: ${currentVal}名\n\n空欄にすると自動計算（ラーメン+定食杯数）に戻ります`;
+  const input = prompt(msg, String(currentVal));
+  if (input === null) return; // キャンセル
+  const trimmed = String(input).trim();
+  try {
+    const { doc, updateDoc, deleteField } = window.fbApi;
+    if (trimmed === '') {
+      // 解除：全orderから customerCountOverride を削除
+      if (!confirm('客数の手動設定を解除して、ラーメン+定食杯数の自動計算に戻しますか？')) return;
+      await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db, 'orders', o.id), {
+        customerCountOverride: (typeof deleteField === 'function') ? deleteField() : null
+      })));
+      showToast(`✅ ${selectedTable} 客数を自動計算に戻しました`);
+    } else {
+      const n = parseInt(trimmed, 10);
+      if (isNaN(n) || n < 0) { showToast('0以上の整数を入力してください', true); return; }
+      await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db, 'orders', o.id), {
+        customerCountOverride: n
+      })));
+      showToast(`✅ ${selectedTable} 客数を ${n}名 に設定`);
+    }
+    refreshDetailModal();
+  } catch (e) {
+    console.error('editCustomerCount:', e);
+    showToast('保存失敗: ' + (e.message || ''), true);
+  }
+}
+
 function refreshDetailModal() {
 if (!selectedTable) return;
 applyRegI18n();
@@ -2242,6 +2307,24 @@ if (!t) return;
 document.getElementById('detailTableNum').textContent = selectedTable;
 document.getElementById('detailVisit').textContent = t.visitType === 'first' ? '🌟 初回のお客様' : t.visitType === 'repeat' ? '✅ リピーター' : '';
 const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid' && o.status !== 'cancelled');
+// 客数表示（オーバーライドがあれば優先、無ければラーメン+定食杯数）
+{
+  const overrideOrder = tableOrders.find(o => typeof o.customerCountOverride === 'number');
+  let autoCount = 0;
+  tableOrders.forEach(o => {
+    (o.items || []).forEach(item => {
+      const canon = MOTONARI.getMenuById(item.itemId);
+      const cat = canon ? canon.cat : null;
+      if (cat === 'tonkotsu' || cat === 'shouyu' || cat === 'teishoku') autoCount += (item.qty || 0);
+    });
+  });
+  const displayCount = overrideOrder ? overrideOrder.customerCountOverride : autoCount;
+  const sourceLabel = overrideOrder ? '（手動設定）' : '（ラーメン+定食 杯数）';
+  const elC = document.getElementById('detailCustomerCount');
+  const elS = document.getElementById('detailCustomerCountSource');
+  if (elC) elC.textContent = displayCount;
+  if (elS) elS.textContent = sourceLabel;
+}
 let historyHtml = '';
 tableOrders.forEach(o => {
 const items = Array.isArray(o.items) ? o.items : [];
@@ -3793,6 +3876,7 @@ window.permanentlyDeleteGroup = permanentlyDeleteGroup;
 window.toggleShowDeleted = toggleShowDeleted;
 window.renderHistoryList = renderHistoryList; window.toggleServed = toggleServed;
 window.openTable = openTable; window.filterReg = filterReg;
+window.editCustomerCount = editCustomerCount;
 window.completePayment = completePayment; window.finalizePayment = finalizePayment;
 window.openSquareInputConfirm = openSquareInputConfirm;
 window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
