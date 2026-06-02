@@ -92,6 +92,10 @@ body.dark-bg{background:#111}
 
 .section-title{padding:18px 16px 14px;font-size:22px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#1a1a1a;border-bottom:2px solid #1a1a1a;display:flex;align-items:center;gap:4px;background:linear-gradient(to right,rgba(200,134,10,.08),transparent)}
 .section-title span{color:var(--accent);font-family:'Oswald',sans-serif;font-size:18px;margin-right:2px}
+/* 子カテゴリ見出し：左に長い線、右に名前 */
+.subcat-divider{display:flex;align-items:center;gap:14px;padding:18px 16px 8px 0;margin-top:6px}
+.subcat-divider .subcat-line{flex:1;height:0;border-bottom:1.5px solid #1a1a1a;margin-left:0}
+.subcat-divider .subcat-name{font-size:15px;font-weight:700;color:#1a1a1a;letter-spacing:2px;flex-shrink:0;padding-right:8px;white-space:nowrap}
 
 /* Menu items */
 .menu-item{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;transition:background .15s;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -1670,42 +1674,50 @@ function renderMenu(){
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
       sec.innerHTML+=`<div class="night-notice">${t.nightNote}</div>`;
 
-    // サブカテゴリでグループ化（管理APPで設定した order に従う）
+    // サブカテゴリでグループ化（管理APP「カテゴリ管理」の order に従う）
     const registeredSubs = (_subCategories || []).filter(s => s.cat === cat).sort((a,b) => (a.order||0) - (b.order||0));
-    const groupMap = new Map();
-    const unregisteredGroups = []; // 未登録のサブカテゴリ名
-    let noneGroup = null;          // サブカテゴリ無し
+    // 子カテゴリの表示名を多言語対応で取得
+    const subNameFor = (s, langKey) => {
+      if (!s || !s.name) return '';
+      if (typeof s.name === 'string') return s.name;
+      return s.name[langKey] || s.name.ja || '';
+    };
+    const groupMap = new Map();        // 商品の subCat 文字列(ja) → group
+    const unregisteredGroups = [];
+    let noneGroup = null;
     items.forEach(item => {
       if (!item.subCat) {
-        if (!noneGroup) noneGroup = { name: '', items: [] };
+        if (!noneGroup) noneGroup = { jaKey: '', subDoc: null, items: [] };
         noneGroup.items.push(item);
       } else {
         if (!groupMap.has(item.subCat)) {
-          const g = { name: item.subCat, items: [] };
+          const subDoc = registeredSubs.find(s => subNameFor(s, 'ja') === item.subCat);
+          const g = { jaKey: item.subCat, subDoc, items: [] };
           groupMap.set(item.subCat, g);
-          if (!registeredSubs.some(s => s.name === item.subCat)) {
-            unregisteredGroups.push(g);
-          }
+          if (!subDoc) unregisteredGroups.push(g);
         }
         groupMap.get(item.subCat).items.push(item);
       }
     });
-    // 並び：登録済のサブカテゴリ → 未登録 → サブカテゴリ無し
     const orderedGroups = [];
-    registeredSubs.forEach(s => { if (groupMap.has(s.name)) orderedGroups.push(groupMap.get(s.name)); });
+    registeredSubs.forEach(s => {
+      const ja = subNameFor(s, 'ja');
+      if (groupMap.has(ja)) orderedGroups.push(groupMap.get(ja));
+    });
     unregisteredGroups.forEach(g => orderedGroups.push(g));
-    if (noneGroup) orderedGroups.unshift(noneGroup); // サブカテゴリ無しは先頭
+    if (noneGroup) orderedGroups.unshift(noneGroup);
 
-    const hasNamedSubCat = orderedGroups.some(g => g.name);
+    const hasNamedSubCat = orderedGroups.some(g => g.jaKey);
     if (!hasNamedSubCat) {
       items.forEach(item => sec.appendChild(buildItemEl(item)));
     } else {
       orderedGroups.forEach(g => {
-        if (g.name) {
+        if (g.jaKey) {
           const h = document.createElement('div');
-          h.className = 'subcat-title';
-          h.style.cssText = 'font-size:13px;font-weight:700;color:var(--muted);letter-spacing:1px;margin:14px 12px 6px;padding-bottom:4px;border-bottom:1.5px solid var(--accent)';
-          h.textContent = '▸ ' + g.name;
+          h.className = 'subcat-divider';
+          // 表示言語に応じた名前
+          const displayName = g.subDoc ? (subNameFor(g.subDoc, lang) || g.jaKey) : g.jaKey;
+          h.innerHTML = `<span class="subcat-line"></span><span class="subcat-name">${displayName}</span>`;
           sec.appendChild(h);
         }
         g.items.forEach(item => sec.appendChild(buildItemEl(item)));
