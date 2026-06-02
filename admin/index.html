@@ -1065,18 +1065,38 @@ function renderItemOrderPage() {
     return `<button onclick="switchItemOrderCat('${k}')" style="padding:8px 16px;border-radius:10px;border:2px solid ${active?'var(--accent)':'var(--border)'};background:${active?'var(--accent)':'transparent'};color:${active?'#fff':'#ccc'};font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${label}</button>`;
   }).join('');
 
-  // 現在カテゴリのアイテム一覧（ドラフトがあればそれを優先）
-  const merged = getMergedMenu().filter(m => m.cat === _itemOrderCat);
-  let items;
+  // 現在カテゴリのアイテム一覧
+  //   ★ getMergedMenu の sort には依存せず、_itemOrder.byCategory[cat] を直接の真実とする
+  //   ★ こうすることで「保存内容と表示が食い違う」バグを根本から防ぐ
+  const allItems = getMergedMenu().filter(m => m.cat === _itemOrderCat);
+  const itemByKey = new Map(allItems.map(m => [itemEditKey(m), m]));
+  let items = [];
   if (_itemOrderDraft && _itemOrderDraft.cat === _itemOrderCat) {
-    // ドラフト順に並べる
-    const map = new Map(merged.map(m => [itemEditKey(m), m]));
-    items = _itemOrderDraft.order.map(k => map.get(k)).filter(Boolean);
-    // 新規追加で merged にあるがドラフトに無い分は末尾に
-    merged.forEach(m => { if (!_itemOrderDraft.order.includes(itemEditKey(m))) items.push(m); });
+    // ドラフトがある場合：ドラフト順
+    const used = new Set();
+    _itemOrderDraft.order.forEach(k => {
+      const it = itemByKey.get(k);
+      if (it) { items.push(it); used.add(k); }
+    });
+    allItems.forEach(m => {
+      const k = itemEditKey(m);
+      if (!used.has(k)) items.push(m);
+    });
   } else {
-    items = merged;
+    // 保存済み順序を直接適用
+    const savedOrder = (_itemOrder.byCategory && _itemOrder.byCategory[_itemOrderCat]) || [];
+    const used = new Set();
+    savedOrder.forEach(k => {
+      const it = itemByKey.get(k);
+      if (it) { items.push(it); used.add(k); }
+    });
+    // 保存順に含まれていない新規アイテムは末尾に追加（フォールバック）
+    allItems.forEach(m => {
+      const k = itemEditKey(m);
+      if (!used.has(k)) items.push(m);
+    });
   }
+  _itemOrderLog('   表示アイテム:', items.map(m => itemEditKey(m).split(':').pop() + '/' + (m.name?.ja || '')).slice(0, 25).join(' | '));
 
   // リスト描画
   listEl.innerHTML = items.map((m, i) => {
