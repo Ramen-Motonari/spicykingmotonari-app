@@ -842,12 +842,27 @@ window.adminLogout = adminLogout;
 
   <!-- カテゴリ管理モーダル -->
   <div id="categoryOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:20px">
-    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:520px;max-height:85vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease">
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease">
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
         <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--blue)">🗂 カテゴリ管理</div>
         <button onclick="closeCategoryModal()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer">×</button>
       </div>
       <div style="padding:16px 20px;overflow-y:auto;flex:1" id="categoryBody"></div>
+    </div>
+  </div>
+
+  <!-- 子カテゴリ編集モーダル -->
+  <div id="subCatEditOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:1100;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div id="subCatEditTitle" style="font-family:'Oswald',sans-serif;font-size:18px;color:#2980b9">📁 子カテゴリ編集</div>
+        <button onclick="closeSubCatEdit()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:16px 18px;overflow-y:auto;flex:1" id="subCatEditBody"></div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="closeSubCatEdit()" style="padding:10px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
+        <button id="subCatEditSaveBtn" onclick="saveSubCatEdit()" style="padding:10px 24px;border-radius:10px;border:none;background:#2980b9;color:#fff;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">保存</button>
+      </div>
     </div>
   </div>
 
@@ -1219,6 +1234,21 @@ function startSubCategoriesListener() {
 // 指定カテゴリの子カテゴリ一覧を取得（order 順）
 function getSubCategoriesForCat(catKey) {
   return customSubCategories.filter(s => s.cat === catKey).sort((a,b) => (a.order||0) - (b.order||0));
+}
+
+// 子カテゴリ名を多言語対応で取得（旧形式：string、新形式：{ja,en,zh,ko}）
+function getSubCatName(sub, lang) {
+  if (!sub) return '';
+  if (!sub.name) return '';
+  if (typeof sub.name === 'string') return sub.name;
+  return sub.name[lang] || sub.name.ja || '';
+}
+
+// 商品の subCat 文字列（旧データは ja 文字列、新データも ja で参照）に対する subCategory ドキュメントを検索
+function findSubCatByName(catKey, name) {
+  return customSubCategories.find(s => s.cat === catKey && (
+    (typeof s.name === 'string' ? s.name : (s.name && s.name.ja)) === name
+  ));
 }
 
 // 新: 商品の並び順（appConfig/itemOrder）リスナー
@@ -4554,18 +4584,28 @@ function renderCategoryModal() {
     const delBtn = !c.isCanonical
       ? `<button class="cat-row-btn" style="background:var(--accent2);color:#fff" onclick="confirmDeleteCategory('${c.docId}','${(c.name.ja||c.key).replace(/'/g,"\\'")}')">削除</button>`
       : '';
-    // 子カテゴリの表示
+    // 子カテゴリ：カード形式 + ドラッグハンドル
     const subs = getSubCategoriesForCat(c.key);
-    const subRows = subs.map((s, sIdx) => `
-      <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(41,128,185,0.08);border:1px solid rgba(41,128,185,0.3);border-radius:6px;margin-bottom:3px">
-        <span style="color:#2980b9;font-size:11px;flex-shrink:0">📁</span>
-        <span style="flex:1;font-size:12px;color:#fff">${s.name}</span>
-        <button onclick="moveSubCategory('${s.docId}','${c.key}',-1)" ${sIdx===0?'disabled':''} title="上へ" style="width:24px;height:22px;border-radius:4px;border:1px solid #2980b9;background:transparent;color:#2980b9;font-size:10px;cursor:pointer;${sIdx===0?'opacity:0.3':''}">▲</button>
-        <button onclick="moveSubCategory('${s.docId}','${c.key}',1)" ${sIdx===subs.length-1?'disabled':''} title="下へ" style="width:24px;height:22px;border-radius:4px;border:1px solid #2980b9;background:transparent;color:#2980b9;font-size:10px;cursor:pointer;${sIdx===subs.length-1?'opacity:0.3':''}">▼</button>
-        <button onclick="renameSubCategory('${s.docId}','${(s.name||'').replace(/'/g,"\\'")}')" title="名前変更" style="width:26px;height:22px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;cursor:pointer">✏️</button>
-        <button onclick="deleteSubCategory('${s.docId}','${(s.name||'').replace(/'/g,"\\'")}')" title="削除" style="width:26px;height:22px;border-radius:4px;border:1px solid var(--accent2);background:transparent;color:var(--accent2);font-size:10px;cursor:pointer">🗑</button>
-      </div>
-    `).join('');
+    const subCards = subs.map(s => {
+      const ja = getSubCatName(s, 'ja');
+      const en = getSubCatName(s, 'en');
+      const zh = getSubCatName(s, 'zh');
+      const ko = getSubCatName(s, 'ko');
+      return `<div class="subcat-card" data-doc-id="${s.docId}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(41,128,185,0.08);border:1.5px solid rgba(41,128,185,0.35);border-radius:8px;margin-bottom:4px;cursor:grab">
+        <span class="subcat-drag-handle" style="font-size:18px;color:#2980b9;flex-shrink:0;cursor:grab;user-select:none">⋮⋮</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#fff">📁 ${ja || '(無名)'}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+            ${en ? `<span>EN: ${en}</span>` : ''}
+            ${zh ? `<span>ZH: ${zh}</span>` : ''}
+            ${ko ? `<span>KO: ${ko}</span>` : ''}
+            ${!en && !zh && !ko ? '<span style="color:var(--accent2)">他言語 未設定</span>' : ''}
+          </div>
+        </div>
+        <button onclick="openSubCatEdit('${s.docId}')" title="編集" style="padding:5px 10px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️ 編集</button>
+        <button onclick="deleteSubCategory('${s.docId}','${(ja||'').replace(/'/g,"\\'")}')" title="削除" style="padding:5px 10px;border-radius:6px;border:1.5px solid var(--accent2);background:rgba(192,57,43,0.12);color:var(--accent2);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🗑</button>
+      </div>`;
+    }).join('');
     return `<div class="cat-row" style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
       <div style="display:flex;align-items:center;gap:8px">
         <div class="cat-row-icon" style="font-size:22px;flex-shrink:0">${c.icon || '🏷'}</div>
@@ -4580,13 +4620,13 @@ function renderCategoryModal() {
         </div>
       </div>
       <!-- 子カテゴリ管理 -->
-      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
-        <div style="font-size:10px;font-weight:700;color:#2980b9;letter-spacing:1px;margin-bottom:4px">📁 子カテゴリ（${subs.length}）</div>
-        ${subRows}
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <input type="text" id="newSubCat-${c.key}" placeholder="例: アルコール、ご飯もの" style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;outline:none" onkeydown="if(event.key==='Enter'){event.preventDefault();addSubCategory('${c.key}')}">
-          <button onclick="addSubCategory('${c.key}')" style="padding:6px 14px;border-radius:6px;border:none;background:#2980b9;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">＋ 追加</button>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:11px;font-weight:700;color:#2980b9;letter-spacing:1px">📁 子カテゴリ（${subs.length}）</div>
+          <div style="font-size:10px;color:var(--muted)">${subs.length > 1 ? 'ドラッグで並び替え可能' : ''}</div>
         </div>
+        <div class="subcat-sortable" data-cat-key="${c.key}">${subCards}</div>
+        <button onclick="openSubCatEdit('new','${c.key}')" style="width:100%;padding:8px;border-radius:8px;border:1.5px dashed #2980b9;background:transparent;color:#2980b9;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px">＋ 新規子カテゴリ追加</button>
       </div>
     </div>`;
   }).join('');
@@ -4613,6 +4653,40 @@ function renderCategoryModal() {
     <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">登録済カテゴリ（▲▼で並び替え可能）</div>
     ${orderHtml || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:14px">カテゴリがありません</div>'}
   `;
+  // 子カテゴリの D&D を全カテゴリで初期化
+  if (typeof Sortable !== 'undefined') {
+    document.querySelectorAll('.subcat-sortable').forEach(el => {
+      Sortable.create(el, {
+        animation: 180,
+        handle: '.subcat-drag-handle',
+        ghostClass: 'item-order-ghost',
+        chosenClass: 'item-order-chosen',
+        delay: 100,
+        delayOnTouchOnly: true,
+        forceFallback: true,
+        onEnd: async () => {
+          const catKey = el.dataset.catKey;
+          const docIds = Array.from(el.querySelectorAll('.subcat-card')).map(c => c.dataset.docId);
+          await persistSubCategoryOrder(docIds);
+        }
+      });
+    });
+  }
+}
+
+// ドラッグで並び替え後、Firestore に order を保存
+async function persistSubCategoryOrder(docIds) {
+  try {
+    const { doc, updateDoc, serverTimestamp } = window.fbApi;
+    await Promise.all(docIds.map((id, i) => updateDoc(
+      doc(window.fb.db, 'subCategories', id),
+      { order: (i + 1) * 10, updatedAt: serverTimestamp() }
+    )));
+    showToast('✅ 子カテゴリの並び順を保存');
+  } catch(e) {
+    console.error(e);
+    showToast('並び順保存失敗: ' + (e.message || ''), true);
+  }
 }
 
 // 保存済カテゴリ順を反映した順序付きリストを返す
@@ -4635,6 +4709,138 @@ function getOrderedCategoriesForReorder() {
 }
 
 // カテゴリ順を 1つ上 or 1つ下 に移動して保存
+// ────── 子カテゴリ編集モーダル（多言語対応） ──────
+let _editingSubCat = null;
+function openSubCatEdit(docIdOrNew, catKey) {
+  if (docIdOrNew === 'new') {
+    _editingSubCat = { isNew: true, cat: catKey, name: { ja:'', en:'', zh:'', ko:'' } };
+  } else {
+    const s = customSubCategories.find(x => x.docId === docIdOrNew);
+    if (!s) { showToast('見つかりません', true); return; }
+    // 旧形式（string）から新形式（object）へ変換
+    const nameObj = (typeof s.name === 'string')
+      ? { ja: s.name, en:'', zh:'', ko:'' }
+      : { ja: s.name?.ja || '', en: s.name?.en || '', zh: s.name?.zh || '', ko: s.name?.ko || '' };
+    _editingSubCat = { isNew: false, docId: s.docId, cat: s.cat, name: nameObj, originalNameJa: nameObj.ja };
+  }
+  renderSubCatEditForm();
+  document.getElementById('subCatEditOverlay').style.display = 'flex';
+}
+
+function closeSubCatEdit() {
+  document.getElementById('subCatEditOverlay').style.display = 'none';
+  _editingSubCat = null;
+}
+
+function renderSubCatEditForm() {
+  const it = _editingSubCat;
+  if (!it) return;
+  const cats = getMergedCategories();
+  const catLabel = cats.find(c => c.key === it.cat);
+  const titleEl = document.getElementById('subCatEditTitle');
+  if (titleEl) titleEl.textContent = (it.isNew ? '📁 新規子カテゴリ追加' : '📁 子カテゴリ編集') + (catLabel ? `（${catLabel.name.ja || it.cat}）` : '');
+  document.getElementById('subCatEditBody').innerHTML = `
+    <div style="margin-bottom:14px;padding:10px 12px;background:rgba(41,128,185,0.08);border:1px solid rgba(41,128,185,0.3);border-radius:8px;font-size:12px;color:#9ec5e8">
+      親カテゴリ: <strong>${catLabel ? (catLabel.icon||'') + ' ' + (catLabel.name.ja||it.cat) : it.cat}</strong>
+    </div>
+    <div class="itemedit-row">
+      <label class="itemedit-label">日本語 <span style="color:var(--accent2)">必須</span></label>
+      <input type="text" class="itemedit-input" id="subCatNameJa" value="${it.name.ja || ''}" placeholder="例: アルコール、ご飯もの">
+    </div>
+    <div class="itemedit-row">
+      <label class="itemedit-label">English</label>
+      <input type="text" class="itemedit-input" id="subCatNameEn" value="${it.name.en || ''}" placeholder="例: Alcohol, Rice dishes">
+    </div>
+    <div class="itemedit-row">
+      <label class="itemedit-label">中文</label>
+      <input type="text" class="itemedit-input" id="subCatNameZh" value="${it.name.zh || ''}" placeholder="例: 酒精饮料">
+    </div>
+    <div class="itemedit-row">
+      <label class="itemedit-label">한국어</label>
+      <input type="text" class="itemedit-input" id="subCatNameKo" value="${it.name.ko || ''}" placeholder="例: 주류">
+    </div>
+    <button class="itemedit-translate-btn" onclick="translateSubCatName()" style="width:100%;padding:10px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">🌐 日本語から他言語を自動翻訳</button>
+  `;
+}
+
+async function translateSubCatName() {
+  const ja = (document.getElementById('subCatNameJa').value || '').trim();
+  if (!ja) { showToast('日本語名を入力してください', true); return; }
+  const btn = document.querySelector('.itemedit-translate-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '翻訳中…'; }
+  try {
+    const [en, zh, ko] = await Promise.all([translateText(ja,'en'), translateText(ja,'zh'), translateText(ja,'ko')]);
+    if (en) document.getElementById('subCatNameEn').value = en;
+    if (zh) document.getElementById('subCatNameZh').value = zh;
+    if (ko) document.getElementById('subCatNameKo').value = ko;
+    showToast('🌐 翻訳完了');
+  } catch(e) {
+    console.error(e);
+    showToast('翻訳失敗', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🌐 日本語から他言語を自動翻訳'; }
+  }
+}
+
+async function saveSubCatEdit() {
+  const it = _editingSubCat;
+  if (!it) return;
+  const ja = document.getElementById('subCatNameJa').value.trim();
+  if (!ja) { showToast('日本語名は必須です', true); return; }
+  const en = document.getElementById('subCatNameEn').value.trim();
+  const zh = document.getElementById('subCatNameZh').value.trim();
+  const ko = document.getElementById('subCatNameKo').value.trim();
+  const name = { ja, en: en || ja, zh: zh || ja, ko: ko || ja };
+  const saveBtn = document.getElementById('subCatEditSaveBtn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中…'; }
+  try {
+    const { doc, addDoc, updateDoc, setDoc, collection, serverTimestamp } = window.fbApi;
+    if (it.isNew) {
+      // 重複チェック
+      if (getSubCategoriesForCat(it.cat).some(s => getSubCatName(s, 'ja') === ja)) {
+        showToast('同名の子カテゴリが既に存在します', true);
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
+        return;
+      }
+      const existing = getSubCategoriesForCat(it.cat);
+      const nextOrder = existing.length ? Math.max(...existing.map(s => s.order || 0)) + 10 : 10;
+      await addDoc(collection(window.fb.db, 'subCategories'), {
+        cat: it.cat, name, order: nextOrder, createdAt: serverTimestamp()
+      });
+      showToast('✅ 子カテゴリを追加しました');
+    } else {
+      await setDoc(doc(window.fb.db, 'subCategories', it.docId), {
+        cat: it.cat, name, updatedAt: serverTimestamp()
+      }, { merge: true });
+      // 日本語名が変わった場合、商品の subCat も連動して書き換え（旧名 → 新名）
+      if (it.originalNameJa && it.originalNameJa !== ja) {
+        if (confirm(`日本語名が「${it.originalNameJa}」から「${ja}」に変わりました。\nこれを使用している商品の表示も自動で更新しますか？`)) {
+          const updates = [];
+          customMenuItems.forEach(c => {
+            if (c.subCat === it.originalNameJa) {
+              updates.push(updateDoc(doc(window.fb.db, 'customMenuItems', c.docId), { subCat: ja }));
+            }
+          });
+          Object.entries(menuOverrides || {}).forEach(([id, ov]) => {
+            if (ov && ov.subCatOverride === it.originalNameJa) {
+              updates.push(updateDoc(doc(window.fb.db, 'menuOverrides', id), { subCatOverride: ja }));
+            }
+          });
+          await Promise.all(updates);
+          if (updates.length) showToast(`✅ ${updates.length}件の商品も更新`);
+        }
+      }
+      showToast('✅ 保存しました');
+    }
+    closeSubCatEdit();
+  } catch(e) {
+    console.error(e);
+    showToast('保存失敗: ' + (e.message || ''), true);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
+  }
+}
+
 // ────── 子カテゴリ管理 ──────
 async function addSubCategory(catKey) {
   const inputEl = document.getElementById('newSubCat-' + catKey);
@@ -4715,27 +4921,26 @@ async function renameSubCategory(docId, currentName) {
   }
 }
 
-async function deleteSubCategory(docId, name) {
-  // 使用中の商品数を確認
-  const usingCount = customMenuItems.filter(c => c.subCat === name).length
-    + Object.values(menuOverrides || {}).filter(ov => ov && ov.subCatOverride === name).length;
+async function deleteSubCategory(docId, jaName) {
+  // 使用中の商品数を確認（subCat 文字列は日本語名で保存されている）
+  const usingCount = customMenuItems.filter(c => c.subCat === jaName).length
+    + Object.values(menuOverrides || {}).filter(ov => ov && ov.subCatOverride === jaName).length;
   const msg = usingCount > 0
-    ? `子カテゴリ「${name}」を削除しますか？\n\n${usingCount}件の商品で使用中です（その商品はサブカテゴリなしの状態に戻ります）。`
-    : `子カテゴリ「${name}」を削除しますか？`;
+    ? `子カテゴリ「${jaName}」を削除しますか？\n\n${usingCount}件の商品で使用中です（その商品はサブカテゴリなしの状態に戻ります）。`
+    : `子カテゴリ「${jaName}」を削除しますか？`;
   if (!confirm(msg)) return;
   try {
     const { doc, deleteDoc, updateDoc, deleteField } = window.fbApi;
-    // 該当商品の subCat をクリア
     const updates = [];
     customMenuItems.forEach(c => {
-      if (c.subCat === name) {
+      if (c.subCat === jaName) {
         updates.push(updateDoc(doc(window.fb.db, 'customMenuItems', c.docId), {
           subCat: (typeof deleteField === 'function') ? deleteField() : ''
         }));
       }
     });
     Object.entries(menuOverrides || {}).forEach(([id, ov]) => {
-      if (ov && ov.subCatOverride === name) {
+      if (ov && ov.subCatOverride === jaName) {
         updates.push(updateDoc(doc(window.fb.db, 'menuOverrides', id), {
           subCatOverride: (typeof deleteField === 'function') ? deleteField() : null
         }));
@@ -4743,7 +4948,7 @@ async function deleteSubCategory(docId, name) {
     });
     await Promise.all(updates);
     await deleteDoc(doc(window.fb.db, 'subCategories', docId));
-    showToast(`🗑 子カテゴリを削除しました${updates.length ? `（${updates.length}件の商品も更新）` : ''}`);
+    showToast(`🗑 削除しました${updates.length ? `（${updates.length}件の商品も更新）` : ''}`);
   } catch(e) {
     console.error(e);
     showToast('削除失敗: ' + (e.message || ''), true);
@@ -5311,6 +5516,10 @@ window.addSubCategory = addSubCategory;
 window.moveSubCategory = moveSubCategory;
 window.renameSubCategory = renameSubCategory;
 window.deleteSubCategory = deleteSubCategory;
+window.openSubCatEdit = openSubCatEdit;
+window.closeSubCatEdit = closeSubCatEdit;
+window.saveSubCatEdit = saveSubCatEdit;
+window.translateSubCatName = translateSubCatName;
 window.renderSoupRanking = renderSoupRanking;
 
 // ────── Bootstrap ──────
