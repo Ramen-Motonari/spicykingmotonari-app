@@ -97,8 +97,6 @@ body.dark-bg{background:#111}
 .subcat-divider{display:flex;align-items:center;gap:12px;padding:18px 14px 8px 0;margin-top:6px;min-width:0;overflow:hidden;box-sizing:border-box}
 .subcat-divider .subcat-line{flex:1 1 auto;min-width:20px;height:0;border-bottom:1.5px solid #1a1a1a}
 .subcat-divider .subcat-name{font-size:14px;font-weight:700;color:#1a1a1a;letter-spacing:1px;padding-right:4px;text-align:right;line-height:1.25;flex-shrink:1;min-width:0;overflow-wrap:break-word;word-break:break-word;max-width:75%}
-/* 長い英語サブカテゴリ名はさらに小さく（文字数ベース） */
-.subcat-divider.subcat-long .subcat-name{font-size:11px;letter-spacing:0.3px}
 
 /* Menu items */
 .menu-item{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;transition:background .15s;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -1718,8 +1716,7 @@ function renderMenu(){
         if (g.jaKey) {
           const h = document.createElement('div');
           const displayName = g.subDoc ? (subNameFor(g.subDoc, lang) || g.jaKey) : g.jaKey;
-          // 12文字以上 or 英語が長い場合はフォント縮小クラスを付与
-          h.className = 'subcat-divider' + (displayName.length >= 12 ? ' subcat-long' : '');
+          h.className = 'subcat-divider';
           h.innerHTML = `<span class="subcat-line"></span><span class="subcat-name">${displayName}</span>`;
           sec.appendChild(h);
         }
