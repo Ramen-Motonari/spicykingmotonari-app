@@ -319,8 +319,8 @@ window.adminLogout = adminLogout;
 
   <!-- Dashboard -->
   <div class="page active" id="page-dashboard">
-    <div class="page-title">DASHBOARD</div>
-    <div class="page-sub" id="dashDate"></div>
+    <div class="page-title">当日集計</div>
+    <div id="dashDate" style="font-family:'Noto Sans JP',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:1px;margin:6px 0 16px"></div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <div class="session-tabs" style="margin:0">
         <button class="stab active" onclick="switchDashboardSession(this,'all')">合算</button>
@@ -344,13 +344,32 @@ window.adminLogout = adminLogout;
         <span>📋 日次報告</span>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <div class="report-tab-wrapper">
-            <button class="rtab active" id="rtab-lunch" onclick="switchReportTab('lunch')">ランチ</button>
+            <button class="rtab active" id="rtab-all" onclick="switchReportTab('all')">合算</button>
+            <button class="rtab" id="rtab-lunch" onclick="switchReportTab('lunch')">ランチ</button>
             <button class="rtab" id="rtab-dinner" onclick="switchReportTab('dinner')">夜営業</button>
           </div>
           <button onclick="copyDailyReport()" id="copyReportBtn" style="padding:5px 12px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📋 コピー</button>
         </div>
       </div>
-      <div id="report-lunch-section">
+      <div id="report-all-section">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)" id="all-sales-tax">¥0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="all-sales-notax">¥0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数+定食）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="all-customers">0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="all-avg">¥0</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--surface2);border-radius:10px;padding:12px;border-left:3px solid var(--green)"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">ランチ売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--green)" id="all-lunch-sales">¥0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px;border-left:3px solid var(--purple)"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">夜営業売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--purple)" id="all-dinner-sales">¥0</div></div>
+        </div>
+        <div style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">💴 支払い方法別（一日合算）</div>
+          <div id="all-pay-breakdown"></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント（一日合算）</div>
+        <div id="all-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
+      </div>
+      <div id="report-lunch-section" style="display:none">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)" id="lunch-sales-tax">¥0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="lunch-sales-notax">¥0</div></div>
@@ -382,28 +401,30 @@ window.adminLogout = adminLogout;
             <div class="manual-field"><label>天気</label><select class="weather-select" id="dinner-weather"><option value="晴">☀️ 晴</option><option value="曇">☁️ 曇</option><option value="雨">🌧️ 雨</option><option value="台風">🌀 台風</option></select></div>
           </div>
         </div>
+        <style>
+          .manual-field .auto-input{background:rgba(255,255,255,0.06)!important;cursor:not-allowed;color:var(--accent)!important;font-family:'Oswald',sans-serif!important;font-size:14px!important}
+          .manual-field .auto-label{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-left:4px}
+        </style>
         <div class="manual-input-section">
-          <div class="section-label">📊 前年・目標売上（手入力）</div>
+          <div class="section-label">📊 本年売上</div>
           <div class="manual-input-grid">
-            <div class="manual-field"><label>前年売上 当日</label><input type="number" id="dinner-prevyear-sales" placeholder="例: 47068"></div>
-            <div class="manual-field"><label>目標売上 当日</label><input type="number" id="dinner-target-sales" placeholder="例: 4313"></div>
+            <div class="manual-field"><label>当日 <span class="auto-label">入力</span></label><input type="number" id="dinner-yearly-sales-today" placeholder="例: 92909" oninput="recalcDinnerManuals()"></div>
+            <div class="manual-field"><label>累計 <span class="auto-label">自動計算</span></label><input type="number" id="dinner-yearly-sales-cum" class="auto-input" readonly></div>
           </div>
         </div>
         <div class="manual-input-section">
-          <div class="section-label">📦 仕入れ（手入力）</div>
+          <div class="section-label">📦 仕入れ</div>
           <div class="manual-input-grid">
-            <div class="manual-field"><label>仕入れ当日</label><input type="number" id="dinner-purchase-today" placeholder="例: 25125"></div>
-            <div class="manual-field"><label>仕入れ累計</label><input type="number" id="dinner-purchase-cumulative" placeholder="例: 350159"></div>
-            <div class="manual-field"><label>仕入れ率（%）</label><input type="number" id="dinner-purchase-rate" placeholder="例: 29.7" step="0.1"></div>
+            <div class="manual-field"><label>当日 <span class="auto-label">入力</span></label><input type="number" id="dinner-purchase-today" placeholder="例: 25125" oninput="recalcDinnerManuals()"></div>
+            <div class="manual-field"><label>累計 <span class="auto-label">自動計算</span></label><input type="number" id="dinner-purchase-cumulative" class="auto-input" readonly></div>
+            <div class="manual-field"><label>仕入率（%） <span class="auto-label">自動計算</span></label><input type="text" id="dinner-purchase-rate" class="auto-input" readonly></div>
           </div>
         </div>
         <div class="manual-input-section">
-          <div class="section-label">⏰ 労働（手入力）</div>
+          <div class="section-label">⏰ 労働</div>
           <div class="manual-input-grid">
-            <div class="manual-field"><label>労働時間 目標（h）</label><input type="number" id="dinner-target-work-hours" placeholder="例: 24" step="0.5"></div>
-            <div class="manual-field"><label>労働時間 実績（h）</label><input type="number" id="dinner-work-hours" placeholder="例: 22" step="0.5"></div>
-            <div class="manual-field"><label>人時売上 目標</label><input type="number" id="dinner-target-work-sales" placeholder="例: 1800"></div>
-            <div class="manual-field"><label>人時売上 実績</label><input type="number" id="dinner-work-sales" placeholder="例: 1835"></div>
+            <div class="manual-field"><label>労働時間（h） <span class="auto-label">入力</span></label><input type="number" id="dinner-work-hours" placeholder="例: 22" step="0.5" oninput="recalcDinnerManuals()"></div>
+            <div class="manual-field"><label>人時売上 <span class="auto-label">自動計算</span></label><input type="text" id="dinner-work-sales" class="auto-input" readonly></div>
           </div>
         </div>
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
@@ -775,7 +796,7 @@ let _pendingImageFile = null;
 let currentPeriod = 'day';
 let currentSession = { 'week-chart': 'all', 'analytics-chart': 'all' };
 let currentSoupSession = 'all';
-let currentReportTab = 'lunch';
+let currentReportTab = 'all';
 let currentDashboardSession = 'all';
 let currentVisitsMode = 'week'; // 'week' | 'day' | 'range' | 'month'
 
@@ -848,6 +869,24 @@ function getItemUnitPrice(item) {
 
 // 統一論理カテゴリ判定（ramen / teishoku / drink / side / null）
 //   cat → 名前 の順でフォールバック
+// 客数集計ヘルパー（visit = sessionId+table 単位）。customerCountOverride があれば優先
+function countCustomersFromOrders(orders) {
+  const visits = new Map();
+  (orders || []).forEach(o => {
+    const key = o.sessionId ? (o.sessionId + '@' + (o.table || '?')) : ('order:' + (o.id || ''));
+    if (!visits.has(key)) visits.set(key, { auto: 0, override: null });
+    const v = visits.get(key);
+    if (typeof o.customerCountOverride === 'number') v.override = o.customerCountOverride;
+    (o.items || []).forEach(item => {
+      const logical = getItemLogicalCat(item);
+      if (logical === 'ramen' || logical === 'teishoku') v.auto += (item.qty || 0);
+    });
+  });
+  let total = 0;
+  visits.forEach(v => total += (v.override !== null) ? v.override : v.auto);
+  return total;
+}
+
 function getItemLogicalCat(item) {
   const cat = getItemCat(item);
   if (cat === 'tonkotsu' || cat === 'shouyu') return 'ramen';
@@ -1545,39 +1584,29 @@ function loadKanritableData() {
   renderKanritableTable();
 }
 
-// 列定義（紙の管理表に対応）
-//   auto:true = 日/曜日 / auto:'app' = APP集計値 / computed:true = 計算 / editable:true = 手入力 / saved:true = 夜の報告で保存された値
+// 列定義（簡素化版：当日入力 + 自動計算累計・仕入率・人時売上）
 function getKanritableColumns() {
   return [
-    { key: 'day',         label: '日',     auto: true,  width: 36 },
-    { key: 'weekday',     label: '曜日',   auto: true,  width: 36 },
-    { key: 'weather',     label: '天気',   editable: true, type: 'weather', width: 56 },
-    { key: 'prevYearSalesToday',     label: '前年売上 当日', editable: true, fmt: 'num', width: 100 },
-    { key: 'prevYearSalesCum',       label: '前年売上 累計', computed: true, fmt: 'num', width: 110 },
-    { key: 'salesToday',             label: '本年売上 当日', auto: 'app', fmt: 'num', width: 100 },
-    { key: 'salesCum',               label: '本年売上 累計', auto: 'app', fmt: 'num', width: 110 },
-    { key: 'targetSalesToday',       label: '目標売上 当日', editable: true, fmt: 'num', width: 100 },
-    { key: 'targetSalesCum',         label: '目標売上 累計', computed: true, fmt: 'num', width: 110 },
-    { key: 'achieveRate',            label: '達成率',       computed: true, fmt: 'pct', width: 64 },
-    { key: 'purchaseToday',          label: '仕入高 当日',     editable: true, fmt: 'num', width: 90 },
-    { key: 'purchaseCum',            label: '仕入高 累計',     computed: true, fmt: 'num', width: 110 },
-    { key: 'purchaseRate',           label: '仕入率',       editable: true, fmt: 'pct', width: 64 },
-    { key: 'targetWorkHours',        label: '労働H 目標',   editable: true, fmt: 'num1', width: 80 },
-    { key: 'actualWorkHours',        label: '労働H 実績',   editable: true, fmt: 'num1', width: 80 },
-    { key: 'targetSalesPerHour',     label: '人時売上 目標', editable: true, fmt: 'num', width: 90 },
-    { key: 'actualSalesPerHour',     label: '人時売上 実績', editable: true, fmt: 'num', width: 90 },
-    { key: 'customersToday',         label: '客数 当日',     auto: 'app',   fmt: 'num', width: 70 },
-    { key: 'customersCum',           label: '客数 累計',     auto: 'app',   fmt: 'num', width: 80 },
-    { key: 'avgToday',               label: '客単価 当日',   auto: 'app',   fmt: 'num', width: 80 },
-    { key: 'avgCum',                 label: '客単価 累計',   auto: 'app',   fmt: 'num', width: 80 }
+    { key: 'day',           label: '日',           auto: true,  width: 36 },
+    { key: 'weekday',       label: '曜日',         auto: true,  width: 36 },
+    { key: 'weather',       label: '天気',         editable: true, type: 'weather', width: 56 },
+    { key: 'salesToday',    label: '本年売上 当日', editable: true, fmt: 'num', width: 100 },
+    { key: 'salesCum',      label: '本年売上 累計', computed: true, fmt: 'num', width: 110 },
+    { key: 'purchaseToday', label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90 },
+    { key: 'purchaseCum',   label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110 },
+    { key: 'purchaseRate',  label: '仕入率',       computed: true, fmt: 'pct1', width: 64 },
+    { key: 'workHours',     label: '労働時間',     editable: true, fmt: 'num1', width: 80 },
+    { key: 'salesPerHour',  label: '人時売上',     computed: true, fmt: 'yen', width: 90 }
   ];
 }
 
 function _fmt(v, fmt) {
   if (v == null || v === '' || isNaN(v)) return '';
-  if (fmt === 'num')  return Number(v).toLocaleString();
-  if (fmt === 'num1') return Number(v).toFixed(1);
-  if (fmt === 'pct')  return Number(v).toFixed(1) + '%';
+  if (fmt === 'num')   return Number(v).toLocaleString();
+  if (fmt === 'num1')  return Number(v).toFixed(1);
+  if (fmt === 'pct')   return Number(v).toFixed(1) + '%';
+  if (fmt === 'pct1')  return Number(v).toFixed(1) + '%';
+  if (fmt === 'yen')   return '¥' + Number(v).toLocaleString();
   return String(v);
 }
 function _wd(yyyymmdd) {
@@ -1601,61 +1630,111 @@ function renderKanritableTable() {
     return `<th style="padding:8px 6px;border:1px solid var(--border);background:${bg};font-size:10px;font-weight:700;white-space:nowrap;min-width:${c.width}px">${c.label}</th>`;
   }).join('')}</tr>`;
 
-  // 月内データの累計計算用
-  let cumSales = 0, cumPrev = 0, cumTarget = 0, cumPurch = 0, cumCustomers = 0;
+  // 月内累計用
+  let cumSales = 0, cumPurch = 0;
+  // 週ごとの集計用（7日区切り：1-7, 8-14, 15-21, 22-28, 29-末日）
+  let weekIdx = 0; // 0始まりの週インデックス
+  let wSales = 0, wPurch = 0, wHours = 0;
+  // 月合計
+  let mSales = 0, mPurch = 0, mHours = 0;
+
+  const cellOf = (val, c, dateKey, isSubtotal, color) => {
+    const bg = isSubtotal
+      ? 'rgba(200,134,10,0.18)'
+      : ((c.auto || c.computed) ? 'rgba(255,255,255,0.04)' : 'transparent');
+    const display = _fmt(val, c.fmt);
+    if (isSubtotal) {
+      return `<td style="padding:6px;border:1px solid var(--border);background:${bg};text-align:right;color:var(--accent);font-family:'Oswald',sans-serif;font-weight:700">${display}</td>`;
+    }
+    if (c.editable) {
+      const editAttr = c.type === 'weather'
+        ? `<select onchange="updateKanritableCell('${dateKey}','${c.key}',this.value)" style="background:transparent;border:none;color:var(--text);font-size:11px;width:100%"><option ${val==='晴'?'selected':''}>晴</option><option ${val==='曇'?'selected':''}>曇</option><option ${val==='雨'?'selected':''}>雨</option><option ${val==='台風'?'selected':''}>台風</option></select>`
+        : `<span contenteditable="true" onblur="updateKanritableCell('${dateKey}','${c.key}',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" style="display:block;outline:none;min-height:18px;cursor:text;color:var(--text)">${display}</span>`;
+      return `<td style="padding:5px 6px;border:1px solid var(--border);background:${bg};text-align:right;font-family:'Oswald',sans-serif">${editAttr}</td>`;
+    }
+    return `<td style="padding:5px 6px;border:1px solid var(--border);background:${bg};text-align:right;color:${color||'var(--text)'};font-family:'Oswald',sans-serif">${display}</td>`;
+  };
+
+  // 週小計行を描画するヘルパー
+  const buildWeekSubtotal = (weekNum, sumSales, sumPurch, sumHours) => {
+    const purchRate = sumSales > 0 ? Math.round((sumPurch / sumSales) * 1000) / 10 : 0;
+    const sph = sumHours > 0 ? Math.round(sumSales / sumHours) : 0;
+    const cells = cols.map(c => {
+      let val = '';
+      if (c.key === 'day')          val = `週${weekNum}`;
+      else if (c.key === 'weekday') val = '小計';
+      else if (c.key === 'salesToday')    val = sumSales || '';
+      else if (c.key === 'purchaseToday') val = sumPurch || '';
+      else if (c.key === 'purchaseRate')  val = (sumPurch > 0) ? purchRate : '';
+      else if (c.key === 'workHours')     val = sumHours || '';
+      else if (c.key === 'salesPerHour')  val = sph || '';
+      else val = '';
+      return cellOf(val, c, '', true, '');
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  };
 
   let rows = '';
   for (let d = 1; d <= lastDay; d++) {
-    const dateKey = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const data = _dailyReports[dateKey] || {};
-    // APP 集計値（保存済みのスナップショット）。未保存の日は空欄
+    const dKey = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const data = _dailyReports[dKey] || {};
     const salesToday = Number(data.salesToday || 0);
-    const customersToday = Number(data.customersToday || 0);
+    const purchaseToday = Number(data.purchaseToday || 0);
+    const workHours = Number(data.workHours || 0);
+
     cumSales += salesToday;
-    cumCustomers += customersToday;
-    cumPrev += Number(data.prevYearSalesToday || 0);
-    cumTarget += Number(data.targetSalesToday || 0);
-    cumPurch += Number(data.purchaseToday || 0);
-    const avgCum = cumCustomers > 0 ? Math.round(cumSales / cumCustomers) : 0;
-    const achieveRate = (Number(data.targetSalesToday || 0) > 0) ? (salesToday / Number(data.targetSalesToday) * 100) : 0;
-    // 仕入率は夜の報告で保存された値を優先、無ければ自動計算
-    const purchRateSaved = (typeof data.purchaseRate === 'number') ? data.purchaseRate : null;
-    const purchRateComputed = salesToday > 0 ? (Number(data.purchaseToday || 0) / salesToday * 100) : 0;
-    const purchRate = (purchRateSaved !== null) ? purchRateSaved : purchRateComputed;
+    cumPurch += purchaseToday;
+    wSales += salesToday; wPurch += purchaseToday; wHours += workHours;
+    mSales += salesToday; mPurch += purchaseToday; mHours += workHours;
+
+    const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : 0;
+    const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : 0;
+    const wd = _wd(dKey);
+    const isWeekend = (wd === '土' || wd === '日');
+    const wdColor = isWeekend ? (wd === '日' ? '#e74c3c' : '#3b82f6') : 'var(--text)';
+
     const computed = {
       day: d,
-      weekday: _wd(dateKey),
-      prevYearSalesCum: cumPrev || '',
+      weekday: wd,
       salesCum: cumSales || '',
-      targetSalesCum: cumTarget || '',
-      achieveRate: achieveRate || '',
       purchaseCum: cumPurch || '',
-      purchaseRate: purchRate || '',
-      customersCum: cumCustomers || '',
-      avgCum: avgCum || ''
+      purchaseRate: cumPurch > 0 ? purchRate : '',
+      salesPerHour: salesPerHour || ''
     };
     const cells = cols.map(c => {
-      const bg = (c.auto || c.computed) ? 'rgba(255,255,255,0.04)' : 'transparent';
       let val;
-      if (c.auto === true)        val = computed[c.key];
-      else if (c.auto === 'app')  val = (c.key in computed) ? computed[c.key] : (data[c.key] || '');
-      else if (c.computed)        val = computed[c.key];
-      else                        val = data[c.key] || '';
-      const display = _fmt(val, c.fmt);
-      const isWeekend = (c.key === 'weekday' && (computed.weekday === '土' || computed.weekday === '日'));
-      const color = isWeekend ? (computed.weekday === '日' ? '#e74c3c' : '#3b82f6') : 'var(--text)';
-      // 編集可セルは contenteditable
-      if (c.editable) {
-        const editAttr = c.type === 'weather'
-          ? `<select onchange="updateKanritableCell('${dateKey}','${c.key}',this.value)" style="background:transparent;border:none;color:var(--text);font-size:11px;width:100%"><option ${val==='晴'?'selected':''}>晴</option><option ${val==='曇'?'selected':''}>曇</option><option ${val==='雨'?'selected':''}>雨</option><option ${val==='台風'?'selected':''}>台風</option></select>`
-          : `<span contenteditable="true" onblur="updateKanritableCell('${dateKey}','${c.key}',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" style="display:block;outline:none;min-height:18px;cursor:text;color:var(--text)">${display}</span>`;
-        return `<td style="padding:5px 6px;border:1px solid var(--border);background:${bg};text-align:right;font-family:'Oswald',sans-serif">${editAttr}</td>`;
-      }
-      return `<td style="padding:5px 6px;border:1px solid var(--border);background:${bg};text-align:right;color:${color};font-family:'Oswald',sans-serif">${display}</td>`;
+      if (c.auto === true)      val = computed[c.key];
+      else if (c.computed)      val = computed[c.key];
+      else                      val = data[c.key] || '';
+      return cellOf(val, c, dKey, false, c.key === 'weekday' ? wdColor : 'var(--text)');
     }).join('');
     rows += `<tr>${cells}</tr>`;
+
+    // 週小計を挿入（7,14,21,28日目と月末）
+    if (d % 7 === 0 || d === lastDay) {
+      weekIdx++;
+      rows += buildWeekSubtotal(weekIdx, wSales, wPurch, wHours);
+      wSales = 0; wPurch = 0; wHours = 0;
+    }
   }
-  // 合計行
+  // 月合計行
+  const mPurchRate = mSales > 0 ? Math.round((mPurch / mSales) * 1000) / 10 : 0;
+  const mSph = mHours > 0 ? Math.round(mSales / mHours) : 0;
+  const monthCells = cols.map(c => {
+    let val = '';
+    if (c.key === 'day')          val = '月';
+    else if (c.key === 'weekday') val = '合計';
+    else if (c.key === 'salesToday')    val = mSales || '';
+    else if (c.key === 'purchaseToday') val = mPurch || '';
+    else if (c.key === 'purchaseRate')  val = (mPurch > 0) ? mPurchRate : '';
+    else if (c.key === 'workHours')     val = mHours || '';
+    else if (c.key === 'salesPerHour')  val = mSph || '';
+    else val = '';
+    const display = _fmt(val, c.fmt);
+    return `<td style="padding:8px 6px;border:1px solid var(--border);background:rgba(192,57,43,0.18);text-align:right;color:#fff;font-family:'Oswald',sans-serif;font-weight:900;font-size:13px">${display}</td>`;
+  }).join('');
+  rows += `<tr>${monthCells}</tr>`;
+
   bodyEl.innerHTML = rows;
   const statusEl = document.getElementById('kanritableStatus');
   if (statusEl) statusEl.textContent = `${Object.keys(_dailyReports).length}件の日次データ`;
@@ -1682,6 +1761,52 @@ async function updateKanritableCell(dateKey, field, raw) {
   }
 }
 
+// 夜の日報セクションの自動計算
+//   - 本年売上 当日 が入力されると → 月初〜当日の累計を表示
+//   - 仕入れ 当日 が入力されると → 月初〜当日の累計を表示、仕入率 = 仕入累計÷売上累計×100（小数第1位）
+//   - 労働時間 が入力されると → 人時売上 = 当日売上 ÷ 労働時間（¥0,000 形式）
+function recalcDinnerManuals() {
+  const dateEl = document.getElementById('dinner-save-date');
+  if (dateEl && !dateEl.value) {
+    const now = new Date();
+    dateEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
+  const dateKey = dateEl?.value || '';
+  const [yy, mm, dd] = dateKey.split('-').map(Number);
+
+  const salesToday = parseFloat(document.getElementById('dinner-yearly-sales-today')?.value) || 0;
+  const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || 0;
+  const workHours = parseFloat(document.getElementById('dinner-work-hours')?.value) || 0;
+
+  // 月初〜前日までの累計を _dailyReports から計算（あれば）。今日分は当日入力を加算。
+  let cumSalesPrev = 0;
+  let cumPurchPrev = 0;
+  if (yy && mm && dd && typeof _dailyReports === 'object' && _dailyReports) {
+    for (let d = 1; d < dd; d++) {
+      const k = `${yy}-${String(mm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const data = _dailyReports[k];
+      if (!data) continue;
+      cumSalesPrev += Number(data.salesToday || 0);
+      cumPurchPrev += Number(data.purchaseToday || 0);
+    }
+  }
+  const cumSales = cumSalesPrev + salesToday;
+  const cumPurch = cumPurchPrev + purchaseToday;
+  const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : 0;
+  const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : 0;
+
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('dinner-yearly-sales-cum', cumSales || '');
+  setVal('dinner-purchase-cumulative', cumPurch || '');
+  setVal('dinner-purchase-rate', cumPurch > 0 ? purchRate.toFixed(1) : '');
+  setVal('dinner-work-sales', salesPerHour > 0 ? '¥' + salesPerHour.toLocaleString() : '');
+}
+
+// dailyReports リスナーが更新されたら本日の入力値も再計算
+function _maybeRecalcDinnerOnDataUpdate() {
+  if (document.getElementById('page-dashboard')?.classList.contains('active')) recalcDinnerManuals();
+}
+
 // 夜の日報セクションから当日分を保存
 async function saveDailyReportFromDinner() {
   const { doc, setDoc, serverTimestamp } = window.fbApi;
@@ -1692,29 +1817,14 @@ async function saveDailyReportFromDinner() {
     dateKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     if (dateEl) dateEl.value = dateKey;
   }
-  // APP集計値（当日分）
-  const r = (typeof calcReportFor === 'function') ? calcReportFor('all') : null;
-  const salesToday = r ? r.salesNoTax : 0;
-  const customersToday = r ? r.customers : 0;
-  const avgToday = r ? r.avg : 0;
-  // 手入力
+  // 手入力（簡素化された3項目 + 天気）
   const weather = document.getElementById('dinner-weather')?.value || '';
-  const prevYearSalesToday = parseFloat(document.getElementById('dinner-prevyear-sales')?.value) || null;
-  const targetSalesToday = parseFloat(document.getElementById('dinner-target-sales')?.value) || null;
+  const salesToday = parseFloat(document.getElementById('dinner-yearly-sales-today')?.value) || null;
   const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || null;
-  const purchaseCumulative = parseFloat(document.getElementById('dinner-purchase-cumulative')?.value) || null;
-  const purchaseRate = parseFloat(document.getElementById('dinner-purchase-rate')?.value) || null;
-  const targetWorkHours = parseFloat(document.getElementById('dinner-target-work-hours')?.value) || null;
-  const actualWorkHours = parseFloat(document.getElementById('dinner-work-hours')?.value) || null;
-  const targetSalesPerHour = parseFloat(document.getElementById('dinner-target-work-sales')?.value) || null;
-  const actualSalesPerHour = parseFloat(document.getElementById('dinner-work-sales')?.value) || null;
+  const workHours = parseFloat(document.getElementById('dinner-work-hours')?.value) || null;
   const payload = {
     date: dateKey, weather,
-    prevYearSalesToday, targetSalesToday,
-    salesToday, customersToday, avgToday,
-    purchaseToday, purchaseCumulative, purchaseRate,
-    targetWorkHours, actualWorkHours,
-    targetSalesPerHour, actualSalesPerHour,
+    salesToday, purchaseToday, workHours,
     updatedAt: serverTimestamp()
   };
   const statusEl = document.getElementById('dinner-save-status');
@@ -1737,35 +1847,60 @@ function exportKanritableCSV() {
   const lastDay = new Date(y, m, 0).getDate();
   const cols = getKanritableColumns();
   let csv = cols.map(c => '"' + c.label + '"').join(',') + '\n';
-  let cumSales = 0, cumPrev = 0, cumTarget = 0, cumPurch = 0, cumCustomers = 0;
+  // 月内累計 / 週・月集計
+  let cumSales = 0, cumPurch = 0;
+  let weekIdx = 0;
+  let wSales = 0, wPurch = 0, wHours = 0;
+  let mSales = 0, mPurch = 0, mHours = 0;
+  const buildSubtotal = (label1, label2, sumSales, sumPurch, sumHours) => {
+    const rate = sumSales > 0 ? Math.round((sumPurch / sumSales) * 1000) / 10 : '';
+    const sph = sumHours > 0 ? Math.round(sumSales / sumHours) : '';
+    return cols.map(c => {
+      let v = '';
+      if (c.key === 'day')          v = label1;
+      else if (c.key === 'weekday') v = label2;
+      else if (c.key === 'salesToday')    v = sumSales || '';
+      else if (c.key === 'purchaseToday') v = sumPurch || '';
+      else if (c.key === 'purchaseRate')  v = (sumPurch > 0) ? rate : '';
+      else if (c.key === 'workHours')     v = sumHours || '';
+      else if (c.key === 'salesPerHour')  v = sph || '';
+      return '"' + String(v).replace(/"/g, '""') + '"';
+    }).join(',') + '\n';
+  };
   for (let d = 1; d <= lastDay; d++) {
-    const dateKey = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const data = _dailyReports[dateKey] || {};
+    const dKey = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const data = _dailyReports[dKey] || {};
     const salesToday = Number(data.salesToday || 0);
-    const customersToday = Number(data.customersToday || 0);
-    cumSales += salesToday; cumCustomers += customersToday;
-    cumPrev += Number(data.prevYearSalesToday || 0);
-    cumTarget += Number(data.targetSalesToday || 0);
-    cumPurch += Number(data.purchaseToday || 0);
-    const avgCum = cumCustomers > 0 ? Math.round(cumSales / cumCustomers) : 0;
-    const achieveRate = (Number(data.targetSalesToday || 0) > 0) ? (salesToday / Number(data.targetSalesToday) * 100) : 0;
-    const purchRate = salesToday > 0 ? (Number(data.purchaseToday || 0) / salesToday * 100) : 0;
+    const purchaseToday = Number(data.purchaseToday || 0);
+    const workHours = Number(data.workHours || 0);
+    cumSales += salesToday;
+    cumPurch += purchaseToday;
+    wSales += salesToday; wPurch += purchaseToday; wHours += workHours;
+    mSales += salesToday; mPurch += purchaseToday; mHours += workHours;
+    const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : '';
+    const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : '';
     const computed = {
-      day: d, weekday: _wd(dateKey),
-      prevYearSalesCum: cumPrev, salesCum: cumSales, targetSalesCum: cumTarget,
-      achieveRate, purchaseCum: cumPurch, purchaseRate,
-      customersCum: cumCustomers, avgCum
+      day: d, weekday: _wd(dKey),
+      salesCum: cumSales, purchaseCum: cumPurch,
+      purchaseRate: cumPurch > 0 ? purchRate : '',
+      salesPerHour
     };
     const row = cols.map(c => {
       let v;
       if (c.auto === true) v = computed[c.key];
-      else if (c.auto === 'app') v = (c.key in computed) ? computed[c.key] : (data[c.key] || '');
       else if (c.computed) v = computed[c.key];
       else v = data[c.key] || '';
       return '"' + (v == null ? '' : String(v).replace(/"/g, '""')) + '"';
     }).join(',');
     csv += row + '\n';
+    if (d % 7 === 0 || d === lastDay) {
+      weekIdx++;
+      csv += buildSubtotal(`週${weekIdx}`, '小計', wSales, wPurch, wHours);
+      wSales = 0; wPurch = 0; wHours = 0;
+    }
   }
+  // 月合計行
+  csv += buildSubtotal('月', '合計', mSales, mPurch, mHours);
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -2146,10 +2281,31 @@ function switchSoupSession(btn, session) {
 
 function switchReportTab(tab) {
   currentReportTab = tab;
+  document.getElementById('rtab-all').classList.toggle('active', tab === 'all');
   document.getElementById('rtab-lunch').classList.toggle('active', tab === 'lunch');
   document.getElementById('rtab-dinner').classList.toggle('active', tab === 'dinner');
+  document.getElementById('report-all-section').style.display = tab === 'all' ? 'block' : 'none';
   document.getElementById('report-lunch-section').style.display = tab === 'lunch' ? 'block' : 'none';
   document.getElementById('report-dinner-section').style.display = tab === 'dinner' ? 'block' : 'none';
+  // 合算タブのときは「コピー」をグレーアウト（コピー対象は lunch/dinner のみのため）
+  const copyBtn = document.getElementById('copyReportBtn');
+  if (copyBtn) {
+    if (tab === 'all') {
+      copyBtn.disabled = true;
+      copyBtn.style.opacity = '0.35';
+      copyBtn.style.cursor = 'not-allowed';
+      copyBtn.style.background = 'var(--surface3)';
+      copyBtn.style.color = 'var(--muted)';
+      copyBtn.title = '合算は閲覧専用です。コピーはランチ/夜営業を選択してください';
+    } else {
+      copyBtn.disabled = false;
+      copyBtn.style.opacity = '';
+      copyBtn.style.cursor = 'pointer';
+      copyBtn.style.background = 'var(--green)';
+      copyBtn.style.color = '#fff';
+      copyBtn.title = '';
+    }
+  }
 }
 
 // ────── Dashboard ──────
@@ -2162,7 +2318,13 @@ function switchDashboardSession(btn, session) {
 
 function renderDashboard() {
   const today = todayKey();
-  document.getElementById('dashDate').textContent = `${today} の経営概況`;
+  // 例: "2026年6月02日（火）"
+  const _d = new Date(today + 'T00:00:00');
+  const _wdJa = '日月火水木金土'[_d.getDay()];
+  const _yy = _d.getFullYear();
+  const _mm = _d.getMonth() + 1;
+  const _dd = String(_d.getDate()).padStart(2, '0');
+  document.getElementById('dashDate').textContent = `${_yy}年${_mm}月${_dd}日（${_wdJa}）`;
   const sess = currentDashboardSession || 'all';
   const todayOrders = paidOrders.filter(o => {
     if (getOrderDateKey(o) !== today) return false;
@@ -2174,14 +2336,8 @@ function renderDashboard() {
   const salesTax = todayOrders.reduce((s,o) => s + (o.total||0), 0);
   const salesNoTax = Math.round(salesTax / 1.10);
 
-  // 客数 = ラーメン杯数 + 定食数
-  let customers = 0;
-  todayOrders.forEach(o => {
-    (o.items||[]).forEach(item => {
-      const logical = getItemLogicalCat(item);
-      if (logical === 'ramen' || logical === 'teishoku') customers += (item.qty || 0);
-    });
-  });
+  // 客数 = ラーメン杯数 + 定食数（customerCountOverride があれば優先）
+  const customers = countCustomersFromOrders(todayOrders);
 
   // 客単価（税抜ベース）
   const avg = customers > 0 ? Math.round(salesNoTax / customers) : 0;
@@ -2473,14 +2629,8 @@ function calcReportFor(session) {
   });
   const salesTax = orders.reduce((s,o) => s + (o.total||0), 0);
   const salesNoTax = Math.round(salesTax / 1.10);
-  // 客数 = ラーメン杯数 + 定食数
-  let customers = 0;
-  orders.forEach(o => {
-    (o.items||[]).forEach(item => {
-      const logical = getItemLogicalCat(item);
-      if (logical === 'ramen' || logical === 'teishoku') customers += (item.qty || 0);
-    });
-  });
+  // 客数 = ラーメン杯数 + 定食数（customerCountOverride があれば優先）
+  const customers = countCustomersFromOrders(orders);
   // 客単価は税抜ベースで計算
   const avg = customers > 0 ? Math.round(salesNoTax / customers) : 0;
   // 商品別カウント
@@ -2586,7 +2736,18 @@ function renderPayBreakdownHTML(pb) {
 }
 
 function renderDailyReport() {
+  // 合算
+  const all = calcReportFor('all');
+  document.getElementById('all-sales-tax').textContent = '¥' + all.salesTax.toLocaleString();
+  document.getElementById('all-sales-notax').textContent = '¥' + all.salesNoTax.toLocaleString();
+  document.getElementById('all-customers').textContent = all.customers + '人';
+  document.getElementById('all-avg').textContent = '¥' + all.avg.toLocaleString();
+  document.getElementById('all-pay-breakdown').innerHTML = renderPayBreakdownHTML(all.payBreakdown);
+  document.getElementById('all-menu-count').innerHTML = renderMenuCountHTML(all.counts, DINNER_SECTIONS);
+
   const lunch = calcReportFor('lunch');
+  // ランチ・夜の小計を合算セクションに表示
+  document.getElementById('all-lunch-sales').textContent = '¥' + lunch.salesTax.toLocaleString();
   document.getElementById('lunch-sales-tax').textContent = '¥' + lunch.salesTax.toLocaleString();
   document.getElementById('lunch-sales-notax').textContent = '¥' + lunch.salesNoTax.toLocaleString();
   document.getElementById('lunch-customers').textContent = lunch.customers + '人';
@@ -2595,6 +2756,7 @@ function renderDailyReport() {
   document.getElementById('lunch-menu-count').innerHTML = renderMenuCountHTML(lunch.counts, LUNCH_SECTIONS);
 
   const dinner = calcReportFor('dinner');
+  document.getElementById('all-dinner-sales').textContent = '¥' + dinner.salesTax.toLocaleString();
   document.getElementById('dinner-sales-tax').textContent = '¥' + dinner.salesTax.toLocaleString();
   document.getElementById('dinner-sales-notax').textContent = '¥' + dinner.salesNoTax.toLocaleString();
   document.getElementById('dinner-customers').textContent = dinner.customers + '人';
@@ -2640,13 +2802,7 @@ function calcMonthToDate(session) {
   });
   const salesTax = orders.reduce((s,o) => s + (o.total||0), 0);
   const salesNoTax = Math.round(salesTax / 1.10);
-  let customers = 0;
-  orders.forEach(o => {
-    (o.items||[]).forEach(item => {
-      const logical = getItemLogicalCat(item);
-      if (logical === 'ramen' || logical === 'teishoku') customers += (item.qty || 0);
-    });
-  });
+  const customers = countCustomersFromOrders(orders);
   const visitRate = calcVisitRate(orders);
   const foreignRate = calcForeignRate(orders);
   return { salesNoTax, customers, salesTax, visitRate, foreignRate };
@@ -2951,14 +3107,8 @@ function renderAnalytics() {
   // 売上合計（税抜）
   const totalSalesTax = allFiltered.reduce((s,o) => s + (o.total||0), 0);
   const totalSalesNoTax = Math.round(totalSalesTax / 1.10);
-  // 客数合計（ラーメン杯数 + 定食数）
-  let customers = 0;
-  allFiltered.forEach(o => {
-    (o.items||[]).forEach(item => {
-      const logical = getItemLogicalCat(item);
-      if (logical === 'ramen' || logical === 'teishoku') customers += (item.qty || 0);
-    });
-  });
+  // 客数合計（customerCountOverride があれば優先、無ければラーメン+定食数）
+  const customers = countCustomersFromOrders(allFiltered);
   // 客単価
   const avg = customers > 0 ? Math.round(totalSalesNoTax / customers) : 0;
   // 新規率 / 外国人率
@@ -4538,6 +4688,7 @@ window.exportKanritableCSV = exportKanritableCSV;
 window.exportAnalyticsCSV = exportAnalyticsCSV;
 window.loadKanritableData = loadKanritableData;
 window.exportSoupRankingCSV = exportSoupRankingCSV;
+window.recalcDinnerManuals = recalcDinnerManuals;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
@@ -4594,6 +4745,10 @@ function bootstrap() {
     });
   };
   tryBoot();
+  // 初期タブを「合算」に揃え、コピーボタンの初期グレーアウトを反映
+  if (typeof switchReportTab === 'function') {
+    try { switchReportTab('all'); } catch(_) {}
+  }
 }
 window.addEventListener('load', bootstrap);
 </script>
