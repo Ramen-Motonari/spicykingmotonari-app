@@ -714,31 +714,40 @@ function rebuildMenu() {
       _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
     });
   });
-  // カテゴリ内ソート：appConfig/itemOrder（editKey配列）を優先、なければ旧 _sortOrder
-  const orderMap = (_itemOrder && _itemOrder.byCategory) || {};
-  const editKeyOf = (m) => {
-    // canonical の場合は customMenuItems と被らない検出として canonical id をそのまま使う
-    // (管理APP 側で生成する editKey と一致させるため、custom 判定は _docId 有無で行う)
-    return m._docId ? `custom:${m._docId}` : `canonical:${m.id}`;
-  };
-  // custom item の場合 _docId を持たせる（rebuildMenu で merged.push する際の補完）
-  // ※既に上のループで _customMenuItems.forEach 内で c.docId を保持していないので、ここで補完
+  // カテゴリ内ソート：appConfig/itemOrder（editKey配列）を真実の順序として直接使用
+  //   → ブラウザの Array.sort 実装差や comparator returning 0 の不安定さを完全に排除
+  // custom item に _docId を補完
   _customMenuItems.forEach(c => {
     const found = merged.find(x => x.id === c.id && x.cat === c.cat);
     if (found && !found._docId) found._docId = c.docId;
   });
-  const posOf = (m) => {
-    const arr = orderMap[m.cat] || [];
-    const i = arr.indexOf(editKeyOf(m));
-    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
-  };
-  merged.sort((a, b) => {
-    if (a.cat !== b.cat) return 0;
-    const pa = posOf(a), pb = posOf(b);
-    if (pa !== pb) return pa - pb;
-    return (a._sortOrder || 0) - (b._sortOrder || 0);
+  const orderMap = (_itemOrder && _itemOrder.byCategory) || {};
+  const editKeyOf = (m) => m._docId ? `custom:${m._docId}` : `canonical:${m.id}`;
+  // ① カテゴリごとにグループ化（カテゴリ間の相対順は merged の元の順序を維持）
+  const groups = new Map(); // cat -> items[]
+  const catOrder = [];      // cat の登場順
+  merged.forEach(m => {
+    if (!groups.has(m.cat)) { groups.set(m.cat, []); catOrder.push(m.cat); }
+    groups.get(m.cat).push(m);
   });
-  menu = merged;
+  // ② カテゴリごとに itemOrder で並び替え → 全体を再構築
+  const rebuilt = [];
+  catOrder.forEach(cat => {
+    const items = groups.get(cat) || [];
+    const savedOrder = orderMap[cat] || [];
+    const byKey = new Map(items.map(m => [editKeyOf(m), m]));
+    const used = new Set();
+    // 保存順を優先
+    savedOrder.forEach(k => {
+      const it = byKey.get(k);
+      if (it) { rebuilt.push(it); used.add(k); }
+    });
+    // 保存順に無いアイテムは旧 _sortOrder 昇順で末尾に
+    const leftovers = items.filter(m => !used.has(editKeyOf(m)));
+    leftovers.sort((a, b) => (a._sortOrder || 0) - (b._sortOrder || 0));
+    rebuilt.push(...leftovers);
+  });
+  menu = rebuilt;
 
   // カテゴリラベル更新（カスタムカテゴリのラベルを反映）
   _customCategories.forEach(c => {
