@@ -131,6 +131,45 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .manual-field input:focus,.weather-select:focus{border-color:var(--accent)}
 .form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none}
 @media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
+/* === PDF出力モード（html2pdfレンダー中に適用される白背景スタイル） === */
+body.pdf-export-mode .print-target,
+body.pdf-export-mode .print-target * {
+  background-color: transparent !important;
+  color: #000 !important;
+}
+body.pdf-export-mode .print-target { background: #fff !important; padding: 12px !important; }
+body.pdf-export-mode .print-target .card { background: #fff !important; border: 1px solid #888 !important; box-shadow: none !important; }
+body.pdf-export-mode .print-target table th,
+body.pdf-export-mode .print-target table td { background: #fff !important; color: #000 !important; border-color: #888 !important; }
+body.pdf-export-mode .print-target .soup-total { background: #f5f5f5 !important; border-color: #888 !important; }
+body.pdf-export-mode .print-target .an-kpi-card { border: 1px solid #888 !important; }
+body.pdf-export-mode .print-target .rank-bar-fill { background: #888 !important; }
+body.pdf-export-mode .print-target button,
+body.pdf-export-mode .print-target input[type="date"],
+body.pdf-export-mode .print-target input[type="month"],
+body.pdf-export-mode .print-target select,
+body.pdf-export-mode .print-target .session-tabs,
+body.pdf-export-mode .print-target #kanritableStatus { display: none !important; }
+/* === 印刷専用スタイル === */
+@media print {
+  /* デフォルト：何も印刷しない（ページ単位で制御） */
+  .sidebar, .session-tabs, .nav, .nav-item, button, input[type="date"], input[type="month"], select,
+  .toast, #toast, #adminLoginScreen, .stab,
+  .main > .page:not(.print-target) { display: none !important; }
+  body { background: #fff !important; color: #000 !important; display: block !important; }
+  .main { margin-left: 0 !important; padding: 8px !important; max-width: 100% !important; }
+  .page { display: block !important; padding: 0 !important; }
+  .page-title, .page-sub, h1, h2, h3 { color: #000 !important; }
+  .card { background: #fff !important; border: 1px solid #888 !important; color: #000 !important; box-shadow: none !important; break-inside: avoid; page-break-inside: avoid; }
+  .card-title, .card-title span { color: #000 !important; }
+  table { color: #000 !important; }
+  th, td { color: #000 !important; background: #fff !important; border-color: #888 !important; }
+  /* 印刷時はソープランキングのバッジを白黒に */
+  .soup-total { background: #f5f5f5 !important; border-color: #888 !important; }
+  .soup-total .num { color: #000 !important; }
+  /* 印刷時のページ余白 */
+  @page { size: A4 landscape; margin: 10mm; }
+}
 /* === 新 表示順序ページ（SortableJS） === */
 .item-order-card{transition:background .15s,border-color .15s}
 .item-order-card:hover{border-color:var(--accent)}
@@ -458,7 +497,9 @@ window.adminLogout = adminLogout;
       <span style="color:var(--muted);font-size:13px">〜</span>
       <input type="date" id="analyticsDateTo" class="form-input" style="width:130px">
       <button onclick="renderAnalytics()" style="padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">検索</button>
-      <button onclick="exportAnalyticsCSV()" style="padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV出力</button>
+      <button onclick="exportAnalyticsCSV()" style="padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV</button>
+      <button onclick="exportAnalyticsPDF()" style="padding:8px 16px;border-radius:10px;background:var(--accent2);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📄 PDF</button>
+      <button onclick="printPage('analytics')" style="padding:8px 16px;border-radius:10px;background:#444;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🖨 印刷</button>
     </div>
     <style>
       .an-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px}
@@ -519,7 +560,9 @@ window.adminLogout = adminLogout;
       <span style="color:var(--muted);font-size:13px">〜</span>
       <input type="date" id="soupDateTo" class="form-input" style="width:130px">
       <button onclick="renderSoupRanking()" style="padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">検索</button>
-      <button onclick="exportSoupRankingCSV()" style="padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV出力</button>
+      <button onclick="exportSoupRankingCSV()" style="padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV</button>
+      <button onclick="exportSoupRankingPDF()" style="padding:8px 16px;border-radius:10px;background:var(--accent2);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📄 PDF</button>
+      <button onclick="printPage('soup')" style="padding:8px 16px;border-radius:10px;background:#444;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🖨 印刷</button>
     </div>
     <style>
       .soup-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:18px;flex-wrap:wrap}
@@ -569,7 +612,9 @@ window.adminLogout = adminLogout;
       <select id="kanritableMonthNum" class="form-input" style="width:90px"></select>
       <input type="hidden" id="kanritableMonth">
       <button onclick="loadKanritableData()" style="padding:10px 22px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">決定</button>
-      <button onclick="exportKanritableCSV()" style="padding:10px 18px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV出力</button>
+      <button onclick="exportKanritableCSV()" style="padding:10px 18px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV</button>
+      <button onclick="exportKanritablePDF()" style="padding:10px 18px;border-radius:10px;background:var(--accent2);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📄 PDF</button>
+      <button onclick="printPage('kanritable')" style="padding:10px 18px;border-radius:10px;background:#444;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🖨 印刷</button>
       <span id="kanritableStatus" style="font-size:11px;color:var(--muted)"></span>
     </div>
     <div id="kanritableEmpty" style="padding:60px 20px;text-align:center;color:var(--muted);font-size:13px">
@@ -756,6 +801,8 @@ window.adminLogout = adminLogout;
 
 <!-- SortableJS (drag & drop, supports mouse + touch) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<!-- html2pdf (HTML → PDF, supports Japanese via canvas rendering) -->
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
@@ -4714,6 +4761,81 @@ window.exportAnalyticsCSV = exportAnalyticsCSV;
 window.loadKanritableData = loadKanritableData;
 window.exportSoupRankingCSV = exportSoupRankingCSV;
 window.recalcDinnerManuals = recalcDinnerManuals;
+
+// ────── 印刷 & PDF出力ヘルパー ──────
+// pageKey: 'analytics' | 'soup' | 'kanritable'
+const PRINT_PAGE_MAP = {
+  analytics: 'page-analytics',
+  soup: 'page-soup',
+  kanritable: 'page-kanritable'
+};
+
+function printPage(pageKey) {
+  const id = PRINT_PAGE_MAP[pageKey];
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  // 印刷対象だけ表示
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('print-target'));
+  el.classList.add('print-target');
+  // 印刷
+  setTimeout(() => {
+    window.print();
+    // 後処理
+    setTimeout(() => el.classList.remove('print-target'), 500);
+  }, 100);
+}
+
+// 共通 PDF 出力（html2pdf でページの要素を画像化して PDF 化、日本語フォントも問題なし）
+async function exportElementToPDF(elementId, filename) {
+  const el = document.getElementById(elementId);
+  if (!el) { alert('対象が見つかりません'); return; }
+  if (typeof html2pdf === 'undefined') {
+    alert('PDFライブラリ読み込み失敗。再読み込みしてみてください。');
+    return;
+  }
+  // 印刷モードを一時的に有効にして見た目を白黒に
+  el.classList.add('print-target');
+  document.body.classList.add('pdf-export-mode');
+  try {
+    await html2pdf().set({
+      margin: [8, 8, 8, 8],
+      filename,
+      image: { type: 'jpeg', quality: 0.92 },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    }).from(el).save();
+    showToast('📄 PDF出力完了');
+  } catch (e) {
+    console.error('PDF export error:', e);
+    alert('PDF出力に失敗しました: ' + (e.message || ''));
+  } finally {
+    el.classList.remove('print-target');
+    document.body.classList.remove('pdf-export-mode');
+  }
+}
+
+function exportAnalyticsPDF() {
+  // 期間情報をファイル名に含める
+  const f = document.getElementById('analyticsDateFrom')?.value || '';
+  const t = document.getElementById('analyticsDateTo')?.value || '';
+  exportElementToPDF('page-analytics', `売上分析_${f}_${t}.pdf`);
+}
+function exportSoupRankingPDF() {
+  const f = document.getElementById('soupDateFrom')?.value || '';
+  const t = document.getElementById('soupDateTo')?.value || '';
+  exportElementToPDF('page-soup', `スープランキング_${f}_${t}.pdf`);
+}
+function exportKanritablePDF() {
+  const m = document.getElementById('kanritableMonth')?.value || '';
+  exportElementToPDF('page-kanritable', `管理表_${m}.pdf`);
+}
+
+window.printPage = printPage;
+window.exportAnalyticsPDF = exportAnalyticsPDF;
+window.exportSoupRankingPDF = exportSoupRankingPDF;
+window.exportKanritablePDF = exportKanritablePDF;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
