@@ -912,6 +912,7 @@ let menuFilter = { search: '', cat: 'all' };
 let menuOverrides = {};      // {itemId: {imageUrl, priceOverride, hidden, ...}}
 let customMenuItems = [];    // [{docId, id, cat, name:{ja,en,zh,ko}, price, imageUrl, ...}]
 let customCategories = [];   // [{docId, key, name:{ja,en,zh,ko}, icon, order}]
+let customSubCategories = []; // [{docId, cat, name, order}] — 子カテゴリ管理
 let _categoryOrder = null;   // Firestore appConfig/categoryOrder で管理する全カテゴリの並び順（配列 of keys）
 let _itemOrder = { byCategory: {} };   // Firestore appConfig/itemOrder - カテゴリ内の商品並び順（editKey配列）
 let _itemOrderDraft = null;            // 編集中の表示順序ページのドラフト（保存前）
@@ -1198,6 +1199,28 @@ function startCategoryOrderListener() {
   }, err => console.error('categoryOrder listener:', err));
 }
 
+// 子カテゴリのリスナー（subCategories コレクション）
+function startSubCategoriesListener() {
+  const { collection, onSnapshot } = window.fbApi;
+  onSnapshot(collection(window.fb.db, 'subCategories'), (snap) => {
+    customSubCategories = [];
+    snap.forEach(d => { customSubCategories.push({ docId: d.id, ...d.data() }); });
+    customSubCategories.sort((a,b) => (a.order||0) - (b.order||0));
+    // 関連UIを再描画
+    if (document.getElementById('categoryOverlay').style.display === 'flex') renderCategoryModal();
+    if (document.getElementById('itemEditOverlay')?.style.display === 'flex') {
+      // 編集モーダルが開いていればサブカテゴリのプルダウンも更新
+      const sel = document.getElementById('itemSubCat');
+      if (sel) renderItemEditForm();
+    }
+  }, err => console.error('subCategories listener:', err));
+}
+
+// 指定カテゴリの子カテゴリ一覧を取得（order 順）
+function getSubCategoriesForCat(catKey) {
+  return customSubCategories.filter(s => s.cat === catKey).sort((a,b) => (a.order||0) - (b.order||0));
+}
+
 // 新: 商品の並び順（appConfig/itemOrder）リスナー
 function startItemOrderListener() {
   const { doc, onSnapshot } = window.fbApi;
@@ -1242,6 +1265,7 @@ function getMergedMenu() {
       night: (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : m.night,
       pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : m.pirikara,
       imageUrl: ov.imageUrl || null,
+      subCat: ov.subCatOverride || '',
       _hidden: !!ov.hidden,
       _isCanonical: true,
       _overridePrice: ov.priceOverride,
@@ -1264,6 +1288,7 @@ function getMergedMenu() {
       pirikara: !!c.pirikara,
       custom: c.custom || {},
       imageUrl: c.imageUrl || null,
+      subCat: c.subCat || '',
       _hidden: !!c.hidden,
       _isCustom: true,
       _docId: c.docId,
@@ -3846,6 +3871,7 @@ function renderMenuPage() {
         <div class="menu-card-price">¥${displayPrice.toLocaleString()}${m.lunchFreeBase ? ' <span style="font-size:10px;color:var(--green)">(平日昼無料)</span>' : ''}</div>
         <div class="menu-card-meta">
           <span class="meta-tag tag-cat">${catLabel(m.cat)}</span>
+          ${m.subCat ? `<span class="meta-tag" style="background:rgba(41,128,185,0.2);color:#2980b9;border:1px solid #2980b9">📁 ${m.subCat}</span>` : ''}
           ${m.spicy ? '<span class="meta-tag tag-spicy">🌶 SPICY</span>' : ''}
           ${m.night ? '<span class="meta-tag tag-night">🌙 夜限定</span>' : ''}
           ${m.pirikara ? '<span class="meta-tag" style="background:#7a3a1a;color:#fb923c">ピリ辛</span>' : ''}
@@ -4149,6 +4175,14 @@ function openAddItemModal() {
   document.getElementById('itemEditOverlay').style.display = 'flex';
 }
 
+// 既存サブカテゴリの一覧（重複排除）：オートコンプリート用
+function getExistingSubCats() {
+  const set = new Set();
+  customMenuItems.forEach(c => { if (c.subCat) set.add(c.subCat); });
+  Object.values(menuOverrides || {}).forEach(ov => { if (ov && ov.subCatOverride) set.add(ov.subCatOverride); });
+  return [...set].sort();
+}
+
 function openEditItemModal(editKey) {
   const [type, idOrDoc] = editKey.split(':');
   if (type === 'canonical') {
@@ -4175,6 +4209,7 @@ function openEditItemModal(editKey) {
       night: (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : !!canon.night,
       pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : !!canon.pirikara,
       kitchenName: ov.kitchenName || '',
+      subCat: ov.subCatOverride || '',
       lunchFreeBase: canon.lunchFreeBase
     };
   } else {
@@ -4188,7 +4223,8 @@ function openEditItemModal(editKey) {
       hidden: !!c.hidden,
       custom: c.custom || {},
       spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara,
-      kitchenName: c.kitchenName || ''
+      kitchenName: c.kitchenName || '',
+      subCat: c.subCat || ''
     };
   }
   _pendingImageFile = null;
@@ -4263,6 +4299,19 @@ function renderItemEditForm() {
           ${cats.map(c => `<option value="${c.key}" ${it.cat===c.key?'selected':''}>${c.icon||''} ${c.name.ja||c.key}</option>`).join('')}
         </select>
         ${it.isCanonical ? '<div style="font-size:10px;color:var(--muted);margin-top:4px">※ 基本メニューはカテゴリ変更不可</div>' : ''}
+      </div>
+      <div class="itemedit-row">
+        <label class="itemedit-label">サブカテゴリ <span style="font-size:10px;color:var(--muted);font-weight:400">（任意・オーダー画面でグループ表示）</span></label>
+        <select class="itemedit-select" id="itemSubCat">
+          <option value="">— なし —</option>
+          ${(() => {
+            const subs = getSubCategoriesForCat(it.cat || '');
+            return subs.map(s => `<option value="${s.name}" ${it.subCat===s.name?'selected':''}>${s.name}</option>`).join('');
+          })()}
+          ${it.subCat && !getSubCategoriesForCat(it.cat || '').some(s => s.name === it.subCat)
+            ? `<option value="${it.subCat}" selected>${it.subCat} (未登録)</option>` : ''}
+        </select>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">※ サブカテゴリは「🗂 カテゴリ管理」から作成できます</div>
       </div>
       <div class="itemedit-row">
         <label class="itemedit-label">絵文字（画像なし時に表示）</label>
@@ -4375,6 +4424,7 @@ async function saveItemEdit() {
   const pirikara = document.getElementById('itemPirikara').checked;
   const hidden = document.getElementById('itemHidden').checked;
   const kitchenName = (document.getElementById('kitchenName')?.value || '').trim();
+  const subCat = (document.getElementById('itemSubCat')?.value || '').trim();
 
   const saveBtn = document.getElementById('itemEditSaveBtn');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
@@ -4405,6 +4455,8 @@ async function saveItemEdit() {
       overrideData.pirikaraOverride = (canon && pirikara !== !!canon.pirikara) ? pirikara : null;
       // キッチン伝票表示名（空欄なら null で削除）
       overrideData.kitchenName = kitchenName || null;
+      // サブカテゴリ
+      overrideData.subCatOverride = subCat || null;
       await saveMenuOverride(it.id, overrideData);
     } else {
       // custom: customMenuItems に保存
@@ -4413,6 +4465,7 @@ async function saveItemEdit() {
         name: { ja: nameJa, en: nameEn || nameJa, zh: nameZh || nameJa, ko: nameKo || nameJa },
         price, imageUrl, hidden, spicy, night, pirikara,
         kitchenName: kitchenName || '',
+        subCat: subCat || '',
         custom: it.custom || {}
       };
       // 新規追加（docIdなし）の場合は、同カテゴリの最大sortOrder+10 を初期値に設定
@@ -4501,16 +4554,39 @@ function renderCategoryModal() {
     const delBtn = !c.isCanonical
       ? `<button class="cat-row-btn" style="background:var(--accent2);color:#fff" onclick="confirmDeleteCategory('${c.docId}','${(c.name.ja||c.key).replace(/'/g,"\\'")}')">削除</button>`
       : '';
-    return `<div class="cat-row" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
-      <div class="cat-row-icon" style="font-size:22px;flex-shrink:0">${c.icon || '🏷'}</div>
-      <div class="cat-row-main" style="flex:1;min-width:0">
-        <div class="cat-row-name" style="font-size:14px;font-weight:700;color:#fff">${c.name.ja || c.key}${isCanonicalBadge}</div>
-        <div class="cat-row-sub" style="font-size:10px;color:var(--muted);margin-top:2px">key: ${c.key}</div>
+    // 子カテゴリの表示
+    const subs = getSubCategoriesForCat(c.key);
+    const subRows = subs.map((s, sIdx) => `
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(41,128,185,0.08);border:1px solid rgba(41,128,185,0.3);border-radius:6px;margin-bottom:3px">
+        <span style="color:#2980b9;font-size:11px;flex-shrink:0">📁</span>
+        <span style="flex:1;font-size:12px;color:#fff">${s.name}</span>
+        <button onclick="moveSubCategory('${s.docId}','${c.key}',-1)" ${sIdx===0?'disabled':''} title="上へ" style="width:24px;height:22px;border-radius:4px;border:1px solid #2980b9;background:transparent;color:#2980b9;font-size:10px;cursor:pointer;${sIdx===0?'opacity:0.3':''}">▲</button>
+        <button onclick="moveSubCategory('${s.docId}','${c.key}',1)" ${sIdx===subs.length-1?'disabled':''} title="下へ" style="width:24px;height:22px;border-radius:4px;border:1px solid #2980b9;background:transparent;color:#2980b9;font-size:10px;cursor:pointer;${sIdx===subs.length-1?'opacity:0.3':''}">▼</button>
+        <button onclick="renameSubCategory('${s.docId}','${(s.name||'').replace(/'/g,"\\'")}')" title="名前変更" style="width:26px;height:22px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;cursor:pointer">✏️</button>
+        <button onclick="deleteSubCategory('${s.docId}','${(s.name||'').replace(/'/g,"\\'")}')" title="削除" style="width:26px;height:22px;border-radius:4px;border:1px solid var(--accent2);background:transparent;color:var(--accent2);font-size:10px;cursor:pointer">🗑</button>
       </div>
-      <div style="display:flex;gap:4px;flex-shrink:0">
-        <button onclick="moveCategoryOrder('${c.key}',-1)" ${isFirst?'disabled':''} title="1つ上へ" style="width:34px;height:34px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isFirst?'opacity:0.3;cursor:not-allowed':''}">▲</button>
-        <button onclick="moveCategoryOrder('${c.key}',1)" ${isLast?'disabled':''} title="1つ下へ" style="width:34px;height:34px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isLast?'opacity:0.3;cursor:not-allowed':''}">▼</button>
-        ${delBtn}
+    `).join('');
+    return `<div class="cat-row" style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="cat-row-icon" style="font-size:22px;flex-shrink:0">${c.icon || '🏷'}</div>
+        <div class="cat-row-main" style="flex:1;min-width:0">
+          <div class="cat-row-name" style="font-size:14px;font-weight:700;color:#fff">${c.name.ja || c.key}${isCanonicalBadge}</div>
+          <div class="cat-row-sub" style="font-size:10px;color:var(--muted);margin-top:2px">key: ${c.key}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button onclick="moveCategoryOrder('${c.key}',-1)" ${isFirst?'disabled':''} title="1つ上へ" style="width:34px;height:34px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isFirst?'opacity:0.3;cursor:not-allowed':''}">▲</button>
+          <button onclick="moveCategoryOrder('${c.key}',1)" ${isLast?'disabled':''} title="1つ下へ" style="width:34px;height:34px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;${isLast?'opacity:0.3;cursor:not-allowed':''}">▼</button>
+          ${delBtn}
+        </div>
+      </div>
+      <!-- 子カテゴリ管理 -->
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+        <div style="font-size:10px;font-weight:700;color:#2980b9;letter-spacing:1px;margin-bottom:4px">📁 子カテゴリ（${subs.length}）</div>
+        ${subRows}
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input type="text" id="newSubCat-${c.key}" placeholder="例: アルコール、ご飯もの" style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;outline:none" onkeydown="if(event.key==='Enter'){event.preventDefault();addSubCategory('${c.key}')}">
+          <button onclick="addSubCategory('${c.key}')" style="padding:6px 14px;border-radius:6px;border:none;background:#2980b9;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">＋ 追加</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -4559,6 +4635,121 @@ function getOrderedCategoriesForReorder() {
 }
 
 // カテゴリ順を 1つ上 or 1つ下 に移動して保存
+// ────── 子カテゴリ管理 ──────
+async function addSubCategory(catKey) {
+  const inputEl = document.getElementById('newSubCat-' + catKey);
+  const name = (inputEl?.value || '').trim();
+  if (!name) { showToast('名前を入力してください', true); return; }
+  // 重複チェック
+  if (getSubCategoriesForCat(catKey).some(s => s.name === name)) {
+    showToast('同名の子カテゴリが既に存在します', true);
+    return;
+  }
+  try {
+    const { collection, addDoc, serverTimestamp } = window.fbApi;
+    const existing = getSubCategoriesForCat(catKey);
+    const nextOrder = existing.length ? Math.max(...existing.map(s => s.order || 0)) + 10 : 10;
+    await addDoc(collection(window.fb.db, 'subCategories'), {
+      cat: catKey, name, order: nextOrder, createdAt: serverTimestamp()
+    });
+    if (inputEl) inputEl.value = '';
+    showToast('✅ 子カテゴリを追加しました');
+  } catch(e) {
+    console.error(e);
+    showToast('追加失敗: ' + (e.message || ''), true);
+  }
+}
+
+async function moveSubCategory(docId, catKey, delta) {
+  const list = getSubCategoriesForCat(catKey);
+  const idx = list.findIndex(s => s.docId === docId);
+  if (idx < 0) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  // スワップして order を再付番
+  const reordered = list.slice();
+  [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+  try {
+    const { doc, updateDoc, serverTimestamp } = window.fbApi;
+    await Promise.all(reordered.map((s, i) => updateDoc(
+      doc(window.fb.db, 'subCategories', s.docId),
+      { order: (i + 1) * 10, updatedAt: serverTimestamp() }
+    )));
+  } catch(e) {
+    console.error(e);
+    showToast('並び替え失敗: ' + (e.message || ''), true);
+  }
+}
+
+async function renameSubCategory(docId, currentName) {
+  const newName = prompt('子カテゴリの新しい名前を入力してください', currentName);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed) { showToast('名前を入力してください', true); return; }
+  if (trimmed === currentName) return;
+  try {
+    const { doc, updateDoc, serverTimestamp } = window.fbApi;
+    await updateDoc(doc(window.fb.db, 'subCategories', docId), {
+      name: trimmed, updatedAt: serverTimestamp()
+    });
+    // 既存商品の subCat フィールドも一括で書き換え（孤児防止）
+    if (confirm(`「${currentName}」を使用している商品の表示も「${trimmed}」に書き換えますか？`)) {
+      const updates = [];
+      customMenuItems.forEach(c => {
+        if (c.subCat === currentName) {
+          updates.push(updateDoc(doc(window.fb.db, 'customMenuItems', c.docId), { subCat: trimmed }));
+        }
+      });
+      Object.entries(menuOverrides || {}).forEach(([id, ov]) => {
+        if (ov && ov.subCatOverride === currentName) {
+          updates.push(updateDoc(doc(window.fb.db, 'menuOverrides', id), { subCatOverride: trimmed }));
+        }
+      });
+      await Promise.all(updates);
+      if (updates.length) showToast(`✅ ${updates.length}件の商品も更新`);
+    }
+    showToast('✅ 名前を変更しました');
+  } catch(e) {
+    console.error(e);
+    showToast('変更失敗: ' + (e.message || ''), true);
+  }
+}
+
+async function deleteSubCategory(docId, name) {
+  // 使用中の商品数を確認
+  const usingCount = customMenuItems.filter(c => c.subCat === name).length
+    + Object.values(menuOverrides || {}).filter(ov => ov && ov.subCatOverride === name).length;
+  const msg = usingCount > 0
+    ? `子カテゴリ「${name}」を削除しますか？\n\n${usingCount}件の商品で使用中です（その商品はサブカテゴリなしの状態に戻ります）。`
+    : `子カテゴリ「${name}」を削除しますか？`;
+  if (!confirm(msg)) return;
+  try {
+    const { doc, deleteDoc, updateDoc, deleteField } = window.fbApi;
+    // 該当商品の subCat をクリア
+    const updates = [];
+    customMenuItems.forEach(c => {
+      if (c.subCat === name) {
+        updates.push(updateDoc(doc(window.fb.db, 'customMenuItems', c.docId), {
+          subCat: (typeof deleteField === 'function') ? deleteField() : ''
+        }));
+      }
+    });
+    Object.entries(menuOverrides || {}).forEach(([id, ov]) => {
+      if (ov && ov.subCatOverride === name) {
+        updates.push(updateDoc(doc(window.fb.db, 'menuOverrides', id), {
+          subCatOverride: (typeof deleteField === 'function') ? deleteField() : null
+        }));
+      }
+    });
+    await Promise.all(updates);
+    await deleteDoc(doc(window.fb.db, 'subCategories', docId));
+    showToast(`🗑 子カテゴリを削除しました${updates.length ? `（${updates.length}件の商品も更新）` : ''}`);
+  } catch(e) {
+    console.error(e);
+    showToast('削除失敗: ' + (e.message || ''), true);
+  }
+}
+
 async function moveCategoryOrder(catKey, delta) {
   const ordered = getOrderedCategoriesForReorder();
   const idx = ordered.findIndex(c => c.key === catKey);
@@ -5116,6 +5307,10 @@ window.translateNewCatName = translateNewCatName;
 window.addNewCategory = addNewCategory;
 window.confirmDeleteCategory = confirmDeleteCategory;
 window.moveCategoryOrder = moveCategoryOrder;
+window.addSubCategory = addSubCategory;
+window.moveSubCategory = moveSubCategory;
+window.renameSubCategory = renameSubCategory;
+window.deleteSubCategory = deleteSubCategory;
 window.renderSoupRanking = renderSoupRanking;
 
 // ────── Bootstrap ──────
@@ -5153,6 +5348,7 @@ function bootstrap() {
         startCustomCategoriesListener();
         startCategoryOrderListener();
         startItemOrderListener();
+        startSubCategoriesListener();
       } else {
         signInAnonymously(window.fb.auth).catch(e => {
           console.error('signInAnonymously error:', e);
