@@ -131,44 +131,116 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .manual-field input:focus,.weather-select:focus{border-color:var(--accent)}
 .form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none}
 @media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
-/* === PDF出力モード（html2pdfレンダー中に適用される白背景スタイル） === */
+/* ────── PDF / 印刷 用デザイン（APP表示と分離・A4横向き1枚に最適化、数値大きめ） ────── */
+/* pdf-export-mode は html2pdf レンダー中、print-target は印刷時にも適用 */
 body.pdf-export-mode .print-target,
-body.pdf-export-mode .print-target * {
-  background-color: transparent !important;
-  color: #000 !important;
+body.print-mode .print-target {
+  background:#fff !important; color:#000 !important;
+  font-family:'Noto Sans JP', sans-serif !important;
+  padding:6mm 8mm !important;
 }
-body.pdf-export-mode .print-target { background: #fff !important; padding: 12px !important; }
-body.pdf-export-mode .print-target .card { background: #fff !important; border: 1px solid #888 !important; box-shadow: none !important; }
-body.pdf-export-mode .print-target table th,
-body.pdf-export-mode .print-target table td { background: #fff !important; color: #000 !important; border-color: #888 !important; }
-body.pdf-export-mode .print-target .soup-total { background: #f5f5f5 !important; border-color: #888 !important; }
-body.pdf-export-mode .print-target .an-kpi-card { border: 1px solid #888 !important; }
-body.pdf-export-mode .print-target .rank-bar-fill { background: #888 !important; }
+body.pdf-export-mode .print-target *,
+body.print-mode .print-target * { box-shadow:none !important; }
+/* タイトル */
+body.pdf-export-mode .print-target .page-title,
+body.print-mode .print-target .page-title{ font-size:20pt !important; font-weight:900 !important; color:#000 !important; padding:0 0 2mm !important; margin:0 0 2mm !important; border-bottom:3px solid #000 !important; letter-spacing:1px !important; }
+body.pdf-export-mode .print-target .page-sub,
+body.print-mode .print-target .page-sub{ font-size:10pt !important; color:#555 !important; margin-bottom:4mm !important; }
+/* カード共通 */
+body.pdf-export-mode .print-target .card,
+body.print-mode .print-target .card{ background:#fff !important; border:1.5px solid #000 !important; border-radius:4px !important; color:#000 !important; padding:3mm 4mm !important; margin-bottom:2.5mm !important; break-inside:avoid; page-break-inside:avoid; }
+body.pdf-export-mode .print-target .card-title,
+body.print-mode .print-target .card-title{ font-size:11pt !important; font-weight:900 !important; color:#000 !important; padding-bottom:1.5mm !important; margin-bottom:2mm !important; border-bottom:1px solid #000 !important; }
+body.pdf-export-mode .print-target .card-title *,
+body.print-mode .print-target .card-title *{ color:#000 !important; }
+/* 操作UIは隠す */
 body.pdf-export-mode .print-target button,
 body.pdf-export-mode .print-target input[type="date"],
 body.pdf-export-mode .print-target input[type="month"],
 body.pdf-export-mode .print-target select,
 body.pdf-export-mode .print-target .session-tabs,
-body.pdf-export-mode .print-target #kanritableStatus { display: none !important; }
-/* === 印刷専用スタイル === */
+body.pdf-export-mode .print-target .stab,
+body.pdf-export-mode .print-target #kanritableStatus,
+body.pdf-export-mode .print-target #kanritableEmpty,
+body.pdf-export-mode .print-target #dinner-save-status,
+body.print-mode .print-target button,
+body.print-mode .print-target input[type="date"],
+body.print-mode .print-target input[type="month"],
+body.print-mode .print-target select,
+body.print-mode .print-target .session-tabs,
+body.print-mode .print-target .stab,
+body.print-mode .print-target #kanritableStatus,
+body.print-mode .print-target #kanritableEmpty,
+body.print-mode .print-target #dinner-save-status{ display:none !important; }
+/* 売上分析: KPI カードを大型・横一列5個 */
+body.pdf-export-mode .print-target .an-kpi-grid,
+body.print-mode .print-target .an-kpi-grid{ display:grid !important; grid-template-columns:repeat(5, 1fr) !important; gap:2mm !important; margin-bottom:3mm !important; }
+body.pdf-export-mode .print-target .an-kpi-card,
+body.print-mode .print-target .an-kpi-card{ background:#fff !important; border:1.5px solid #000 !important; padding:3mm !important; }
+body.pdf-export-mode .print-target .an-kpi-label,
+body.print-mode .print-target .an-kpi-label{ font-size:9pt !important; color:#555 !important; margin-bottom:1mm !important; }
+body.pdf-export-mode .print-target .an-kpi-value,
+body.print-mode .print-target .an-kpi-value{ font-size:24pt !important; line-height:1 !important; color:#000 !important; font-weight:900 !important; font-family:'Oswald','Noto Sans JP',sans-serif !important; }
+body.pdf-export-mode .print-target .an-kpi-prev,
+body.print-mode .print-target .an-kpi-prev{ font-size:7pt !important; color:#666 !important; margin-top:1.5mm !important; }
+body.pdf-export-mode .print-target .an-kpi-prev .diff,
+body.print-mode .print-target .an-kpi-prev .diff{ font-size:8pt !important; font-weight:700 !important; }
+/* カテゴリ別売上のバー（黒系に） */
+body.pdf-export-mode .print-target .rank-row,
+body.print-mode .print-target .rank-row{ padding:1.5mm 0 !important; border-bottom:1px solid #999 !important; }
+body.pdf-export-mode .print-target .rank-num,
+body.print-mode .print-target .rank-num{ color:#000 !important; font-size:11pt !important; font-weight:900 !important; background:#000 !important; color:#fff !important; }
+body.pdf-export-mode .print-target .rank-name,
+body.print-mode .print-target .rank-name{ font-size:10pt !important; color:#000 !important; }
+body.pdf-export-mode .print-target .rank-bar-wrap,
+body.print-mode .print-target .rank-bar-wrap{ background:#eee !important; }
+body.pdf-export-mode .print-target .rank-bar-fill,
+body.print-mode .print-target .rank-bar-fill{ background:#444 !important; }
+body.pdf-export-mode .print-target .rank-val,
+body.print-mode .print-target .rank-val{ font-size:13pt !important; color:#000 !important; font-weight:900 !important; }
+/* 全メニューカウント: 4列で省スペース、数値大きめ */
+body.pdf-export-mode .print-target #all-menu-count,
+body.print-mode .print-target #all-menu-count{ grid-template-columns:repeat(4, 1fr) !important; gap:1mm !important; }
+body.pdf-export-mode .print-target #all-menu-count > div,
+body.print-mode .print-target #all-menu-count > div{ background:#fafafa !important; border:1px solid #bbb !important; padding:1mm 2mm !important; font-size:8.5pt !important; opacity:1 !important; }
+body.pdf-export-mode .print-target #all-menu-count > div span:last-child,
+body.print-mode .print-target #all-menu-count > div span:last-child{ font-size:13pt !important; font-weight:900 !important; color:#000 !important; }
+/* スープランキング: 合計バッジ大きく */
+body.pdf-export-mode .print-target .soup-total,
+body.print-mode .print-target .soup-total{ background:#f0f0f0 !important; border:2px solid #000 !important; padding:2mm 5mm !important; min-width:auto !important; }
+body.pdf-export-mode .print-target .soup-total .lbl,
+body.print-mode .print-target .soup-total .lbl{ font-size:7pt !important; color:#555 !important; }
+body.pdf-export-mode .print-target .soup-total .num,
+body.print-mode .print-target .soup-total .num{ font-size:22pt !important; color:#000 !important; font-weight:900 !important; }
+body.pdf-export-mode .print-target .soup-total .unit,
+body.print-mode .print-target .soup-total .unit{ font-size:8pt !important; }
+/* スープ：辛さ別/商品別の行を詰めて数値大きめ */
+body.pdf-export-mode .print-target [id$="-spicy-chart"] div[style*="padding:6px 0"],
+body.pdf-export-mode .print-target [id$="-count-chart"] div[style*="padding:6px 0"],
+body.print-mode .print-target [id$="-spicy-chart"] div[style*="padding:6px 0"],
+body.print-mode .print-target [id$="-count-chart"] div[style*="padding:6px 0"]{ padding:1mm 0 !important; border-bottom:1px solid #ccc !important; font-size:10pt !important; }
+body.pdf-export-mode .print-target [id$="-spicy-chart"] span[style*="font-family:'Oswald'"],
+body.pdf-export-mode .print-target [id$="-count-chart"] span[style*="font-family:'Oswald'"],
+body.print-mode .print-target [id$="-spicy-chart"] span[style*="font-family:'Oswald'"],
+body.print-mode .print-target [id$="-count-chart"] span[style*="font-family:'Oswald'"]{ font-size:13pt !important; color:#000 !important; font-weight:900 !important; }
+/* 管理表：1ページに収める＋数値大きめ */
+body.pdf-export-mode .print-target #kanritableWrap,
+body.print-mode .print-target #kanritableWrap{ display:block !important; max-height:none !important; overflow:visible !important; border:none !important; }
+body.pdf-export-mode .print-target #kanritableTable,
+body.print-mode .print-target #kanritableTable{ width:100% !important; min-width:auto !important; font-size:8pt !important; }
+body.pdf-export-mode .print-target #kanritableTable th,
+body.print-mode .print-target #kanritableTable th{ padding:1.2mm 0.8mm !important; font-size:7.5pt !important; background:#000 !important; color:#fff !important; font-weight:900 !important; }
+body.pdf-export-mode .print-target #kanritableTable td,
+body.print-mode .print-target #kanritableTable td{ padding:0.8mm 1.2mm !important; font-size:9pt !important; line-height:1.1 !important; color:#000 !important; font-weight:700 !important; border:1px solid #999 !important; }
+/* 印刷時に @page で A4 横向き */
 @media print {
-  /* デフォルト：何も印刷しない（ページ単位で制御） */
-  .sidebar, .session-tabs, .nav, .nav-item, button, input[type="date"], input[type="month"], select,
-  .toast, #toast, #adminLoginScreen, .stab,
-  .main > .page:not(.print-target) { display: none !important; }
-  body { background: #fff !important; color: #000 !important; display: block !important; }
-  .main { margin-left: 0 !important; padding: 8px !important; max-width: 100% !important; }
-  .page { display: block !important; padding: 0 !important; }
-  .page-title, .page-sub, h1, h2, h3 { color: #000 !important; }
-  .card { background: #fff !important; border: 1px solid #888 !important; color: #000 !important; box-shadow: none !important; break-inside: avoid; page-break-inside: avoid; }
-  .card-title, .card-title span { color: #000 !important; }
-  table { color: #000 !important; }
-  th, td { color: #000 !important; background: #fff !important; border-color: #888 !important; }
-  /* 印刷時はソープランキングのバッジを白黒に */
-  .soup-total { background: #f5f5f5 !important; border-color: #888 !important; }
-  .soup-total .num { color: #000 !important; }
-  /* 印刷時のページ余白 */
-  @page { size: A4 landscape; margin: 10mm; }
+  body{ background:#fff !important; color:#000 !important; display:block !important; }
+  body > *:not(.main){ display:none !important; }
+  .main{ margin-left:0 !important; padding:0 !important; max-width:100% !important; }
+  .page{ display:block !important; }
+  .main > .page:not(.print-target){ display:none !important; }
+  .sidebar, #toast, #adminLoginScreen{ display:none !important; }
+  @page{ size:A4 landscape; margin:8mm; }
 }
 /* === 新 表示順序ページ（SortableJS） === */
 .item-order-card{transition:background .15s,border-color .15s}
@@ -4774,14 +4846,18 @@ function printPage(pageKey) {
   if (!id) return;
   const el = document.getElementById(id);
   if (!el) return;
-  // 印刷対象だけ表示
+  // 印刷対象だけ表示 + 印刷専用デザインを適用
   document.querySelectorAll('.page').forEach(p => p.classList.remove('print-target'));
   el.classList.add('print-target');
+  document.body.classList.add('print-mode');
   // 印刷
   setTimeout(() => {
     window.print();
     // 後処理
-    setTimeout(() => el.classList.remove('print-target'), 500);
+    setTimeout(() => {
+      el.classList.remove('print-target');
+      document.body.classList.remove('print-mode');
+    }, 500);
   }, 100);
 }
 
