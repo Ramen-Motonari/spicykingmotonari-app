@@ -320,7 +320,7 @@ window.adminLogout = adminLogout;
   <!-- Dashboard -->
   <div class="page active" id="page-dashboard">
     <div class="page-title">当日集計</div>
-    <div id="dashDate" style="font-family:'Noto Sans JP',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:1px;margin:6px 0 16px"></div>
+    <div id="dashDate" style="font-family:'Noto Sans JP',sans-serif;font-size:18px;font-weight:700;color:#fff;letter-spacing:0.5px;margin:4px 0 14px"></div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <div class="session-tabs" style="margin:0">
         <button class="stab active" onclick="switchDashboardSession(this,'all')">合算</button>
@@ -565,7 +565,9 @@ window.adminLogout = adminLogout;
     <div class="page-sub">夜の日報で保存した数値の閲覧・修正・CSV出力</div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
       <label style="font-size:13px;color:var(--muted)">対象月：</label>
-      <input type="month" id="kanritableMonth" class="form-input" style="width:160px">
+      <select id="kanritableYear" class="form-input" style="width:100px"></select>
+      <select id="kanritableMonthNum" class="form-input" style="width:90px"></select>
+      <input type="hidden" id="kanritableMonth">
       <button onclick="loadKanritableData()" style="padding:10px 22px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">決定</button>
       <button onclick="exportKanritableCSV()" style="padding:10px 18px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV出力</button>
       <span id="kanritableStatus" style="font-size:11px;color:var(--muted)"></span>
@@ -1558,12 +1560,27 @@ function subscribeDailyReportsForMonth(yyyyMm) {
   }, err => console.error('dailyReports listener:', err));
 }
 
-// ページ遷移時：月のデフォルト値だけ入れる。データ表示は「決定」ボタン押下時。
+// ページ遷移時：年・月セレクトを初期化。データ表示は「決定」ボタン押下時。
 function renderKanritable() {
-  const monthEl = document.getElementById('kanritableMonth');
-  if (!monthEl.value) {
-    const now = new Date();
-    monthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const yearEl = document.getElementById('kanritableYear');
+  const monthNumEl = document.getElementById('kanritableMonthNum');
+  const hiddenEl = document.getElementById('kanritableMonth');
+  if (yearEl && monthNumEl) {
+    // 初回のみ選択肢を生成
+    if (!yearEl.options.length) {
+      const now = new Date();
+      const thisYear = now.getFullYear();
+      // 当年 + 過去2年 + 来年（必要に応じて広げる）
+      const years = [thisYear + 1, thisYear, thisYear - 1, thisYear - 2];
+      yearEl.innerHTML = years.map(y => `<option value="${y}" ${y===thisYear?'selected':''}>${y}年</option>`).join('');
+      const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+      const curM = now.getMonth() + 1;
+      monthNumEl.innerHTML = months.map((lbl, i) => `<option value="${i+1}" ${(i+1)===curM?'selected':''}>${lbl}</option>`).join('');
+    }
+    // hidden の値を同期
+    const yy = yearEl.value;
+    const mm = String(parseInt(monthNumEl.value, 10)).padStart(2, '0');
+    if (hiddenEl) hiddenEl.value = `${yy}-${mm}`;
   }
   // 既に決定済みなら表を維持、未決定なら案内を表示
   if (!_kanritableLoaded) {
@@ -1575,12 +1592,20 @@ function renderKanritable() {
 // 「決定」ボタン押下時：購読＋描画
 let _kanritableLoaded = false;
 function loadKanritableData() {
-  const monthEl = document.getElementById('kanritableMonth');
-  if (!monthEl || !monthEl.value) { alert('対象月を選択してください'); return; }
+  const yearEl = document.getElementById('kanritableYear');
+  const monthNumEl = document.getElementById('kanritableMonthNum');
+  const hiddenEl = document.getElementById('kanritableMonth');
+  if (!yearEl || !yearEl.value || !monthNumEl || !monthNumEl.value) {
+    alert('対象月を選択してください'); return;
+  }
+  // hidden に "YYYY-MM" 形式で保存（既存ロジックがこの形式を参照しているため）
+  const yy = yearEl.value;
+  const mm = String(parseInt(monthNumEl.value, 10)).padStart(2, '0');
+  if (hiddenEl) hiddenEl.value = `${yy}-${mm}`;
   document.getElementById('kanritableEmpty').style.display = 'none';
   document.getElementById('kanritableWrap').style.display = 'block';
   _kanritableLoaded = true;
-  subscribeDailyReportsForMonth(monthEl.value);
+  subscribeDailyReportsForMonth(`${yy}-${mm}`);
   renderKanritableTable();
 }
 
@@ -3325,8 +3350,8 @@ function renderSoupRanking() {
   const toEl = document.getElementById('soupDateTo');
   if (!fromEl.value || !toEl.value) {
     const today = new Date();
-    const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 6);
-    fromEl.value = dateKey(weekAgo);
+    // デフォルト: その月の1日〜当日
+    fromEl.value = dateKey(new Date(today.getFullYear(), today.getMonth(), 1));
     toEl.value = dateKey(today);
   }
   const fromD = new Date(fromEl.value + 'T00:00:00');
