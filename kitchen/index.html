@@ -2812,10 +2812,13 @@ else if (selectedTable) { total = tables[selectedTable].total; tableDisp = selec
 const overlay = document.createElement('div');
 overlay.id = 'payMethodOverlay';
 overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:600;display:flex;align-items:center;justify-content:center;padding:24px;';
-overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:360px;padding:28px 24px;text-align:center">
-<div style="font-size:13px;color:var(--muted);margin-bottom:4px">${tableDisp}</div>
-<div style="font-family:'Oswald',sans-serif;font-size:40px;color:var(--accent2);font-weight:900;margin-bottom:6px">¥${total.toLocaleString()}</div>
-<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:18px">お支払い方法を選択</div>
+overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:360px;padding:24px 20px;text-align:center">
+<div style="font-size:13px;color:var(--muted);margin-bottom:10px">${tableDisp}</div>
+<div style="background:#fff;border-radius:16px;padding:20px 24px;margin-bottom:18px;display:flex;flex-direction:column;align-items:center;gap:6px">
+  <div style="font-size:13px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase">合計金額（税込）</div>
+  <div style="font-family:'Oswald',sans-serif;font-size:48px;color:#e74c3c;line-height:1;font-weight:700;letter-spacing:2px">¥${total.toLocaleString()}</div>
+</div>
+<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:14px">お支払い方法を選択</div>
 <div style="display:flex;flex-direction:column;gap:12px">
 <button onclick="openCashCalculator('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCash">現金</span></button>
 <button onclick="openSquareInputConfirm('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCard">クレジットカード</span></button>
@@ -2853,23 +2856,27 @@ function openCashCalculator(type, total, mergeFlag, opts) {
     <div style="background:var(--surface);border-radius:20px;width:100%;max-width:420px;padding:22px 20px;display:flex;flex-direction:column;gap:12px;max-height:96vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
       <div style="text-align:center;font-size:13px;color:var(--muted);letter-spacing:1px">${_cashCalcState.title}</div>
 
-      <!-- 合計金額：大きく赤で中央表示 -->
-      <div style="background:#0a0a0a;border:2px solid var(--accent2);border-radius:14px;padding:14px 18px;text-align:center">
-        <div style="font-size:12px;color:var(--muted);letter-spacing:2px;margin-bottom:4px">合計金額</div>
-        <div style="font-family:'Oswald',sans-serif;font-size:44px;color:var(--accent2);font-weight:900;line-height:1;letter-spacing:1px">¥${_cashCalcState.total.toLocaleString()}</div>
+      <!-- 合計金額：白カードで中央表示 -->
+      <div style="background:#fff;border-radius:16px;padding:18px 22px;display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase">合計金額（税込）</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:46px;color:#e74c3c;line-height:1;font-weight:700;letter-spacing:2px">¥${_cashCalcState.total.toLocaleString()}</div>
       </div>
 
-      <!-- お預かり / お釣り：横並び（50%幅） -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:#0a0a0a;border:1.5px solid var(--green);border-radius:12px;padding:10px 12px;text-align:center">
-          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">お預かり</div>
-          <div id="cashReceivedDisp" style="font-family:'Oswald',sans-serif;font-size:22px;color:#fff;font-weight:900;line-height:1.1">¥0</div>
+      <!-- お預かり金額 -->
+      <div style="background:#0a0a0a;border:1.5px solid var(--green);border-radius:14px;padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--muted)">お預かり金額</span>
+          <span id="cashReceivedDisp" style="font-family:'Oswald',sans-serif;font-size:32px;color:#fff;font-weight:900">¥0</span>
         </div>
-        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:10px 12px;text-align:center">
-          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">お釣り</div>
-          <div id="cashChangeDisp" style="font-family:'Oswald',sans-serif;font-size:22px;color:#eab308;font-weight:900;line-height:1.1">¥0</div>
-          <div id="cashChangeBreakdown" style="font-size:9px;color:#9a8366;margin-top:2px;font-family:'Oswald',sans-serif;letter-spacing:0.3px;line-height:1.2"></div>
+      </div>
+
+      <!-- お釣り -->
+      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--muted)">お釣り</span>
+          <span id="cashChangeDisp" style="font-family:'Oswald',sans-serif;font-size:32px;color:#eab308;font-weight:900">¥0</span>
         </div>
+        <div id="cashChangeBreakdown" style="font-size:11px;color:#9a8366;margin-top:6px;text-align:right;font-family:'Oswald',sans-serif;letter-spacing:0.5px"></div>
       </div>
 
       <!-- クイック金額 -->
@@ -3012,10 +3019,13 @@ function openSquareInputConfirm(type, total, mergeFlag, opts) {
   const overlay = document.createElement('div');
   overlay.id = 'squareInputOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:700;display:flex;align-items:center;justify-content:center;padding:24px;';
-  overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:380px;padding:32px 24px;text-align:center">
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:380px;padding:24px 20px;text-align:center">
     ${titleHtml}
-    <div style="font-family:'Oswald',sans-serif;font-size:54px;color:var(--accent2);font-weight:900;margin-bottom:14px;letter-spacing:1px">¥${Number(total).toLocaleString()}</div>
-    <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:24px;line-height:1.5">合計金額をスクエアに入力</div>
+    <div style="background:#fff;border-radius:16px;padding:20px 24px;margin-bottom:18px;display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="font-size:13px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase">合計金額（税込）</div>
+      <div style="font-family:'Oswald',sans-serif;font-size:48px;color:#e74c3c;line-height:1;font-weight:700;letter-spacing:2px">¥${Number(total).toLocaleString()}</div>
+    </div>
+    <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:20px;line-height:1.5">合計金額をスクエアに入力</div>
     <button id="squareInputDoneBtn" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">完了</button>
     <button id="squareInputCancelBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:10px">キャンセル</button>
   </div>`;
