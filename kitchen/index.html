@@ -557,6 +557,17 @@ function getOverriddenNameJa(itemId) {
   return (c && c.name && c.name.ja) || '';
 }
 // 言語別の名前を取得（オーバーライド優先）
+// itemId から最新価格を解決（priceOverride > canonical > custom）
+function getKitchenItemPrice(itemId) {
+  const ov = _kitchenMenuOverrides[String(itemId)] || {};
+  if (typeof ov.priceOverride === 'number') return ov.priceOverride;
+  const canon = MOTONARI.getMenuById(itemId);
+  if (canon && typeof canon.price === 'number') return canon.price;
+  const c = _kitchenCustomMenuItems.find(x => x.id === itemId);
+  if (c && typeof c.price === 'number') return c.price;
+  return 0;
+}
+
 function getOverriddenName(itemId, lang) {
   const ov = _kitchenMenuOverrides[String(itemId)] || {};
   if (ov.nameOverride && ov.nameOverride[lang]) return ov.nameOverride[lang];
@@ -575,10 +586,8 @@ function lookupMenuItem(itemId) {
   return _kitchenCustomMenuItems.find(c => c.id === itemId) || null;
 }
 function lookupMenuPrice(itemId) {
-  const canon = MOTONARI.getMenuById(itemId);
-  if (canon) return MOTONARI.getPrice(itemId) || 0;
-  const custom = _kitchenCustomMenuItems.find(c => c.id === itemId);
-  return (custom && custom.price) || 0;
+  // priceOverride > canonical > custom の優先順
+  return getKitchenItemPrice(itemId);
 }
 // アイテムの単価を取得する正規ヘルパー
 //   item.price が「設定済み（typeof number）」ならそれを優先（0=無料も尊重）
@@ -1557,7 +1566,14 @@ function renderTableTicket(tt) {
     const isNewOrder = orderIdx > 0 && hasUnserved && isWithinTTL;
     const groups = buildItemGroups(items);
     groups.forEach(grp => {
-      entries.push({ grp, order, isNewOrder, _idx: entries.length });
+      // 編集で追加されたアイテムを含むグループは「追加注文」扱い（_addedByEdit && 60秒以内）
+      const hasEditedAddition = (grp.items || []).some(it => {
+        if (!it._addedByEdit) return false;
+        const ep = Number(it._editEpoch || 0);
+        return ep > 0 && (nowMs - ep) < NEW_BADGE_TTL_MS;
+      });
+      const finalIsNew = isNewOrder || hasEditedAddition;
+      entries.push({ grp, order, isNewOrder: finalIsNew, _idx: entries.length });
     });
   });
 
@@ -1659,7 +1675,10 @@ function shouldExtractAddon(item) {
 
 function buildItemGroups(items) {
   const groups = new Map();
-  items.forEach((item, idx) => {
+  (items || []).forEach((item, idx) => {
+    // 編集により完了扱いとなったアイテム（_doneByEdit）は伝票描画から除外
+    //   ※ idx は items の元インデックスのまま保つ（toggleGroupServed の整合性のため）
+    if (item._doneByEdit) return;
     // 替え玉/サイド/ドリンクは groupId に関わらず独立カードとして分離
     if (shouldExtractAddon(item)) {
       const sid = `_split_${idx}`;
@@ -1950,6 +1969,22 @@ function renderRamenGroupCard(orderId, grp) {
   const mainName = getAbbrevJa(main);
   const mainNameJa = (MOTONARI.getMenuById(main.itemId)?.name?.ja) || main.name || '';
 
+  // 編集で削除されたラーメン：大きな✕とグレーアウトで表示
+  if (main._deletedByEdit) {
+    return `<div class="ramen-group-card deleted-by-edit" style="opacity:0.45;position:relative;background:rgba(192,57,43,0.1);border:1.5px dashed var(--accent2)">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:1">
+        <span style="font-size:80px;color:var(--accent2);font-weight:900;text-shadow:0 0 12px rgba(0,0,0,0.7);line-height:1">✕</span>
+      </div>
+      <div class="rg-check"></div>
+      <div class="rg-content">
+        <div class="rg-sec rg-sec-header">
+          <span class="rg-main-name" style="text-decoration:line-through">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
+          <span style="background:var(--accent2);color:#fff;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:900;letter-spacing:1px">取消</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
   // 辛さデフォルト：SK系・カレー系で辛さ指定なしなら 0辛 を補完
   let opts = Array.isArray(main.opts) ? main.opts.slice() : [];
   const hasSpicyMenu = mainNameJa.includes('SK') || mainNameJa.includes('カレー');
@@ -2050,6 +2085,21 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
       : `<div class="tc-qty tc-qty-added">追加</div>`;
   } else if (qty > 1) {
     qtyHtml = `<div class="tc-qty tc-qty-multi">✖️${qty}</div>`;
+  }
+  // 編集で削除されたアイテム：大きな✕とグレーアウトで表示
+  const isDeleted = !!main._deletedByEdit;
+  if (isDeleted) {
+    return `<div class="ticket-compact-card deleted-by-edit" style="opacity:0.45;position:relative;background:rgba(192,57,43,0.1);border:1.5px dashed var(--accent2)">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+        <span style="font-size:56px;color:var(--accent2);font-weight:900;text-shadow:0 0 8px rgba(0,0,0,0.6);line-height:1">✕</span>
+      </div>
+      <div class="tc-check"></div>
+      <div class="tc-info">
+        <div class="tc-name" style="text-decoration:line-through">${getAbbrevJa(main)}</div>
+        ${optsHtml || subAddons ? `<div class="tc-opts" style="text-decoration:line-through">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
+      </div>
+      <div class="tc-qty" style="background:var(--accent2);color:#fff;font-weight:900">取消</div>
+    </div>`;
   }
   return `<div class="ticket-compact-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="tc-check"></div>
@@ -3387,6 +3437,8 @@ lunchFree: !!item.lunchFree,
 kaedamaPrepaid: !!item.kaedamaPrepaid,
 kaedamaRequestedQty: item.kaedamaRequestedQty || 0
 })));
+// 編集前のスナップショット：保存時に削除アイテムを検出するため
+window._editItemsOriginal = window._editItems.map(it => ({ ...it, opts: (it.opts||[]).slice(), servedIndices: (it.servedIndices||[]).slice() }));
 renderEditCatTabs();
 renderEditCurrentList();
 renderEditMenuList();
@@ -3459,7 +3511,7 @@ const items = allMenuItems
     return (a._sortOrder || 0) - (b._sortOrder || 0);
   });
 el.innerHTML = items.map(item => {
-const price = MOTONARI.getPrice(item.id) || 0;
+const price = getKitchenItemPrice(item.id);
 return `<div onclick="addEditItem(${item.id})" style="display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid var(--border);cursor:pointer">
 <span style="font-size:14px;color:var(--text)">${item.name}</span>
 <div style="display:flex;align-items:center;gap:10px">
@@ -3520,7 +3572,7 @@ showToast(`${name} ¥${(price*qty).toLocaleString()} を追加しました`);
 function addEditItem(menuId) {
 const m = allMenuItems.find(x => x.id === menuId);
 if (!m) return;
-const price = MOTONARI.getPrice(menuId) || 0;
+const price = getKitchenItemPrice(menuId);
 const existing = window._editItems.find(i => i.name === m.name);
 if (existing) existing.qty++;
 else {
@@ -3528,7 +3580,8 @@ const eid = window._editItems.length > 0 ? Math.max(...window._editItems.map(i=>
 window._editItems.push({name: m.name, price, qty:1, opts:[], cat: m.cat, itemId: menuId, _eid: eid});
 }
 renderEditCurrentList();
-showToast(`${m.name} を追加`);
+const priceStr = price > 0 ? ` ¥${price.toLocaleString()}` : '';
+showToast(`${m.name}${priceStr} を追加`);
 }
 function changeEditQty(eid, delta) {
 const item = window._editItems.find(i => i._eid === eid);
@@ -3545,13 +3598,17 @@ showToast('削除しました');
 
 async function saveOrderEdit() {
 const newItems = window._editItems;
+const originalItems = window._editItemsOriginal || [];
 const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid' && o.status !== 'cancelled');
 if (!tableOrders.length) { showToast('対象オーダーがありません'); return; }
 const { doc, updateDoc, serverTimestamp } = window.fbApi;
 const target = tableOrders[0];
 const newTotal = newItems.reduce((s,i) => s + i.price * i.qty, 0);
-// 提供済 / グループ / アドオン情報を保持して保存
-// 既存アイテムは元の状態を維持、新規アイテムは served:false でスタート
+// 削除されたアイテム検出：オリジナルにあって新しいリストに無いもの
+const currentEids = new Set(newItems.map(i => i._eid).filter(x => x !== undefined && x !== null));
+const removedItems = originalItems.filter(orig => orig._isExisting && !currentEids.has(orig._eid));
+// 編集を行った印（rendering 側で UX 切替）
+const editEpoch = Date.now();
 const itemsForFs = newItems.map((item, i) => {
   const base = {
     itemId: item.itemId || ('edit_'+i),
@@ -3561,7 +3618,6 @@ const itemsForFs = newItems.map((item, i) => {
     cat: item.cat
   };
   if (item._isExisting) {
-    // 既存アイテム：提供状態・グループ等をそのまま引き継ぐ
     base.served = !!item.served;
     base.servedIndices = Array.isArray(item.servedIndices) ? item.servedIndices.slice() : [];
     if (item.groupId) base.groupId = item.groupId;
@@ -3572,14 +3628,33 @@ const itemsForFs = newItems.map((item, i) => {
     if (item.lunchFree) base.lunchFree = true;
     if (item.kaedamaPrepaid) base.kaedamaPrepaid = true;
     if (item.kaedamaRequestedQty) base.kaedamaRequestedQty = item.kaedamaRequestedQty;
+    // 既に提供済のアイテムは「編集で完了済」扱い → 伝票から非表示にする
+    if (base.served) base._doneByEdit = true;
   } else {
-    // 新規追加アイテムは未提供から開始
+    // 新規追加アイテム：追加注文と同じ扱いを示すフラグ
     base.served = false;
     base.servedIndices = [];
+    base._addedByEdit = true;
+    base._editEpoch = editEpoch;
   }
   return base;
 });
-// 全アイテムが提供済かでステータス決定（残った提供済商品の状態を尊重）
+// 削除された未提供アイテムを ✕ マーク用に末尾に追加（提供済扱いにして filter から除外、ただし表示時に大きな✕で残す）
+removedItems.forEach(orig => {
+  if (orig.served) return; // 提供済なら何もせず除外（完全削除）
+  itemsForFs.push({
+    itemId: orig.itemId,
+    name: orig.name,
+    qty: orig.qty,
+    price: 0,
+    opts: Array.isArray(orig.opts) ? orig.opts.slice() : [],
+    total: 0,
+    cat: orig.cat,
+    served: true,
+    _deletedByEdit: true
+  });
+});
+// 全アイテムが提供済（または編集で完了/削除）かでステータス決定
 const allItemsServed = itemsForFs.length > 0 && itemsForFs.every(it => it.served);
 const newStatus = allItemsServed ? 'served' : (itemsForFs.some(it => !it.served) ? 'preparing' : 'pending');
 try {
