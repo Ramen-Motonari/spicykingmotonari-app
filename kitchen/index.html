@@ -2778,13 +2778,22 @@ applyRegI18n();
 }
 
 // 現金会計用 電卓モーダル
-let _cashCalcState = { total: 0, received: 0, type: null, mergeFlag: null };
-function openCashCalculator(type, total, mergeFlag) {
+let _cashCalcState = { total: 0, received: 0, type: null, mergeFlag: null, callback: null, title: '' };
+function openCashCalculator(type, total, mergeFlag, opts) {
   // 既存の支払い方法選択モーダルを閉じる
   const pm = document.getElementById('payMethodOverlay');
   if (pm) pm.remove();
   // mergeFlag は '__merge__' 文字列 or null
-  _cashCalcState = { total: Number(total) || 0, received: 0, type, mergeFlag: (mergeFlag === '__merge__' ? '__merge__' : null) };
+  // opts: { callback?: 関数, title?: 文字列 }
+  //   callback が指定された場合、確定時に finalizePayment ではなく callback() を呼ぶ（別会計などで使用）
+  _cashCalcState = {
+    total: Number(total) || 0,
+    received: 0,
+    type,
+    mergeFlag: (mergeFlag === '__merge__' ? '__merge__' : null),
+    callback: (opts && typeof opts.callback === 'function') ? opts.callback : null,
+    title: (opts && opts.title) || '💴 現金会計'
+  };
   const old = document.getElementById('cashCalcOverlay');
   if (old) old.remove();
   const overlay = document.createElement('div');
@@ -2792,7 +2801,7 @@ function openCashCalculator(type, total, mergeFlag) {
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:700;display:flex;align-items:center;justify-content:center;padding:18px';
   overlay.innerHTML = `
     <div style="background:var(--surface);border-radius:20px;width:100%;max-width:420px;padding:22px 20px;display:flex;flex-direction:column;gap:12px;max-height:96vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
-      <div style="text-align:center;font-size:13px;color:var(--muted);letter-spacing:1px">💴 現金会計</div>
+      <div style="text-align:center;font-size:13px;color:var(--muted);letter-spacing:1px">${_cashCalcState.title}</div>
 
       <div style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:14px;padding:14px 16px">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2929,12 +2938,16 @@ function changeBreakdown(change) {
 }
 
 async function confirmCashPayment() {
-  const { type, mergeFlag, total, received } = _cashCalcState;
+  const { type, mergeFlag, total, received, callback } = _cashCalcState;
   if (received < total) { showToast('お預かり金額が不足しています'); return; }
   const overlay = document.getElementById('cashCalcOverlay');
   if (overlay) overlay.remove();
-  // 既存のお会計処理を呼ぶ
-  await finalizePayment(type, 'cash', mergeFlag);
+  if (callback) {
+    // 別会計など：finalizePaymentは呼ばずコールバックに委譲
+    try { callback(); } catch(e) { console.error('cashCalc callback err:', e); }
+  } else {
+    await finalizePayment(type, 'cash', mergeFlag);
+  }
 }
 
 // クレジットカード会計用：合計金額をスクエアに入力してもらう確認モーダル
@@ -3270,6 +3283,20 @@ if (!selected.length) return;
 const labels = ['1人目','2人目','3人目','4人目','5人目','6人目','7人目','8人目'];
 const personLabel = labels[window._betsuPersonNum-1] || `${window._betsuPersonNum}人目`;
 const total = selected.reduce((s,i) => s + i.unitPrice, 0);
+
+if (payMethod === 'cash') {
+  // 現金会計は電卓を表示 → お預かり金額入力 → 確定時にこの人の会計を完了
+  openCashCalculator('separate', total, null, {
+    title: `💴 別会計 ${personLabel}`,
+    callback: () => _completeOnePersonPay(selected, total, personLabel, 'cash')
+  });
+} else {
+  // カード会計はそのまま完了
+  _completeOnePersonPay(selected, total, personLabel, payMethod);
+}
+}
+
+function _completeOnePersonPay(selected, total, personLabel, payMethod) {
 selected.forEach(i => { i._paid = true; i._selected = false; i.payMethod = payMethod; });
 window._betsuPaidLog.push({person: personLabel, items: selected, total, payMethod});
 window._betsuPersonNum++;
