@@ -439,10 +439,10 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div class="detail-total-price" id="detailTotal">¥0</div>
 </div>
 <div class="detail-actions">
-<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')" style="background:var(--accent2)"><span data-regI18n="btnProceedPay">💰 会計に進む</span></button>
-<button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnSeparate">👥 別会計</span></button>
-<button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnMerge">🔗 他テーブルと合算</span></button>
-<button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnEdit">✏️ 注文変更</span></button>
+<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')" style="background:var(--accent2)"><span data-regI18n="btnProceedPay">会計に進む</span></button>
+<button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnSeparate">別会計</span></button>
+<button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnMerge">他テーブルと合算</span></button>
+<button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnEdit">注文変更</span></button>
 <button class="btn-complete" id="btnService" onclick="completeService()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnService">🎁 サービス（全額無料）</span></button>
 <button class="btn-close-detail" onclick="closeDetail()" data-regI18n="closeBtn">閉じる</button>
 </div>
@@ -637,8 +637,8 @@ const REG_I18N = {
     paySelectTitle: 'お支払い方法を選択', paySelectAfterMsg: '⚠️ お会計終了後にタップ',
     payCash: '現金', payCard: 'クレジットカード', cancel: 'キャンセル',
     statusEmpty: '空席', statusOrdering: '注文中', statusPayment: '🔔 会計リクエスト',
-    btnProceedPay: '💰 会計に進む', btnSeparate: '👥 別会計', btnMerge: '🔗 他テーブルと合算',
-    btnEdit: '✏️ 注文変更', btnService: '🎁 サービス（全額無料）', closeBtn: '閉じる',
+    btnProceedPay: '会計に進む', btnSeparate: '別会計', btnMerge: '他テーブルと合算',
+    btnEdit: '注文変更', btnService: 'サービス（全額無料）', closeBtn: '閉じる',
     headerRegister: 'レジ', back: '戻る', confirm: '確定', total: '合計'
   },
   en: {
@@ -646,8 +646,8 @@ const REG_I18N = {
     paySelectTitle: 'Select Payment Method', paySelectAfterMsg: '⚠️ Tap AFTER payment completed',
     payCash: 'Cash', payCard: 'Credit Card', cancel: 'Cancel',
     statusEmpty: 'Empty', statusOrdering: 'Ordering', statusPayment: '🔔 Payment Request',
-    btnProceedPay: '💰 Proceed to Payment', btnSeparate: '👥 Split Bill', btnMerge: '🔗 Merge with Other Tables',
-    btnEdit: '✏️ Edit Order', btnService: '🎁 Service (Free)', closeBtn: 'Close',
+    btnProceedPay: 'Proceed to Payment', btnSeparate: 'Split Bill', btnMerge: 'Merge with Other Tables',
+    btnEdit: 'Edit Order', btnService: 'Service (Free)', closeBtn: 'Close',
     headerRegister: 'Register', back: 'Back', confirm: 'Confirm', total: 'Total'
   }
 };
@@ -2412,7 +2412,7 @@ ${(Array.isArray(item.opts)&&item.opts.length)?`<div class="order-line-sub">${it
 });
 document.getElementById('orderHistory').innerHTML = historyHtml || '<div style="color:var(--muted);font-size:13px;padding:12px 0">注文履歴なし</div>';
 document.getElementById('detailTotal').textContent = `¥${t.total.toLocaleString()}`;
-document.getElementById('btnComplete').textContent = '💰 会計に進む';
+document.getElementById('btnComplete').textContent = '会計に進む';
 document.getElementById('btnComplete').disabled = false;
 document.getElementById('btnSeparate').style.display = 'block';
 document.getElementById('btnMerge').style.display = 'block';
@@ -2814,11 +2814,11 @@ overlay.id = 'payMethodOverlay';
 overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:600;display:flex;align-items:center;justify-content:center;padding:24px;';
 overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:360px;padding:28px 24px;text-align:center">
 <div style="font-size:13px;color:var(--muted);margin-bottom:4px">${tableDisp}</div>
-<div style="font-family:'Oswald',sans-serif;font-size:40px;color:var(--accent);margin-bottom:6px">¥${total.toLocaleString()}</div>
+<div style="font-family:'Oswald',sans-serif;font-size:40px;color:var(--accent2);font-weight:900;margin-bottom:6px">¥${total.toLocaleString()}</div>
 <div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:18px">お支払い方法を選択</div>
 <div style="display:flex;flex-direction:column;gap:12px">
-<button onclick="openCashCalculator('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💴</span> <span data-regI18n="payCash">現金</span></button>
-<button onclick="openSquareInputConfirm('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:28px">💳</span> <span data-regI18n="payCard">クレジットカード</span></button>
+<button onclick="openCashCalculator('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCash">現金</span></button>
+<button onclick="openSquareInputConfirm('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCard">クレジットカード</span></button>
 <button onclick="document.getElementById('payMethodOverlay').remove()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px" data-regI18n="cancel">キャンセル</button>
 </div>
 </div>`;
@@ -2842,7 +2842,7 @@ function openCashCalculator(type, total, mergeFlag, opts) {
     type,
     mergeFlag: (mergeFlag === '__merge__' ? '__merge__' : null),
     callback: (opts && typeof opts.callback === 'function') ? opts.callback : null,
-    title: (opts && opts.title) || '💴 現金会計'
+    title: (opts && opts.title) || '現金会計'
   };
   const old = document.getElementById('cashCalcOverlay');
   if (old) old.remove();
@@ -2853,26 +2853,23 @@ function openCashCalculator(type, total, mergeFlag, opts) {
     <div style="background:var(--surface);border-radius:20px;width:100%;max-width:420px;padding:22px 20px;display:flex;flex-direction:column;gap:12px;max-height:96vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
       <div style="text-align:center;font-size:13px;color:var(--muted);letter-spacing:1px">${_cashCalcState.title}</div>
 
-      <div style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:14px;padding:14px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;color:var(--muted)">合計金額</span>
-          <span style="font-family:'Oswald',sans-serif;font-size:28px;color:var(--accent);font-weight:900">¥${_cashCalcState.total.toLocaleString()}</span>
-        </div>
+      <!-- 合計金額：大きく赤で中央表示 -->
+      <div style="background:#0a0a0a;border:2px solid var(--accent2);border-radius:14px;padding:14px 18px;text-align:center">
+        <div style="font-size:12px;color:var(--muted);letter-spacing:2px;margin-bottom:4px">合計金額</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:44px;color:var(--accent2);font-weight:900;line-height:1;letter-spacing:1px">¥${_cashCalcState.total.toLocaleString()}</div>
       </div>
 
-      <div style="background:#0a0a0a;border:1.5px solid var(--green);border-radius:14px;padding:14px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;color:var(--muted)">お預かり金額</span>
-          <span id="cashReceivedDisp" style="font-family:'Oswald',sans-serif;font-size:32px;color:#fff;font-weight:900">¥0</span>
+      <!-- お預かり / お釣り：横並び（50%幅） -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:#0a0a0a;border:1.5px solid var(--green);border-radius:12px;padding:10px 12px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">お預かり</div>
+          <div id="cashReceivedDisp" style="font-family:'Oswald',sans-serif;font-size:22px;color:#fff;font-weight:900;line-height:1.1">¥0</div>
         </div>
-      </div>
-
-      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:14px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;color:var(--muted)">お釣り</span>
-          <span id="cashChangeDisp" style="font-family:'Oswald',sans-serif;font-size:32px;color:#eab308;font-weight:900">¥0</span>
+        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:10px 12px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">お釣り</div>
+          <div id="cashChangeDisp" style="font-family:'Oswald',sans-serif;font-size:22px;color:#eab308;font-weight:900;line-height:1.1">¥0</div>
+          <div id="cashChangeBreakdown" style="font-size:9px;color:#9a8366;margin-top:2px;font-family:'Oswald',sans-serif;letter-spacing:0.3px;line-height:1.2"></div>
         </div>
-        <div id="cashChangeBreakdown" style="font-size:11px;color:#9a8366;margin-top:6px;text-align:right;font-family:'Oswald',sans-serif;letter-spacing:0.5px"></div>
       </div>
 
       <!-- クイック金額 -->
@@ -2901,7 +2898,7 @@ function openCashCalculator(type, total, mergeFlag, opts) {
 
       <div style="display:flex;gap:8px;margin-top:6px">
         <button onclick="document.getElementById('cashCalcOverlay').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
-        <button id="cashCalcConfirmBtn" onclick="confirmCashPayment()" disabled style="flex:2;padding:14px;border-radius:12px;border:2px solid #444;background:#1a1a1a;color:#666;font-size:15px;font-weight:900;cursor:not-allowed;font-family:'Noto Sans JP',sans-serif">✅ 会計完了</button>
+        <button id="cashCalcConfirmBtn" onclick="confirmCashPayment()" disabled style="flex:2;padding:14px;border-radius:12px;border:2px solid #444;background:#1a1a1a;color:#666;font-size:15px;font-weight:900;cursor:not-allowed;font-family:'Noto Sans JP',sans-serif">会計完了</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -3001,16 +2998,23 @@ async function confirmCashPayment() {
 }
 
 // クレジットカード会計用：合計金額をスクエアに入力してもらう確認モーダル
-function openSquareInputConfirm(type, total, mergeFlag) {
-  // 支払方法選択モーダルを閉じる
+// クレジットカード会計用の Square 入力確認モーダル
+//   opts: { callback?: 関数, title?: 文字列 }
+//   callback が指定された場合、完了時に finalizePayment を呼ばず callback を実行（別会計などで使用）
+function openSquareInputConfirm(type, total, mergeFlag, opts) {
   const pm = document.getElementById('payMethodOverlay');
   if (pm) pm.remove();
   const realMergeFlag = (mergeFlag === '__merge__' ? '__merge__' : null);
+  const callback = (opts && typeof opts.callback === 'function') ? opts.callback : null;
+  const titleHtml = (opts && opts.title)
+    ? `<div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-bottom:8px">${opts.title}</div>`
+    : '';
   const overlay = document.createElement('div');
   overlay.id = 'squareInputOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:700;display:flex;align-items:center;justify-content:center;padding:24px;';
   overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:380px;padding:32px 24px;text-align:center">
-    <div style="font-family:'Oswald',sans-serif;font-size:54px;color:var(--blue);margin-bottom:14px;letter-spacing:1px">¥${Number(total).toLocaleString()}</div>
+    ${titleHtml}
+    <div style="font-family:'Oswald',sans-serif;font-size:54px;color:var(--accent2);font-weight:900;margin-bottom:14px;letter-spacing:1px">¥${Number(total).toLocaleString()}</div>
     <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:24px;line-height:1.5">合計金額をスクエアに入力</div>
     <button id="squareInputDoneBtn" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">完了</button>
     <button id="squareInputCancelBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:10px">キャンセル</button>
@@ -3018,12 +3022,16 @@ function openSquareInputConfirm(type, total, mergeFlag) {
   document.body.appendChild(overlay);
   document.getElementById('squareInputDoneBtn').onclick = async () => {
     overlay.remove();
-    await finalizePayment(type, 'card', realMergeFlag);
+    if (callback) {
+      try { callback(); } catch(e) { console.error('squareInputConfirm callback err:', e); }
+    } else {
+      await finalizePayment(type, 'card', realMergeFlag);
+    }
   };
   document.getElementById('squareInputCancelBtn').onclick = () => {
     overlay.remove();
     // merge データのクリーンアップ（finalizePayment に進まないため）
-    if (realMergeFlag === '__merge__') window._pendingMergeData = null;
+    if (realMergeFlag === '__merge__' && !callback) window._pendingMergeData = null;
   };
 }
 
@@ -3272,7 +3280,7 @@ const cardInnerHtml = `
 <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:14px auto 0;flex-shrink:0"></div>
 <div style="padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
 <div>
-<div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--blue)">👥 別会計</div>
+<div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent2)">別会計</div>
 <div style="font-size:13px;color:#e8e8e8;margin-top:2px;font-weight:700">${selectedTable} ${allDone?'— 完了':`— ${personLabel}`}</div>
 </div>
 <div style="text-align:right">
@@ -3290,14 +3298,14 @@ ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--bord
 <span style="font-size:13px;color:#e8e8e8;font-weight:700">${personLabel} 小計</span>
 <span style="font-family:'Oswald',sans-serif;font-size:34px;color:${selected.length>0?'#e74c3c':'#666'};font-weight:700">¥${selectedTotal.toLocaleString()}</span>
 </div>
-<div style="font-size:11px;color:${selected.length>0?'var(--blue)':'var(--muted)'};font-weight:700;letter-spacing:1px;margin-bottom:6px">${selected.length>0?'STEP 2 — お支払い方法を選択':'まず商品を選んでください'}</div>
+<div style="font-size:11px;color:${selected.length>0?'var(--accent)':'var(--muted)'};font-weight:700;letter-spacing:1px;margin-bottom:6px">${selected.length>0?'お支払い方法を選択':'まず商品を選んでください'}</div>
 <div style="display:flex;gap:8px">
-<button onclick="confirmOnePersonPay('cash')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-size:22px">💴</span>現金で会計</button>
-<button onclick="confirmOnePersonPay('card')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--blue)':'#333'};background:${selected.length>0?'#0d2240':'#1a1a1a'};color:${selected.length>0?'var(--blue)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-size:22px">💳</span>カードで会計</button>
+<button onclick="confirmOnePersonPay('cash')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">現金で会計</button>
+<button onclick="confirmOnePersonPay('card')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--blue)':'#333'};background:${selected.length>0?'#0d2240':'#1a1a1a'};color:${selected.length>0?'var(--blue)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">カードで会計</button>
 </div>
 <button onclick="document.getElementById('betsuOverlay').remove()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">‹ 戻る</button>
 </div>` : `<div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
-<button onclick="finishAllBetsu()" style="width:100%;padding:18px;border-radius:14px;border:none;background:var(--green);color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✅ 全員会計完了 — オーダーを確定</button>
+<button onclick="finishAllBetsu()" style="width:100%;padding:18px;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">全員会計完了 — オーダーを確定</button>
 </div>`}
 `;
 
@@ -3337,11 +3345,16 @@ const total = selected.reduce((s,i) => s + i.unitPrice, 0);
 if (payMethod === 'cash') {
   // 現金会計は電卓を表示 → お預かり金額入力 → 確定時にこの人の会計を完了
   openCashCalculator('separate', total, null, {
-    title: `💴 別会計 ${personLabel}`,
+    title: `別会計 ${personLabel}`,
     callback: () => _completeOnePersonPay(selected, total, personLabel, 'cash')
   });
+} else if (payMethod === 'card') {
+  // カード会計：Square 入力確認モーダル → 完了時にこの人の会計を完了
+  openSquareInputConfirm('separate', total, null, {
+    title: `別会計 ${personLabel}`,
+    callback: () => _completeOnePersonPay(selected, total, personLabel, 'card')
+  });
 } else {
-  // カード会計はそのまま完了
   _completeOnePersonPay(selected, total, personLabel, payMethod);
 }
 }
@@ -3394,7 +3407,7 @@ overlay.id = 'editOverlay';
 overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:500;display:flex;flex-direction:column;';
 overlay.innerHTML = `<div style="background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
 <div>
-<div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent)">✏️ 注文変更</div>
+<div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent)">注文変更</div>
 <div style="font-size:11px;color:var(--muted);margin-top:2px">${selectedTable}</div>
 </div>
 <button onclick="closeOrderEdit()" style="background:none;border:none;color:var(--muted);font-size:28px;cursor:pointer;line-height:1;padding:0">×</button>
@@ -3406,7 +3419,7 @@ overlay.innerHTML = `<div style="background:var(--surface);border-bottom:1px sol
 <div style="display:flex;overflow-x:auto;padding:10px 16px 8px;gap:6px;flex-shrink:0;scrollbar-width:none;border-bottom:1px solid var(--border)" id="editCatTabs"></div>
 <div style="flex:1;overflow-y:auto;padding:8px 16px 160px" id="editMenuList"></div>
 <div style="position:fixed;bottom:0;left:0;right:0;padding:12px 16px 32px;background:var(--surface);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
-<button onclick="saveOrderEdit()" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✅ 変更を保存する</button>
+<button onclick="saveOrderEdit()" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--accent2);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">変更を保存する</button>
 <button onclick="closeOrderEdit()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ 戻る</button>
 </div>`;
 document.body.appendChild(overlay);
@@ -3456,15 +3469,32 @@ const el = document.getElementById('editCurrentList');
 if (!el) return;
 const items = window._editItems;
 if (!items.length) { el.innerHTML = `<span style="font-size:14px;color:#d8d8d8;font-weight:700">注文なし</span>`; return; }
-el.innerHTML = items.map(item => `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
-<span style="font-size:14px;color:#fff;font-weight:700">${item.name}</span>
-<div style="display:flex;align-items:center;gap:4px">
-<button onclick="changeEditQty(${item._eid},-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
-<span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);min-width:16px;text-align:center">${item.qty}</span>
-<button onclick="changeEditQty(${item._eid},1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">＋</button>
-</div>
-<button onclick="removeEditItem(${item._eid})" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
-</div>`).join('');
+// ラーメンは1杯ごとに別エントリ。+/- ボタンは出さず、削除のみ可能
+//   既存ラーメンは _origCat / canonical 由来から判定
+const isRamenEntry = (it) => {
+  if (it._isRamen) return true;
+  const oc = it._origCat || (MOTONARI.getMenuById(it.itemId)?.cat);
+  return (oc === 'tonkotsu' || oc === 'shouyu');
+};
+el.innerHTML = items.map(item => {
+  const ramen = isRamenEntry(item);
+  if (ramen) {
+    // ラーメン：qty 固定表示・+/- は非表示・削除のみ
+    return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
+      <span style="font-size:14px;color:#fff;font-weight:700">🍜 ${item.name}</span>
+      <button onclick="removeEditItem(${item._eid})" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+    </div>`;
+  }
+  return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
+    <span style="font-size:14px;color:#fff;font-weight:700">${item.name}</span>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button onclick="changeEditQty(${item._eid},-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+      <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);min-width:16px;text-align:center">${item.qty}</span>
+      <button onclick="changeEditQty(${item._eid},1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">＋</button>
+    </div>
+    <button onclick="removeEditItem(${item._eid})" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
+  </div>`;
+}).join('');
 }
 
 function renderEditMenuList() {
@@ -3573,12 +3603,24 @@ function addEditItem(menuId) {
 const m = allMenuItems.find(x => x.id === menuId);
 if (!m) return;
 const price = getKitchenItemPrice(menuId);
-const existing = window._editItems.find(i => i.name === m.name);
-if (existing) existing.qty++;
-else {
-const eid = window._editItems.length > 0 ? Math.max(...window._editItems.map(i=>i._eid))+1 : 0;
-window._editItems.push({name: m.name, price, qty:1, opts:[], cat: m.cat, itemId: menuId, _eid: eid});
+// ラーメン（豚骨・醤油）は1杯ごとに辛さ・麺・チャーシュー等のオプションが異なるため、
+// 同じ商品でも常に別エントリーとして追加（伝票でも別カードで表示される）
+const origCat = m._origCat || m.cat;
+const isRamen = (origCat === 'tonkotsu' || origCat === 'shouyu');
+if (!isRamen) {
+  // ラーメン以外は同じ商品なら数量+1で集約
+  const existing = window._editItems.find(i => i.name === m.name && !i._isExisting);
+  if (existing) {
+    existing.qty++;
+    renderEditCurrentList();
+    const priceStr = price > 0 ? ` ¥${price.toLocaleString()}` : '';
+    showToast(`${m.name}${priceStr} を追加`);
+    return;
+  }
 }
+// 新規エントリーとして追加（ラーメンは常にこちら）
+const eid = window._editItems.length > 0 ? Math.max(...window._editItems.map(i=>i._eid))+1 : 0;
+window._editItems.push({name: m.name, price, qty:1, opts:[], cat: m.cat, _origCat: origCat, itemId: menuId, _eid: eid, _isRamen: isRamen});
 renderEditCurrentList();
 const priceStr = price > 0 ? ` ¥${price.toLocaleString()}` : '';
 showToast(`${m.name}${priceStr} を追加`);
@@ -3691,7 +3733,7 @@ overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-ind
 const currentTotal = tables[selectedTable].total;
 const otherOptions = otherTables.length ? otherTables.map(t => `<label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
 <div style="display:flex;align-items:center;gap:10px">
-<input type="checkbox" data-merge-label="${t.label}" style="width:18px;height:18px;accent-color:var(--purple)">
+<input type="checkbox" data-merge-label="${t.label}" style="width:18px;height:18px;accent-color:var(--accent2)">
 <span style="font-family:'Oswald',sans-serif;font-size:18px;color:#fff">${t.label}</span>
 </div>
 <span style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--accent)">¥${t.total.toLocaleString()}</span>
@@ -3699,7 +3741,7 @@ const otherOptions = otherTables.length ? otherTables.map(t => `<label style="di
 overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:85vh;overflow-y:auto;padding:0 0 40px;animation:slideUp 0.3s ease">
 <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:16px auto 0"></div>
 <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-<div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--purple)">🔗 合算会計</div>
+<div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent2)">合算会計</div>
 <div style="font-size:12px;color:var(--muted)">${selectedTable} ¥${currentTotal.toLocaleString()}</div>
 </div>
 <div style="padding:12px 20px 4px;font-size:12px;color:var(--muted)">合算するテーブルを選択してください</div>
@@ -3707,10 +3749,10 @@ overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20
 <div style="padding:14px 20px 0;border-top:1px solid var(--border);margin-top:12px">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
 <span style="font-size:14px;font-weight:700;color:#fff">合計</span>
-<span style="font-family:'Oswald',sans-serif;font-size:26px;color:var(--accent)" id="mergeTotal">¥${currentTotal.toLocaleString()}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:26px;color:var(--accent2);font-weight:900" id="mergeTotal">¥${currentTotal.toLocaleString()}</span>
 </div>
 <div style="display:flex;gap:10px">
-<button onclick="confirmMerge()" style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--purple);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✅ 合算して会計完了</button>
+<button onclick="confirmMerge()" style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--accent2);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">合算して会計完了</button>
 <button onclick="document.getElementById('mergeOverlay').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif">閉じる</button>
 </div>
 </div>
