@@ -2956,8 +2956,9 @@ function refreshCashCalcDisplay() {
   const change = received - total;
   rEl.textContent = `¥${received.toLocaleString()}`;
   if (change < 0) {
-    cEl.textContent = `不足 ¥${(-change).toLocaleString()}`;
-    cEl.style.color = '#ef4444';
+    // 不足表示：「不足」だけ小さめ・白に近いグレー、¥金額は通常サイズ
+    cEl.innerHTML = `<span style="font-size:14px;color:#d8d8d8;font-weight:700;vertical-align:0.35em;letter-spacing:1px;margin-right:6px">不足</span><span style="color:#d8d8d8">¥${(-change).toLocaleString()}</span>`;
+    cEl.style.color = '#d8d8d8';
     if (bEl) bEl.textContent = '';
   } else {
     cEl.textContent = `¥${change.toLocaleString()}`;
