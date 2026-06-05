@@ -290,6 +290,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 @keyframes bellPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:0.5}}
 @keyframes bellShake{0%,100%{transform:rotate(0deg)}15%{transform:rotate(-22deg)}30%{transform:rotate(22deg)}45%{transform:rotate(-14deg)}60%{transform:rotate(14deg)}75%{transform:rotate(-8deg)}90%{transform:rotate(8deg)}}
 @keyframes newOrderGlow{0%,100%{box-shadow:0 0 0px rgba(46,204,113,0)}50%{box-shadow:0 0 18px rgba(46,204,113,0.6)}}
+@keyframes flashRed{0%,100%{background:#e74c3c;box-shadow:0 0 0 0 rgba(231,76,60,0.6)}50%{background:#ff6b5b;box-shadow:0 0 0 6px rgba(231,76,60,0)}}
 </style>
 </head>
 <body>
@@ -338,6 +339,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div class="app-screen active" id="kitchenScreen">
 <div id="kitchenCountBar">
   <span class="kcb-group"><span class="kcb-icon">🍜</span>注文件数 <span id="kitchenCountNum">0</span> 件</span>
+  <span class="kcb-group" id="kaedamaWaitingGroup" style="margin-left:16px;display:none"><span class="kcb-icon">🍝</span>替え玉待機 <span id="kaedamaWaitingNum">0</span> 件<span id="kaedamaAlertBadge" style="display:none;margin-left:8px;background:#e74c3c;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:900;letter-spacing:0.5px;animation:flashRed 1.4s ease infinite">注文あり</span></span>
   <button id="pastTicketBtn" onclick="openPastTicketPanel()" style="margin-left:auto;background:rgba(200,134,10,0.18);border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.5px">📜 過去の伝票</button>
 </div>
 <div id="kitchenContent"></div>
@@ -1277,8 +1279,12 @@ const emptyEl = content.querySelector('.kitchen-empty');
 if (emptyEl) emptyEl.remove();
 
 // 5. テーブル伝票を時系列順 → 手動並び替え反映
+//    ただし、替え玉オーダー（isPendingKaedamaOrder:true）を含むテーブルは最先頭に配置
 tableTickets.sort((a, b) => a._sortKey - b._sortKey);
-const finalTickets = applyManualOrderToTables(tableTickets);
+const hasKaedama = (tt) => (tt.orders || []).some(o => o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served));
+const kaedamaTickets = tableTickets.filter(hasKaedama);
+const normalTickets = tableTickets.filter(t => !hasKaedama(t));
+const finalTickets = [...kaedamaTickets, ...applyManualOrderToTables(normalTickets)];
 window._sortedActiveTableLabels = finalTickets.map(t => t.tableLabel);
 
 // 6. 既存伝票のマップ
@@ -1540,13 +1546,19 @@ function renderOrderGroupsHtml(order) {
 // 各層内：未提供アイテム → 提供済みアイテム の順
 // 追加注文（2件目以降）も同じ層内で正しい位置にマージされる
 function renderTableTicket(tt) {
-  const orderList = tt.orders || [];
+  let orderList = tt.orders || [];
   const first = orderList[0];
   if (!first) return '';
   const tLabel = tt.tableLabel;
   const tIdSafe = tableIdSafe(tLabel);
   const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
   const visitLabel = first.visitType === 'first' ? '初回' : 'リピーター';
+  // 替え玉オーダー（isPendingKaedamaOrder）を含む場合は、それだけを表示（過去ラーメンは隠す）
+  const kaedamaOnly = orderList.filter(o => o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served));
+  const isKaedamaTicket = kaedamaOnly.length > 0;
+  if (isKaedamaTicket) {
+    orderList = kaedamaOnly;
+  }
 
   // すべての注文から groups を収集（NEW フラグ付き）
   // 追加注文の NEW 表示は、注文作成から 60 秒以内のものに限定
@@ -1628,7 +1640,7 @@ function renderTableTicket(tt) {
 <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
 <div class="ticket-table">${tLabel}</div>
 <span class="ticket-visit ${visitClass}">${visitLabel}</span>
-${hasNewItems ? '<span class="ticket-new-flag">🆕 追加あり</span>' : ''}
+${isKaedamaTicket ? '<span class="ticket-new-flag" style="background:linear-gradient(135deg,#e65100 0%,#ff9800 100%)">🍝 替え玉</span>' : (hasNewItems ? '<span class="ticket-new-flag">🆕 追加あり</span>' : '')}
 </div>
 <div class="ticket-time">${formatOrderTime(first)}</div>
 </div>
@@ -2956,9 +2968,9 @@ function refreshCashCalcDisplay() {
   const change = received - total;
   rEl.textContent = `¥${received.toLocaleString()}`;
   if (change < 0) {
-    // 不足表示：「不足」だけ小さめ・白に近いグレー、¥金額は通常サイズ
-    cEl.innerHTML = `<span style="font-size:14px;color:#d8d8d8;font-weight:700;vertical-align:0.35em;letter-spacing:1px;margin-right:6px">不足</span><span style="color:#d8d8d8">¥${(-change).toLocaleString()}</span>`;
-    cEl.style.color = '#d8d8d8';
+    // 不足表示：「不足」だけ小さめ・控えめなグレー、¥金額は通常サイズ
+    cEl.innerHTML = `<span style="font-size:14px;color:#888;font-weight:700;vertical-align:0.35em;letter-spacing:1px;margin-right:6px">不足</span><span style="color:#888">¥${(-change).toLocaleString()}</span>`;
+    cEl.style.color = '#888';
     if (bEl) bEl.textContent = '';
   } else {
     cEl.textContent = `¥${change.toLocaleString()}`;
@@ -3846,6 +3858,27 @@ if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件
 else badge.style.display = 'none';
 const num = document.getElementById('kitchenCountNum');
 if (num) num.textContent = count;
+// ── 替え玉待機件数（pendingKaedamaRight が requested:false のもの） ──
+// 「待機」= 未会計の卓で、お客様がまだ替え玉ご注文権利を行使していない状態
+let waitingCount = 0;
+let alertCount = 0;
+orders.forEach(o => {
+  if (o.status === 'paid') return; // paid は除外
+  if (o.paymentType === 'cancelled_by_edit') return;
+  (o.items || []).forEach(it => {
+    if (it.pendingKaedamaRight && !it.pendingKaedamaRight.requested) waitingCount++;
+  });
+  // 替え玉注文（実際に注文された替え玉）の未提供あり → アラート
+  if (o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served)) {
+    alertCount++;
+  }
+});
+const wGroup = document.getElementById('kaedamaWaitingGroup');
+const wNum = document.getElementById('kaedamaWaitingNum');
+const aBadge = document.getElementById('kaedamaAlertBadge');
+if (wGroup) wGroup.style.display = (waitingCount > 0 || alertCount > 0) ? 'inline-flex' : 'none';
+if (wNum) wNum.textContent = waitingCount;
+if (aBadge) aBadge.style.display = alertCount > 0 ? 'inline-block' : 'none';
 }
 function showToast(msg) {
 const el = document.getElementById('toast');
