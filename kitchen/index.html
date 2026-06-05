@@ -2025,12 +2025,25 @@ function renderRamenGroupCard(orderId, grp) {
     <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
     ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
   </div>`;
-  // 平日ランチ無料替え玉/半替え玉の「権利」が紐付いている場合のバッジ（金額の左側に配置）
+  // 替え玉「権利」が紐付いている場合のバッジ（金額の左側に配置・無料/有料合計）
+  // 1ラーメン中に複数権利あれば「替え玉 ×N」表記
   let kaedamaRightBadge = '';
-  if (main.pendingKaedamaRight) {
-    const r = main.pendingKaedamaRight;
-    const bg = r.requested ? '#bdbdbd' : '#ff9800';
-    kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">替え玉</span>`;
+  {
+    const freeR = main.pendingKaedamaRight;
+    const freePending = !!(freeR && !freeR.requested);
+    const freeDone    = !!(freeR && freeR.requested);
+    const paidArr = Array.isArray(main.pendingKaedamaRightsPaid) ? main.pendingKaedamaRightsPaid : [];
+    const paidPending = paidArr.filter(r => r && !r.requested).length;
+    const paidDone    = paidArr.filter(r => r && r.requested).length;
+    const totalPending = (freePending ? 1 : 0) + paidPending;
+    const totalDone    = (freeDone    ? 1 : 0) + paidDone;
+    const total = totalPending + totalDone;
+    if (total > 0) {
+      // 待機が残ってればオレンジ、全て注文済になればグレー
+      const bg = totalPending > 0 ? '#ff9800' : '#bdbdbd';
+      const label = total > 1 ? `替え玉 ×${total}` : '替え玉';
+      kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">${label}</span>`;
+    }
   }
 
   // ━━━ Section 2: 麺種 / 量 / 硬さ ━━━
@@ -3882,7 +3895,7 @@ if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件
 else badge.style.display = 'none';
 const num = document.getElementById('kitchenCountNum');
 if (num) num.textContent = count;
-// ── 替え玉待機件数（pendingKaedamaRight が requested:false のもの） ──
+// ── 替え玉待機件数（無料 + 有料 両方をカウント） ──
 // 「待機」= 未会計の卓で、お客様がまだ替え玉ご注文権利を行使していない状態
 let waitingCount = 0;
 let alertCount = 0;
@@ -3891,6 +3904,9 @@ orders.forEach(o => {
   if (o.paymentType === 'cancelled_by_edit') return;
   (o.items || []).forEach(it => {
     if (it.pendingKaedamaRight && !it.pendingKaedamaRight.requested) waitingCount++;
+    if (Array.isArray(it.pendingKaedamaRightsPaid)) {
+      it.pendingKaedamaRightsPaid.forEach(r => { if (r && !r.requested) waitingCount++; });
+    }
   });
   // 替え玉注文（実際に注文された替え玉）の未提供あり → アラート
   if (o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served)) {
