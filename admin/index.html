@@ -524,7 +524,7 @@ window.adminLogout = adminLogout;
         <div class="manual-input-section">
           <div class="section-label">📊 本年売上</div>
           <div class="manual-input-grid">
-            <div class="manual-field"><label>当日 <span class="auto-label">入力</span></label><input type="number" id="dinner-yearly-sales-today" placeholder="例: 92909" oninput="recalcDinnerManuals()"></div>
+            <div class="manual-field"><label>当日 <span class="auto-label">自動計算</span></label><input type="number" id="dinner-yearly-sales-today" class="auto-input" readonly></div>
             <div class="manual-field"><label>累計 <span class="auto-label">自動計算</span></label><input type="number" id="dinner-yearly-sales-cum" class="auto-input" readonly></div>
           </div>
         </div>
@@ -1975,7 +1975,8 @@ async function updateKanritableCell(dateKey, field, raw) {
 }
 
 // 夜の日報セクションの自動計算
-//   - 本年売上 当日 が入力されると → 月初〜当日の累計を表示
+//   - 本年売上 当日 = APP集計の当日合算売上（税込）を自動入力
+//   - 本年売上 累計 = 月初〜前日の保存済 salesToday + 当日（自動）
 //   - 仕入れ 当日 が入力されると → 月初〜当日の累計を表示、仕入率 = 仕入累計÷売上累計×100（小数第1位）
 //   - 労働時間 が入力されると → 人時売上 = 当日売上 ÷ 労働時間（¥0,000 形式）
 function recalcDinnerManuals() {
@@ -1987,11 +1988,23 @@ function recalcDinnerManuals() {
   const dateKey = dateEl?.value || '';
   const [yy, mm, dd] = dateKey.split('-').map(Number);
 
-  const salesToday = parseFloat(document.getElementById('dinner-yearly-sales-today')?.value) || 0;
+  // 当日売上は APP集計の「ランチ＋夜営業合算」の税込売上を採用
+  // calcReportFor('all') は当日（todayKey）に対する全セッション合算
+  let salesTodayAuto = 0;
+  try {
+    if (typeof calcReportFor === 'function') {
+      const rAll = calcReportFor('all');
+      salesTodayAuto = Math.round(Number(rAll?.salesTax) || 0);
+    }
+  } catch(_) { salesTodayAuto = 0; }
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('dinner-yearly-sales-today', salesTodayAuto || '');
+
+  const salesToday = salesTodayAuto;
   const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || 0;
   const workHours = parseFloat(document.getElementById('dinner-work-hours')?.value) || 0;
 
-  // 月初〜前日までの累計を _dailyReports から計算（あれば）。今日分は当日入力を加算。
+  // 月初〜前日までの累計を _dailyReports から計算（あれば）。今日分は当日（自動算出）を加算。
   let cumSalesPrev = 0;
   let cumPurchPrev = 0;
   if (yy && mm && dd && typeof _dailyReports === 'object' && _dailyReports) {
@@ -2008,7 +2021,6 @@ function recalcDinnerManuals() {
   const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : 0;
   const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : 0;
 
-  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setVal('dinner-yearly-sales-cum', cumSales || '');
   setVal('dinner-purchase-cumulative', cumPurch || '');
   setVal('dinner-purchase-rate', cumPurch > 0 ? purchRate.toFixed(1) : '');
@@ -2030,7 +2042,9 @@ async function saveDailyReportFromDinner() {
     dateKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     if (dateEl) dateEl.value = dateKey;
   }
-  // 手入力（簡素化された3項目 + 天気）
+  // 保存直前に再計算（当日売上は APP の最新集計値を確実に反映するため）
+  try { recalcDinnerManuals(); } catch(_) {}
+  // 当日売上は APP集計の自動値を採用、それ以外は手入力
   const weather = document.getElementById('dinner-weather')?.value || '';
   const salesToday = parseFloat(document.getElementById('dinner-yearly-sales-today')?.value) || null;
   const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || null;
@@ -2608,6 +2622,8 @@ function renderDashboard() {
 
   renderTodayRanking(todayOrders);
   renderDailyReport();
+  // 夜の報告：当日売上（自動算出）と累計を最新化
+  try { recalcDinnerManuals(); } catch(_) {}
 }
 
 function setKpiDiff(elId, today, yesterday) {
@@ -3249,7 +3265,21 @@ function buildReportText(session) {
 function copyDailyReport() {
   const txt = buildReportText(currentReportTab);
   navigator.clipboard.writeText(txt)
-    .then(() => showToast('日報をコピーしました 📋'))
+    .then(() => {
+      // 夜営業タブでコピーされた時は管理表にも自動保存（押し忘れ防止）
+      if (currentReportTab === 'dinner') {
+        try {
+          // 保存処理は非同期で実行（コピー成功トーストとは独立）
+          Promise.resolve(saveDailyReportFromDinner()).catch(e => console.error('auto-save failed:', e));
+          showToast('日報をコピーしました 📋（管理表に自動保存中…）');
+        } catch(e) {
+          console.error('auto-save trigger failed:', e);
+          showToast('日報をコピーしました 📋');
+        }
+      } else {
+        showToast('日報をコピーしました 📋');
+      }
+    })
     .catch(() => showToast('コピー失敗', true));
 }
 
