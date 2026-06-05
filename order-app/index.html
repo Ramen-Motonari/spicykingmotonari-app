@@ -2258,11 +2258,23 @@ function renderCart(){
   $('orderBtn').disabled = hasSoldoutInCart;
   list.innerHTML = cart.map(i=>{
     const sold = i.itemId && isItemSoldout(i.itemId);
+    // 平日ランチ無料替え玉権利が紐付いている場合の表示
+    let kaedamaBadgeHtml = '';
+    if (i.pendingKaedamaRight) {
+      const isHalf = i.pendingKaedamaRight.type === 'half';
+      const labelJa = isHalf ? '半替え玉（無料・後でご注文）' : '替え玉（無料・後でご注文）';
+      const labelEn = isHalf ? 'Half Kaedama (Free, order later)' : 'Kaedama (Free, order later)';
+      const labelZh = isHalf ? '半份加面（免费・餐后下单）' : '加面（免费・餐后下单）';
+      const labelKo = isHalf ? '반 면 추가（무료・식후 주문）' : '면 추가（무료・식후 주문）';
+      const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
+      kaedamaBadgeHtml = `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#fff3e0;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
+    }
     return `
     <div class="cart-row${sold?' soldout':''}">
       <div style="flex:1">
         <div class="cart-row-name">${i.name} × ${i.qty}${sold?'<span class="soldout-tag">🚫 売切</span>':''}</div>
         ${i.opts.length?`<div class="cart-row-sub">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
+        ${kaedamaBadgeHtml}
       </div>
       <div class="cart-row-price">¥${(Number(i.total)||0).toLocaleString()}</div>
       <button class="remove-btn" onclick="removeCart(${i.id})">${t.removeBtn}</button>
@@ -2325,7 +2337,7 @@ async function placeOrder(){
         const canon = i.itemId != null ? menu.find(m=>m.id===i.itemId) : null;
         const nameJa = (canon && canon.name && canon.name.ja) || i.name;
         const optsJa = (i.opts || []).map(o => optToJa(o, lang));
-        return {
+        const out = {
           itemId: i.itemId||null,
           name: nameJa,
           opts: optsJa,
@@ -2343,6 +2355,16 @@ async function placeOrder(){
           kaedamaRequestedQty: i.kaedamaPrepaid ? (i.kaedamaRequestedQty || 0) : (i.qty || 1),
           parentItemId: i.parentItemId || null
         };
+        // 平日ランチ無料替え玉/半替え玉の「権利」を Firestore に必ず保存
+        // （これがないとキッチンの待機件数や、お客様再来店時の権利検出が機能しない）
+        if (i.pendingKaedamaRight) {
+          out.pendingKaedamaRight = {
+            type: i.pendingKaedamaRight.type || 'full',
+            requested: !!i.pendingKaedamaRight.requested,
+            qty: Number(i.pendingKaedamaRight.qty) || Number(i.qty) || 1
+          };
+        }
+        return out;
       }),
       total,
       status: 'pending',
