@@ -2006,9 +2006,19 @@ function renderRamenGroupCard(orderId, grp) {
   const p = parseRamenOpts(opts, main);
 
   // ━━━ Section 1: 名前 + 辛さ ━━━
+  // 平日ランチ無料替え玉/半替え玉の「権利」が紐付いている場合のバッジ
+  let kaedamaRightBadge = '';
+  if (main.pendingKaedamaRight) {
+    const r = main.pendingKaedamaRight;
+    const label = r.type === 'half' ? '半替え玉権利' : '替え玉権利';
+    const status = r.requested ? '注文済' : '待機中';
+    const bg = r.requested ? '#bdbdbd' : '#ff9800';
+    kaedamaRightBadge = `<span style="display:inline-block;margin-left:6px;background:${bg};color:#fff;border-radius:6px;padding:1px 8px;font-size:10px;font-weight:900;letter-spacing:.3px">🍝${label}・${status}</span>`;
+  }
   const headerHtml = `<div class="rg-sec rg-sec-header">
     <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
     ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
+    ${kaedamaRightBadge}
   </div>`;
 
   // ━━━ Section 2: 麺種 / 量 / 硬さ ━━━
