@@ -1227,23 +1227,38 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   });
 }).map(([tl, list]) => {
   // 表示用：
-  //   テーブルに未提供アイテムが1つでも残っている限り、全提供済みの注文も含めて全表示
+  //   テーブルに未提供アイテムが1つでも残っている限り、原則として注文を全表示
   //   （提供済アイテムはグレーアウトで残り、調理スタッフが「最後まで全部見える」状態にする）
-  //   注: 既に上の filter で「テーブルに未提供あり」を担保しているので、ここは空注文だけ除外する
+  //   ただし「過去の注文が全部提供済 → 後から追加注文が入った」場合は、
+  //   過去の全提供済注文は完全に非表示にする（要望対応：伝票が一度消えた後の追加注文だけ表示）
   const visibleOrders = list.filter(o => {
     if (o.status !== 'pending' && o.status !== 'preparing' && o.status !== 'served') return false;
     const items = Array.isArray(o.items) ? o.items : [];
     if (items.length === 0) return false;
-    return true; // 全提供済みでもテーブル内なら表示維持
+    return true;
   });
   const sorted = visibleOrders.slice().sort((a, b) => {
     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
     const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
     return ta - tb;
   });
-  const first = sorted[0];
+  // 「最初に未提供アイテムを持つ注文」の手前にある "全提供済" 注文をすべて隠す
+  // 例) Order A(全提供済) → Order B(全提供済) → Order C(追加・未提供あり) のとき
+  //     A・B を非表示にし、C のみ表示する
+  const firstUnservedIdx = sorted.findIndex(o => (o.items || []).some(i => !i.served));
+  let displayOrders = sorted;
+  if (firstUnservedIdx > 0) {
+    const allEarlierServed = sorted.slice(0, firstUnservedIdx).every(o => {
+      const items = Array.isArray(o.items) ? o.items : [];
+      return items.length > 0 && items.every(i => i.served);
+    });
+    if (allEarlierServed) {
+      displayOrders = sorted.slice(firstUnservedIdx);
+    }
+  }
+  const first = displayOrders[0];
   const sortKey = (first && first.createdAt && first.createdAt.toMillis) ? first.createdAt.toMillis() : 0;
-  return { tableLabel: tl, orders: sorted, _sortKey: sortKey };
+  return { tableLabel: tl, orders: displayOrders, _sortKey: sortKey };
 }).filter(tt => tt.orders.length > 0); // 念のため空伝票ガード
 
 // 1. 既存の非ゴースト伝票の現在位置を記録 (FLIP用)
