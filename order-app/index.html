@@ -627,7 +627,10 @@ const T_KPC = {
     h_barikata:'ばりかた',
     cancel:'戻る',
     submit:'注文する',
-    success:'替え玉を注文しました'
+    success:'替え玉を注文しました',
+    hint:'※ 硬さ未選択の権利は今回スキップされ、次回ご注文時に再表示されます',
+    statusReady:'今回ご注文',
+    statusSkip:'今回スキップ'
   },
   en:{
     floatBtn:'Order Free Extra Noodles',
@@ -644,7 +647,10 @@ const T_KPC = {
     h_barikata:'Extra Firm',
     cancel:'Back',
     submit:'Order',
-    success:'Extra noodles ordered'
+    success:'Extra noodles ordered',
+    hint:'※ Rights without a firmness choice will be skipped and shown again next time',
+    statusReady:'Will order',
+    statusSkip:'Skip this time'
   },
   zh:{
     floatBtn:'点免费加面',
@@ -661,7 +667,10 @@ const T_KPC = {
     h_barikata:'极硬',
     cancel:'返回',
     submit:'下单',
-    success:'已下单加面'
+    success:'已下单加面',
+    hint:'※ 未选择硬度的权利将本次跳过，下次会再次显示',
+    statusReady:'本次下单',
+    statusSkip:'本次跳过'
   },
   ko:{
     floatBtn:'무료 면 추가 주문',
@@ -678,7 +687,10 @@ const T_KPC = {
     h_barikata:'아주 단단함',
     cancel:'돌아가기',
     submit:'주문하기',
-    success:'면 추가를 주문했습니다'
+    success:'면 추가를 주문했습니다',
+    hint:'※ 굵기를 선택하지 않은 권리는 이번에 건너뛰고 다음 번 주문 시 다시 표시됩니다',
+    statusReady:'이번 주문',
+    statusSkip:'이번 건너뛰기'
   }
 };
 
@@ -3035,20 +3047,27 @@ function openPendingKaedamaCard() {
     }
     return p.parentName || '';
   };
-  body.innerHTML = pending.map((p, i) => {
+  // 複数件あるときは「個別注文OK」をユーザーに伝えるヒントを上部に表示
+  const hintHtml = (pending.length > 1 && tk.hint)
+    ? `<div style="font-size:11px;color:#5d4037;background:#fff3e0;border-left:3px solid #ff9800;border-radius:6px;padding:8px 10px;margin-bottom:10px;line-height:1.5">${tk.hint}</div>`
+    : '';
+  body.innerHTML = hintHtml + pending.map((p, i) => {
     return `<div style="border:1.5px solid #ffd54f;background:#fff8e1;border-radius:12px;padding:12px 14px;margin-bottom:10px">
-      <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.target}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:11px;color:#666">${tk.target}</div>
+        <div id="pkn-status-${i}" style="font-size:10px;font-weight:900;letter-spacing:.3px;padding:2px 8px;border-radius:8px;background:#e0e0e0;color:#757575">${tk.statusSkip}</div>
+      </div>
       <div style="font-size:13px;color:#333;font-weight:700;margin-bottom:10px">${localizeParent(p)}</div>
 
       <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.size}</div>
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <button data-pkn="type-${i}-full" onclick="pickPendingKaedamaType(${i},'full')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e65100;background:#fff;color:#e65100;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.full}</button>
-        <button data-pkn="type-${i}-half" onclick="pickPendingKaedamaType(${i},'half')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e65100;background:#fff;color:#e65100;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.half}</button>
+        <button data-pkn="type-${i}-full" onclick="pickPendingKaedamaType(${i},'full')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.full}</button>
+        <button data-pkn="type-${i}-half" onclick="pickPendingKaedamaType(${i},'half')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.half}</button>
       </div>
 
       <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.hardness}</div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
-        ${HARDNESS.map(h => `<button data-pkn="hard-${i}-${h.key}" onclick="pickPendingKaedamaHardness(${i},'${h.key}')" style="padding:9px;border-radius:8px;border:1.5px solid #ccc;background:#fff;color:#333;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${h.label}</button>`).join('')}
+        ${HARDNESS.map(h => `<button data-pkn="hard-${i}-${h.key}" onclick="pickPendingKaedamaHardness(${i},'${h.key}')" style="padding:9px;border-radius:8px;border:1.5px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${h.label}</button>`).join('')}
       </div>
     </div>`;
   }).join('');
@@ -3076,15 +3095,18 @@ function closePendingKaedamaCard() {
 function pickPendingKaedamaType(idx, type) {
   if (!_pendingKaedamaSelections[idx]) _pendingKaedamaSelections[idx] = {};
   _pendingKaedamaSelections[idx].type = type;
-  // ボタンの見た目を更新
+  // ボタンの見た目を更新（未選択はグレーアウト、選択はオレンジ）
+  const styleSel = { bg:'#e65100', color:'#fff', border:'#e65100' };
+  const styleOff = { bg:'#f5f5f5', color:'#bdbdbd', border:'#e0e0e0' };
   document.querySelectorAll(`[data-pkn="type-${idx}-full"]`).forEach(b => {
-    b.style.background = type === 'full' ? '#e65100' : '#fff';
-    b.style.color = type === 'full' ? '#fff' : '#e65100';
+    const s = type === 'full' ? styleSel : styleOff;
+    b.style.background = s.bg; b.style.color = s.color; b.style.borderColor = s.border;
   });
   document.querySelectorAll(`[data-pkn="type-${idx}-half"]`).forEach(b => {
-    b.style.background = type === 'half' ? '#e65100' : '#fff';
-    b.style.color = type === 'half' ? '#fff' : '#e65100';
+    const s = type === 'half' ? styleSel : styleOff;
+    b.style.background = s.bg; b.style.color = s.color; b.style.borderColor = s.border;
   });
+  updatePendingKaedamaCardStatus(idx);
   refreshPendingKaedamaSubmitBtn();
 }
 
@@ -3092,25 +3114,47 @@ function pickPendingKaedamaHardness(idx, hardness) {
   if (!_pendingKaedamaSelections[idx]) _pendingKaedamaSelections[idx] = {};
   _pendingKaedamaSelections[idx].hardness = hardness;
   const HARDNESS = ['ふつう','かため','やわらかめ','ばりかた'];
+  const styleSel = { bg:'#e65100', color:'#fff', border:'#e65100' };
+  const styleOff = { bg:'#f5f5f5', color:'#bdbdbd', border:'#e0e0e0' };
   HARDNESS.forEach(h => {
     document.querySelectorAll(`[data-pkn="hard-${idx}-${h}"]`).forEach(b => {
-      b.style.background = h === hardness ? '#e65100' : '#fff';
-      b.style.color = h === hardness ? '#fff' : '#333';
-      b.style.borderColor = h === hardness ? '#e65100' : '#ccc';
+      const s = h === hardness ? styleSel : styleOff;
+      b.style.background = s.bg; b.style.color = s.color; b.style.borderColor = s.border;
     });
   });
+  updatePendingKaedamaCardStatus(idx);
   refreshPendingKaedamaSubmitBtn();
+}
+
+// 各カードの「今回注文 / 今回スキップ」バッジを更新
+function updatePendingKaedamaCardStatus(idx) {
+  const tk = (T_KPC && T_KPC[lang]) || T_KPC.ja;
+  const el = document.getElementById(`pkn-status-${idx}`);
+  if (!el) return;
+  const s = _pendingKaedamaSelections[idx] || {};
+  const ready = !!(s.type && s.hardness);
+  if (ready) {
+    el.textContent = tk.statusReady || '今回ご注文';
+    el.style.background = '#e65100';
+    el.style.color = '#fff';
+  } else {
+    el.textContent = tk.statusSkip || '今回スキップ';
+    el.style.background = '#e0e0e0';
+    el.style.color = '#757575';
+  }
 }
 
 function refreshPendingKaedamaSubmitBtn() {
   const list = window._pendingKaedamaList || [];
   const btn = document.getElementById('kaedamaPendingSubmitBtn');
   if (!btn) return;
-  const allReady = list.length > 0 && list.every((_, i) => {
+  // 1件でも「サイズ + 硬さ」両方選択済みなら送信可能
+  // 未選択の権利は今回スキップされ、次回再表示される
+  const anyReady = list.length > 0 && list.some((_, i) => {
     const s = _pendingKaedamaSelections[i];
     return s && s.type && s.hardness;
   });
-  if (allReady) {
+  if (anyReady) {
     btn.disabled = false;
     btn.style.background = '#e65100';
     btn.style.cursor = 'pointer';
@@ -3134,10 +3178,18 @@ async function submitPendingKaedamaOrder() {
   if (btn) btn.disabled = true;
   showLoading(true);
   try {
+    // 完全に選択された権利だけを今回送信対象とする
+    // （未選択の権利はスキップして次回再表示。1テーブルで複数権利あるとき個別に注文可）
+    const submitTargets = list
+      .map((p, i) => ({ p, i, sel: _pendingKaedamaSelections[i] || {} }))
+      .filter(({ sel }) => sel && sel.type && sel.hardness);
+    if (!submitTargets.length) {
+      // ここには到達しないはず（ボタンが無効化されているため）。念のため早期 return
+      return;
+    }
     // 1) 新規 order として替え玉アイテムを送信（伝票で先頭表示用に isPendingKaedamaOrder:true）
     const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-    const items = list.map((p, i) => {
-      const sel = _pendingKaedamaSelections[i] || {};
+    const items = submitTargets.map(({ p, sel }) => {
       const isHalf = sel.type === 'half';
       const itemId = isHalf ? 41 : 40;
       const name = isHalf ? '半替え玉（無料）' : '替え玉（無料）';
@@ -3178,10 +3230,10 @@ async function submitPendingKaedamaOrder() {
       createdAt: window.FB.serverTimestamp()
     };
     await window.FB.addDoc(window.FB.collection(window.FB.db, 'orders'), orderData);
-    // 2) 既存オーダーの pendingKaedamaRight.requested = true に更新
-    // 同じ orderId/itemIdx を一括更新する
+    // 2) 既存オーダーの「今回送信した権利」のみ requested:true に更新
+    //    （スキップした権利は次回再表示するため触らない）
     const byOrder = {};
-    list.forEach(p => {
+    submitTargets.forEach(({ p }) => {
       if (!byOrder[p.orderId]) byOrder[p.orderId] = [];
       byOrder[p.orderId].push(p.orderItemIdx);
     });
