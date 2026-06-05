@@ -2251,6 +2251,9 @@ function addCart(){
       qty: qtySafe
     };
   }
+  // 有料替え玉も同じく「権利」として紐付ける（初回伝票には出さない）
+  // アドオンとして追加された id=40 替え玉は、後で取り出してメインに添付する
+  mainCartItem.pendingKaedamaRightsPaid = []; // 後で push
   cart.push(mainCartItem);
 
   // アドオン（追加トッピング/サイド/ドリンク）— 売り切れはスキップしてユーザーに通知
@@ -2272,18 +2275,32 @@ function addCart(){
         }
         // ラーメンと一緒に頼む初回注文の替え玉は硬さ選択なし（食後の追加注文時のみ硬さあり）
         const isKaedamaAddon = (m.id === 40);
+        // 有料替え玉（id=40）は権利化：カート行に追加せず、メインの pendingKaedamaRightsPaid に紐付け
+        // 料金はメインの total に加算（カート UI ではメイン側に "替え玉(¥150)" バッジで表示）
+        if (isKaedamaAddon) {
+          const kPrice = Number(m.price) || 0;
+          for (let n = 0; n < qty; n++) {
+            mainCartItem.pendingKaedamaRightsPaid.push({
+              type: 'full',
+              requested: false,
+              qty: 1,
+              price: kPrice
+            });
+          }
+          mainCartItem.total = (Number(mainCartItem.total) || 0) + kPrice * qty;
+          return; // カート行は追加しない
+        }
         // variant がある場合は opts に格納（伝票で「ブタ/トリ」識別に使用）
         const addonOpts = variant ? [variant] : [];
-        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:isKaedamaAddon, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
-        if (isKaedamaAddon){
-          // 「呼ぶ」ボタンは廃止（口頭オペレーションに移行）。最初から「作る対象」として送る。
-          cartItem.kaedamaPrepaid = false;
-          cartItem.kaedamaRequestedQty = qty;
-        }
+        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:false, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
         cart.push(cartItem);
       }
     });
   });
+  // 権利が0件なら属性自体を削除（クリーンな保存のため）
+  if (mainCartItem.pendingKaedamaRightsPaid.length === 0) {
+    delete mainCartItem.pendingKaedamaRightsPaid;
+  }
 
   if(skippedSoldout.length > 0){
     showValidationMsg('🚫 売り切れのため除外：' + skippedSoldout.join('、'));
@@ -2351,7 +2368,18 @@ function renderCart(){
       const labelZh = isHalf ? '半份加面（免费・餐后下单）' : '加面（免费・餐后下单）';
       const labelKo = isHalf ? '반 면 추가（무료・식후 주문）' : '면 추가（무료・식후 주문）';
       const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
-      kaedamaBadgeHtml = `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#fff3e0;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
+      kaedamaBadgeHtml += `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#fff3e0;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
+    }
+    // 有料替え玉権利が紐付いている場合の表示（複数まとめて1バッジ）
+    if (Array.isArray(i.pendingKaedamaRightsPaid) && i.pendingKaedamaRightsPaid.length > 0) {
+      const paidQty = i.pendingKaedamaRightsPaid.length;
+      const paidUnit = Number(i.pendingKaedamaRightsPaid[0]?.price) || 0;
+      const labelJa = `替え玉 ×${paidQty}（+¥${(paidUnit*paidQty).toLocaleString()}・後でご注文）`;
+      const labelEn = `Extra Noodles ×${paidQty} (+¥${(paidUnit*paidQty).toLocaleString()}, order later)`;
+      const labelZh = `加面 ×${paidQty}（+¥${(paidUnit*paidQty).toLocaleString()}・餐后下单）`;
+      const labelKo = `면 추가 ×${paidQty}（+¥${(paidUnit*paidQty).toLocaleString()}・식후 주문）`;
+      const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
+      kaedamaBadgeHtml += `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#e3f2fd;border:1.5px solid #1976d2;color:#0d47a1;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
     }
     return `
     <div class="cart-row${sold?' soldout':''}">
@@ -2447,6 +2475,15 @@ async function placeOrder(){
             requested: !!i.pendingKaedamaRight.requested,
             qty: Number(i.pendingKaedamaRight.qty) || Number(i.qty) || 1
           };
+        }
+        // 有料替え玉の「権利」配列を保存
+        if (Array.isArray(i.pendingKaedamaRightsPaid) && i.pendingKaedamaRightsPaid.length > 0) {
+          out.pendingKaedamaRightsPaid = i.pendingKaedamaRightsPaid.map(r => ({
+            type: r.type || 'full',
+            requested: !!r.requested,
+            qty: Number(r.qty) || 1,
+            price: Number(r.price) || 0
+          }));
         }
         return out;
       }),
@@ -2980,12 +3017,13 @@ function renderKaedamaCart(){
 }
 
 // ────── 無料替え玉（先注文・後提供）の保留権利フロー ──────
-// 過去に「pendingKaedamaRight」が紐づいた未提供/提供済オーダーから、未注文の権利を抽出
+// 過去に「pendingKaedamaRight / pendingKaedamaRightsPaid」が紐づいた未提供/提供済オーダーから、未注文の権利を抽出
 function getPendingKaedamaRights() {
   const pending = [];
   (orderHistory || []).forEach(o => {
     if (o.paymentType === 'cancelled_by_edit') return;
     (o.items || []).forEach((it, idx) => {
+      // 無料権利（単一）
       const right = it.pendingKaedamaRight;
       if (right && !right.requested) {
         pending.push({
@@ -2994,9 +3032,28 @@ function getPendingKaedamaRights() {
           parentItemId: it.itemId,
           parentName: it.name,
           type: right.type || 'full',
-          qty: right.qty || 1
+          qty: right.qty || 1,
+          paid: false,
+          price: 0,
+          paidRightIdx: null
         });
       }
+      // 有料権利（配列、各要素ごと1件）
+      const paidArr = Array.isArray(it.pendingKaedamaRightsPaid) ? it.pendingKaedamaRightsPaid : [];
+      paidArr.forEach((r, pIdx) => {
+        if (!r || r.requested) return;
+        pending.push({
+          orderId: o.fbId,
+          orderItemIdx: idx,
+          parentItemId: it.itemId,
+          parentName: it.name,
+          type: r.type || 'full',
+          qty: r.qty || 1,
+          paid: true,
+          price: Number(r.price) || 0,
+          paidRightIdx: pIdx
+        });
+      });
     });
   });
   return pending;
@@ -3052,28 +3109,40 @@ function openPendingKaedamaCard() {
     ? `<div style="font-size:11px;color:#5d4037;background:#fff3e0;border-left:3px solid #ff9800;border-radius:6px;padding:8px 10px;margin-bottom:10px;line-height:1.5">${tk.hint}</div>`
     : '';
   body.innerHTML = hintHtml + pending.map((p, i) => {
-    return `<div style="border:1.5px solid #ffd54f;background:#fff8e1;border-radius:12px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <div style="font-size:11px;color:#666">${tk.target}</div>
-        <div id="pkn-status-${i}" style="font-size:10px;font-weight:900;letter-spacing:.3px;padding:2px 8px;border-radius:8px;background:#e0e0e0;color:#757575">${tk.statusSkip}</div>
-      </div>
-      <div style="font-size:13px;color:#333;font-weight:700;margin-bottom:10px">${localizeParent(p)}</div>
-
+    // 有料権利は青系・無料は黄系で区別
+    const isPaid = !!p.paid;
+    const cardBg = isPaid ? '#e3f2fd' : '#fff8e1';
+    const cardBd = isPaid ? '#90caf9' : '#ffd54f';
+    const priceTag = isPaid && p.price ? `<span style="margin-left:6px;background:#1976d2;color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:900">+¥${Number(p.price).toLocaleString()}（${(lang==='en'?'paid':lang==='zh'?'已付款':lang==='ko'?'결제완료':'お支払い済')}）</span>` : '';
+    // 有料は size 選択肢を非表示（id=40 のみ。常に full）
+    const sizeBlock = isPaid ? '' : `
       <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.size}</div>
       <div style="display:flex;gap:6px;margin-bottom:10px">
         <button data-pkn="type-${i}-full" onclick="pickPendingKaedamaType(${i},'full')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.full}</button>
         <button data-pkn="type-${i}-half" onclick="pickPendingKaedamaType(${i},'half')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.half}</button>
+      </div>`;
+    return `<div style="border:1.5px solid ${cardBd};background:${cardBg};border-radius:12px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:11px;color:#666">${tk.target}${priceTag}</div>
+        <div id="pkn-status-${i}" style="font-size:10px;font-weight:900;letter-spacing:.3px;padding:2px 8px;border-radius:8px;background:#e0e0e0;color:#757575">${tk.statusSkip}</div>
       </div>
-
+      <div style="font-size:13px;color:#333;font-weight:700;margin-bottom:10px">${localizeParent(p)}</div>
+      ${sizeBlock}
       <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.hardness}</div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
         ${HARDNESS.map(h => `<button data-pkn="hard-${i}-${h.key}" onclick="pickPendingKaedamaHardness(${i},'${h.key}')" style="padding:9px;border-radius:8px;border:1.5px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${h.label}</button>`).join('')}
       </div>
     </div>`;
   }).join('');
-  // 初期デフォルト：保留権利が full → 替え玉 / half → 半替え玉
+  // 初期デフォルト：保留権利が full → 替え玉 / half → 半替え玉（有料は常に full 固定）
   pending.forEach((p, i) => {
-    pickPendingKaedamaType(i, p.type === 'half' ? 'half' : 'full');
+    if (p.paid) {
+      // 有料は size ボタンが無いので type を内部状態だけセット
+      if (!_pendingKaedamaSelections[i]) _pendingKaedamaSelections[i] = {};
+      _pendingKaedamaSelections[i].type = 'full';
+    } else {
+      pickPendingKaedamaType(i, p.type === 'half' ? 'half' : 'full');
+    }
   });
   document.getElementById('kaedamaPendingOverlay').style.display = 'flex';
   updateKaedamaFloatBtn();
@@ -3188,11 +3257,15 @@ async function submitPendingKaedamaOrder() {
       return;
     }
     // 1) 新規 order として替え玉アイテムを送信（伝票で先頭表示用に isPendingKaedamaOrder:true）
+    //    料金は本注文時に既に支払済（有料権利）または無料権利のため、新規注文の price は 0
     const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const items = submitTargets.map(({ p, sel }) => {
       const isHalf = sel.type === 'half';
       const itemId = isHalf ? 41 : 40;
-      const name = isHalf ? '半替え玉（無料）' : '替え玉（無料）';
+      const isPaid = !!p.paid;
+      const name = isPaid
+        ? '替え玉（先払い）'
+        : (isHalf ? '半替え玉（無料）' : '替え玉（無料）');
       return {
         itemId,
         name,
@@ -3206,9 +3279,10 @@ async function submitPendingKaedamaOrder() {
         isMain: false,
         isAddon: true,
         isKaedama: true,
-        kaedamaPrepaid: false,
+        kaedamaPrepaid: isPaid,        // 有料権利の消化（先払い済）
         kaedamaRequestedQty: p.qty,
-        lunchFree: true,
+        lunchFree: !isPaid,
+        kaedamaWasPaid: isPaid,        // キッチン伝票表示用フラグ
         parentItemId: p.parentItemId
       };
     });
@@ -3232,17 +3306,38 @@ async function submitPendingKaedamaOrder() {
     await window.FB.addDoc(window.FB.collection(window.FB.db, 'orders'), orderData);
     // 2) 既存オーダーの「今回送信した権利」のみ requested:true に更新
     //    （スキップした権利は次回再表示するため触らない）
-    const byOrder = {};
+    //    無料権利 → pendingKaedamaRight.requested = true
+    //    有料権利 → pendingKaedamaRightsPaid[idx].requested = true
+    //    オーダー単位でまとめて 1回 updateDoc する
+    const byOrder = {}; // { orderId: { freeIdxs:Set, paidMap:{itemIdx: Set<paidRightIdx>} } }
     submitTargets.forEach(({ p }) => {
-      if (!byOrder[p.orderId]) byOrder[p.orderId] = [];
-      byOrder[p.orderId].push(p.orderItemIdx);
+      if (!byOrder[p.orderId]) byOrder[p.orderId] = { freeIdxs: new Set(), paidMap: {} };
+      const entry = byOrder[p.orderId];
+      if (p.paid) {
+        if (!entry.paidMap[p.orderItemIdx]) entry.paidMap[p.orderItemIdx] = new Set();
+        entry.paidMap[p.orderItemIdx].add(p.paidRightIdx);
+      } else {
+        entry.freeIdxs.add(p.orderItemIdx);
+      }
     });
-    for (const [orderFbId, idxs] of Object.entries(byOrder)) {
+    for (const [orderFbId, entry] of Object.entries(byOrder)) {
       const orig = orderHistory.find(o => o.fbId === orderFbId);
       if (!orig) continue;
       const newItems = (orig.items || []).map((it, j) => {
-        if (!idxs.includes(j)) return it;
-        return { ...it, pendingKaedamaRight: { ...(it.pendingKaedamaRight || {}), requested: true } };
+        let next = it;
+        // 無料権利の更新
+        if (entry.freeIdxs.has(j) && it.pendingKaedamaRight) {
+          next = { ...next, pendingKaedamaRight: { ...(it.pendingKaedamaRight || {}), requested: true } };
+        }
+        // 有料権利配列の更新（特定 paidRightIdx のみ）
+        if (entry.paidMap[j] && Array.isArray(it.pendingKaedamaRightsPaid)) {
+          const flips = entry.paidMap[j];
+          const newPaid = it.pendingKaedamaRightsPaid.map((r, k) =>
+            flips.has(k) ? { ...r, requested: true } : r
+          );
+          next = { ...next, pendingKaedamaRightsPaid: newPaid };
+        }
+        return next;
       });
       await window.FB.updateDoc(
         window.FB.doc(window.FB.db, 'orders', orderFbId),
