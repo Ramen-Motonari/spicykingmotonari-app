@@ -334,18 +334,18 @@ body.dark-bg{background:#111}
 <!-- Admin FAB -->
 <button class="admin-fab" id="adminFab" onclick="openAdmin()" title="管理">⚙</button>
 
-<!-- 無料替え玉オーダー用フローティングボタン（未注文の権利がある時のみ表示） -->
+<!-- 替え玉（無料/有料）オーダー用フローティングボタン（未注文の権利がある時のみ表示） -->
 <button id="kaedamaFloatBtn" onclick="openPendingKaedamaCard()" style="display:none;position:fixed;bottom:90px;right:14px;z-index:550;background:#e65100;color:#fff;border:none;border-radius:50px;padding:14px 22px;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;box-shadow:0 6px 22px rgba(230,81,0,0.5);display:none;align-items:center;gap:8px;animation:flashRed 1.8s ease infinite">
   <span style="font-size:22px">🍝</span>
-  <span id="kaedamaFloatBtnLabel">無料替え玉を注文</span>
+  <span id="kaedamaFloatBtnLabel">替え玉を注文</span>
 </button>
 
-<!-- 無料替え玉オーダー用モーダル -->
+<!-- 替え玉オーダー用モーダル（無料/有料権利を統合表示） -->
 <div id="kaedamaPendingOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:780;align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:16px 18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;background:#fff8e1">
       <div>
-        <div id="kaedamaPendingTitle" style="font-size:18px;font-weight:900;color:#e65100">🍝 無料替え玉を注文</div>
+        <div id="kaedamaPendingTitle" style="font-size:18px;font-weight:900;color:#e65100">🍝 替え玉を注文</div>
         <div id="kaedamaPendingSubtitle" style="font-size:11px;color:#666;margin-top:2px"></div>
       </div>
       <button onclick="closePendingKaedamaCard()" style="background:none;border:none;color:#666;font-size:22px;cursor:pointer">×</button>
@@ -613,8 +613,8 @@ const T = {
 // 替え玉待機カード（pending kaedama card）専用の多言語辞書
 const T_KPC = {
   ja:{
-    floatBtn:'無料替え玉を注文',
-    modalTitle:'🍝 無料替え玉を注文',
+    floatBtn:'替え玉を注文',
+    modalTitle:'🍝 替え玉を注文',
     subtitle:n=>`${n}件の替え玉ご注文権利`,
     target:'対象',
     size:'サイズ',
@@ -633,9 +633,9 @@ const T_KPC = {
     statusSkip:'今回スキップ'
   },
   en:{
-    floatBtn:'Order Free Extra Noodles',
-    modalTitle:'🍝 Order Free Extra Noodles',
-    subtitle:n=>`${n} free extra-noodle right${n>1?'s':''}`,
+    floatBtn:'Order Extra Noodles',
+    modalTitle:'🍝 Order Extra Noodles',
+    subtitle:n=>`${n} extra-noodle right${n>1?'s':''}`,
     target:'Target',
     size:'Size',
     full:'Extra Noodles',
@@ -653,9 +653,9 @@ const T_KPC = {
     statusSkip:'Skip this time'
   },
   zh:{
-    floatBtn:'点免费加面',
-    modalTitle:'🍝 点免费加面',
-    subtitle:n=>`${n}份免费加面权利`,
+    floatBtn:'下单加面',
+    modalTitle:'🍝 下单加面',
+    subtitle:n=>`${n}份加面权利`,
     target:'对应拉面',
     size:'份量',
     full:'加面',
@@ -673,9 +673,9 @@ const T_KPC = {
     statusSkip:'本次跳过'
   },
   ko:{
-    floatBtn:'무료 면 추가 주문',
-    modalTitle:'🍝 무료 면 추가 주문',
-    subtitle:n=>`${n}건의 무료 면 추가 권리`,
+    floatBtn:'면 추가 주문',
+    modalTitle:'🍝 면 추가 주문',
+    subtitle:n=>`${n}건의 면 추가 권리`,
     target:'대상',
     size:'양',
     full:'면 추가',
