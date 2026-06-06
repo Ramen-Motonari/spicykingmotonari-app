@@ -1706,6 +1706,10 @@ function buildItemGroups(items) {
     // 編集により完了扱いとなったアイテム（_doneByEdit）は伝票描画から除外
     //   ※ idx は items の元インデックスのまま保つ（toggleGroupServed の整合性のため）
     if (item._doneByEdit) return;
+    // 有料替え玉「先払い・後で注文」は初回伝票では表示しない
+    //   実注文は、お客様が替え玉モーダルで確定したタイミングで
+    //   isPendingKaedamaOrder の新規オーダーとして厨房に届く
+    if (item.isPendingKaedamaPaid) return;
     // 替え玉/サイド/ドリンクは groupId に関わらず独立カードとして分離
     if (shouldExtractAddon(item)) {
       const sid = `_split_${idx}`;
@@ -1856,7 +1860,7 @@ function getAbbrevJa(item) {
   //   ・上記以外の price/total=0 の保険分岐 → 「無料替え玉」
   if (id === 40) {
     if (item.kaedamaWasPaid === true || item.kaedamaPrepaid === true) {
-      return '替え玉（先払い）';
+      return '替え玉';
     }
     if (item.lunchFree === true) {
       return '無料替え玉';
@@ -2104,9 +2108,17 @@ function renderRamenGroupCard(orderId, grp) {
 
   // ━━━ Section 5: 合計金額 (main + spicy + noodle extras + addons) ━━━
   // main.price は order-app 側で unitPrice = base + spicy + noodleExtra で計算済み
+  // 有料替え玉は別カート行として注文ドキュメント内に残しているので、
+  // ここでは「グループに含まれる項目（addons）」の合計と main 単価×qty を足すだけで正しい。
   const mainQty = main.qty || 1;
   const mainTotal = getItemUnitPrice(main) * mainQty;
-  const addonsTotal = addons.reduce((s, a) => s + getItemUnitPrice(a) * (a.qty || 1), 0);
+  // ただし isPendingKaedamaPaid の addon（初回伝票には出さない）は表示金額からも除外する
+  //   → お客様が後で替え玉を実注文した時、その新規伝票で改めて金額表示される
+  //   → 初回伝票は「実際にいま厨房が作るぶんの金額」だけ示すほうが直感的
+  const addonsTotal = addons.reduce((s, a) => {
+    if (a.isPendingKaedamaPaid) return s;
+    return s + getItemUnitPrice(a) * (a.qty || 1);
+  }, 0);
   const groupTotal = mainTotal + addonsTotal;
   const totalHtml = groupTotal > 0
     ? `<div class="rg-sec rg-sec-total" style="display:flex;align-items:center;justify-content:flex-end;gap:8px">${kaedamaRightBadge}<span>¥${groupTotal.toLocaleString()}</span></div>`
