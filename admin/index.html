@@ -1728,11 +1728,15 @@ function switchPage(name, btn) {
 //     updatedAt }
 let _dailyReports = {};  // YYYY-MM-DD -> data
 let _dailyReportsUnsub = null;
+let _subscribedMonth = null; // 現在購読している YYYY-MM（重複購読防止 / 累計計算の前提）
 
 // 月の購読を切り替え（指定月のドキュメントだけリスナーで購読）
 function subscribeDailyReportsForMonth(yyyyMm) {
+  // 既に同じ月を購読中ならスキップ
+  if (_subscribedMonth === yyyyMm && _dailyReportsUnsub) return;
   const { collection, query, where, onSnapshot } = window.fbApi;
   if (_dailyReportsUnsub) { try { _dailyReportsUnsub(); } catch(_) {} _dailyReportsUnsub = null; }
+  _subscribedMonth = yyyyMm;
   const start = yyyyMm + '-01';
   // 月末日を求める
   const [y, m] = yyyyMm.split('-').map(Number);
@@ -1745,7 +1749,23 @@ function subscribeDailyReportsForMonth(yyyyMm) {
     if (document.getElementById('page-kanritable')?.classList.contains('active')) {
       renderKanritableTable();
     }
+    // ダッシュボードの「夜の報告」累計をデータ到着時に再計算
+    if (document.getElementById('page-dashboard')?.classList.contains('active')) {
+      try { recalcDinnerManuals(); } catch(_) {}
+    }
   }, err => console.error('dailyReports listener:', err));
+}
+
+// 現在月（todayKey の YYYY-MM）の購読を保証
+// ダッシュボードの「夜の報告」累計が前日までの保存値を取得するために必須
+function ensureCurrentMonthDailyReportsSubscribed() {
+  try {
+    const t = todayKey(); // YYYY-MM-DD
+    const yyyyMm = t.slice(0, 7);
+    if (_subscribedMonth !== yyyyMm) {
+      subscribeDailyReportsForMonth(yyyyMm);
+    }
+  } catch(_) {}
 }
 
 // ページ遷移時：年・月セレクトを初期化。データ表示は「決定」ボタン押下時。
@@ -2623,6 +2643,8 @@ function renderDashboard() {
   renderTodayRanking(todayOrders);
   renderDailyReport();
   // 夜の報告：当日売上（自動算出）と累計を最新化
+  //   ※ 累計は _dailyReports（当月のFirestore データ）に依存するため、未購読なら開始
+  try { ensureCurrentMonthDailyReportsSubscribed(); } catch(_) {}
   try { recalcDinnerManuals(); } catch(_) {}
 }
 
@@ -5602,6 +5624,9 @@ function bootstrap() {
         startCategoryOrderListener();
         startItemOrderListener();
         startSubCategoriesListener();
+        // 当日集計の「夜の報告」累計が前日までの保存値を必要とするため、
+        // 当月の dailyReports を起動時から購読する
+        try { ensureCurrentMonthDailyReportsSubscribed(); } catch(_) {}
       } else {
         signInAnonymously(window.fb.auth).catch(e => {
           console.error('signInAnonymously error:', e);
