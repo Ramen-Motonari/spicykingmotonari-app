@@ -546,7 +546,7 @@ window.adminLogout = adminLogout;
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
           <div class="section-label" style="color:var(--green)">💾 今日の数値を保存</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <input type="date" id="dinner-save-date" class="form-input" style="width:160px">
+            <input type="date" id="dinner-save-date" class="form-input" style="width:160px" onchange="recalcDinnerManuals()">
             <button onclick="saveDailyReportFromDinner()" style="padding:10px 22px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">💾 管理表に保存</button>
             <span id="dinner-save-status" style="font-size:11px;color:var(--muted)"></span>
           </div>
@@ -1083,8 +1083,12 @@ function startOrdersListener() {
       // キャンセル扱いを除外
       if (data.paymentType === 'cancelled_by_edit') return;
       if (data.status === 'cancelled') return;
-      // テストモード注文は売上集計・分析から除外
+      // テストモード注文は売上集計・分析から除外（フラグ判定）
       if (data.testMode === true) return;
+      // 二重防御：testMode フィールドが欠落していてもテーブルが TEST なら除外
+      //   （古い注文や手動投入された TEST 注文がクレジット件数に紛れ込むのを防止）
+      const _tbl = (data.table || data.tableLabel || '').toString().toUpperCase();
+      if (_tbl === 'TEST') return;
       // 論理削除された注文は集計から除外（履歴の削除済みビューでのみ表示可能）
       if (data.deleted === true) return;
       const o = { id: d.id, ...data };
@@ -1995,10 +1999,11 @@ async function updateKanritableCell(dateKey, field, raw) {
 }
 
 // 夜の日報セクションの自動計算
-//   - 本年売上 当日 = APP集計の当日合算売上（税込）を自動入力
-//   - 本年売上 累計 = 月初〜前日の保存済 salesToday + 当日（自動）
-//   - 仕入れ 当日 が入力されると → 月初〜当日の累計を表示、仕入率 = 仕入累計÷売上累計×100（小数第1位）
-//   - 労働時間 が入力されると → 人時売上 = 当日売上 ÷ 労働時間（¥0,000 形式）
+//   - 本年売上 当日 = 選択日に応じて：保存済 _dailyReports[date].salesToday を最優先、
+//                     当日なら APP の calcReportFor('all').salesTax をフォールバック
+//   - 本年売上 累計 = 月初〜前日の保存済 salesToday + 当日売上
+//   - 仕入率 = 仕入累計 ÷ 売上累計 × 100（小数第1位）
+//   - 人時売上 = 当日売上 ÷ 労働時間（¥X,XXX 形式）
 function recalcDinnerManuals() {
   const dateEl = document.getElementById('dinner-save-date');
   if (dateEl && !dateEl.value) {
@@ -2007,16 +2012,26 @@ function recalcDinnerManuals() {
   }
   const dateKey = dateEl?.value || '';
   const [yy, mm, dd] = dateKey.split('-').map(Number);
+  const isToday = (dateKey === todayKey());
 
-  // 当日売上は APP集計の「ランチ＋夜営業合算」の税込売上を採用
-  // calcReportFor('all') は当日（todayKey）に対する全セッション合算
+  // 当日売上の取得優先順:
+  //   ① 選択日が「今日」の場合 → APP集計の calcReportFor('all').salesTax（最新値）
+  //   ② 選択日が過去/未来の場合 → _dailyReports[dateKey].salesToday（保存済）
+  //   ③ いずれも無ければ 0
   let salesTodayAuto = 0;
-  try {
-    if (typeof calcReportFor === 'function') {
-      const rAll = calcReportFor('all');
-      salesTodayAuto = Math.round(Number(rAll?.salesTax) || 0);
+  if (isToday) {
+    try {
+      if (typeof calcReportFor === 'function') {
+        const rAll = calcReportFor('all');
+        salesTodayAuto = Math.round(Number(rAll?.salesTax) || 0);
+      }
+    } catch(_) { salesTodayAuto = 0; }
+  } else {
+    const saved = _dailyReports?.[dateKey];
+    if (saved && typeof saved.salesToday === 'number') {
+      salesTodayAuto = Math.round(Number(saved.salesToday) || 0);
     }
-  } catch(_) { salesTodayAuto = 0; }
+  }
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setVal('dinner-yearly-sales-today', salesTodayAuto || '');
 
@@ -2039,12 +2054,21 @@ function recalcDinnerManuals() {
   const cumSales = cumSalesPrev + salesToday;
   const cumPurch = cumPurchPrev + purchaseToday;
   const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : 0;
-  const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : 0;
+  // 人時売上 = 当日売上 ÷ 労働時間
+  //   売上 0 でも労働時間入っているなら「¥0」と明示表示（空欄だと「壊れている？」と思わせるため）
+  const salesPerHour = (workHours > 0 && salesToday > 0)
+    ? Math.round(salesToday / workHours)
+    : 0;
 
   setVal('dinner-yearly-sales-cum', cumSales || '');
   setVal('dinner-purchase-cumulative', cumPurch || '');
   setVal('dinner-purchase-rate', cumPurch > 0 ? purchRate.toFixed(1) : '');
-  setVal('dinner-work-sales', salesPerHour > 0 ? '¥' + salesPerHour.toLocaleString() : '');
+  // 労働時間が入力されていれば必ず ¥X 形式で表示（計算成立を可視化）
+  if (workHours > 0) {
+    setVal('dinner-work-sales', '¥' + salesPerHour.toLocaleString());
+  } else {
+    setVal('dinner-work-sales', '');
+  }
 }
 
 // dailyReports リスナーが更新されたら本日の入力値も再計算
