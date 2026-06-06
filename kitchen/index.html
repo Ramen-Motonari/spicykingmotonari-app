@@ -1850,9 +1850,20 @@ function stripParens(s) {
 function getAbbrevJa(item) {
   if (!item) return '';
   const id = item.itemId;
-  // 平日ランチ無料の替え玉は「無料替え玉」と表記
-  if (id === 40 && (item.lunchFree === true || (item.isKaedama && (item.price === 0 || item.total === 0)))) {
-    return '無料替え玉';
+  // 替え玉（id=40）表記の出し分け：
+  //   ・有料先払い権利の消化（kaedamaWasPaid/kaedamaPrepaid）→「替え玉（先払い）」
+  //   ・平日ランチ無料の替え玉（lunchFree=true） → 「無料替え玉」
+  //   ・上記以外の price/total=0 の保険分岐 → 「無料替え玉」
+  if (id === 40) {
+    if (item.kaedamaWasPaid === true || item.kaedamaPrepaid === true) {
+      return '替え玉（先払い）';
+    }
+    if (item.lunchFree === true) {
+      return '無料替え玉';
+    }
+    if (item.isKaedama && (item.price === 0 || item.total === 0)) {
+      return '無料替え玉';
+    }
   }
   // チャーシュー3枚（id:62）は opts の 豚/鶏 を読み取り表示
   if (id === 62 && Array.isArray(item.opts)) {
@@ -3508,7 +3519,11 @@ parentItemId: item.parentItemId || null,
 isKaedama: !!item.isKaedama,
 lunchFree: !!item.lunchFree,
 kaedamaPrepaid: !!item.kaedamaPrepaid,
-kaedamaRequestedQty: item.kaedamaRequestedQty || 0
+kaedamaWasPaid: !!item.kaedamaWasPaid,
+kaedamaRequestedQty: item.kaedamaRequestedQty || 0,
+// 替え玉「権利」も保持（編集後も requested 状態を維持）
+pendingKaedamaRight: item.pendingKaedamaRight || null,
+pendingKaedamaRightsPaid: Array.isArray(item.pendingKaedamaRightsPaid) ? item.pendingKaedamaRightsPaid.map(r=>({...r})) : null
 })));
 // 編集前のスナップショット：保存時に削除アイテムを検出するため
 window._editItemsOriginal = window._editItems.map(it => ({ ...it, opts: (it.opts||[]).slice(), servedIndices: (it.servedIndices||[]).slice() }));
@@ -3729,7 +3744,12 @@ const itemsForFs = newItems.map((item, i) => {
     if (item.isKaedama) base.isKaedama = true;
     if (item.lunchFree) base.lunchFree = true;
     if (item.kaedamaPrepaid) base.kaedamaPrepaid = true;
+    if (item.kaedamaWasPaid) base.kaedamaWasPaid = true;
     if (item.kaedamaRequestedQty) base.kaedamaRequestedQty = item.kaedamaRequestedQty;
+    if (item.pendingKaedamaRight) base.pendingKaedamaRight = item.pendingKaedamaRight;
+    if (Array.isArray(item.pendingKaedamaRightsPaid) && item.pendingKaedamaRightsPaid.length > 0) {
+      base.pendingKaedamaRightsPaid = item.pendingKaedamaRightsPaid.map(r => ({...r}));
+    }
     // 既に提供済のアイテムは「編集で完了済」扱い → 伝票から非表示にする
     if (base.served) base._doneByEdit = true;
   } else {
