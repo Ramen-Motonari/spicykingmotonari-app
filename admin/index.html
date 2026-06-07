@@ -451,6 +451,11 @@ window.adminLogout = adminLogout;
       <div class="kpi-card"><div class="kpi-label" id="kpi-newrate-label">当日新規率</div><div class="kpi-value" style="color:var(--blue)" id="kpi-newrate">0%</div><div class="kpi-diff" id="kpi-newrate-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-foreignrate-label">当日外国人率</div><div class="kpi-value" style="color:#e2a14b" id="kpi-foreignrate">0%</div><div class="kpi-diff" id="kpi-foreignrate-diff"></div></div>
     </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
+      <div class="kpi-card"><div class="kpi-label">当日サイド率</div><div class="kpi-value" style="color:#26a69a" id="kpi-side-rate">0%</div><div class="kpi-diff" id="kpi-side-rate-sub"></div></div>
+      <div class="kpi-card"><div class="kpi-label">当日トッピング率</div><div class="kpi-value" style="color:#ef6c00" id="kpi-topping-rate">0%</div><div class="kpi-diff" id="kpi-topping-rate-sub"></div></div>
+      <div class="kpi-card"><div class="kpi-label">当日ドリンク率</div><div class="kpi-value" style="color:#7b1fa2" id="kpi-drink-rate">0%</div><div class="kpi-diff" id="kpi-drink-rate-sub"></div></div>
+    </div>
     <div class="card">
       <div class="card-title">🏆 本日の人気メニュー TOP5</div>
       <div id="today-ranking" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px"></div>
@@ -611,6 +616,23 @@ window.adminLogout = adminLogout;
         <div class="an-kpi-label">外国人率</div>
         <div class="an-kpi-value" style="color:#e2a14b" id="an-foreignrate">0%</div>
         <div class="an-kpi-prev">前年: <span id="an-foreignrate-prev">—</span> <span class="diff" id="an-foreignrate-diff"></span></div>
+      </div>
+    </div>
+    <div class="an-kpi-grid" style="margin-top:14px">
+      <div class="an-kpi-card">
+        <div class="an-kpi-label">サイド率</div>
+        <div class="an-kpi-value" style="color:#26a69a" id="an-side-rate">0%</div>
+        <div class="an-kpi-prev">件数 <span id="an-side-count">0</span></div>
+      </div>
+      <div class="an-kpi-card">
+        <div class="an-kpi-label">トッピング率</div>
+        <div class="an-kpi-value" style="color:#ef6c00" id="an-topping-rate">0%</div>
+        <div class="an-kpi-prev">件数 <span id="an-topping-count">0</span></div>
+      </div>
+      <div class="an-kpi-card">
+        <div class="an-kpi-label">ドリンク率</div>
+        <div class="an-kpi-value" style="color:#7b1fa2" id="an-drink-rate">0%</div>
+        <div class="an-kpi-prev">件数 <span id="an-drink-count">0</span></div>
       </div>
     </div>
     <div class="card" style="margin-bottom:16px">
@@ -1999,11 +2021,11 @@ async function updateKanritableCell(dateKey, field, raw) {
 }
 
 // 夜の日報セクションの自動計算
-//   - 本年売上 当日 = 選択日に応じて：保存済 _dailyReports[date].salesToday を最優先、
-//                     当日なら APP の calcReportFor('all').salesTax をフォールバック
-//   - 本年売上 累計 = 月初〜前日の保存済 salesToday + 当日売上
-//   - 仕入率 = 仕入累計 ÷ 売上累計 × 100（小数第1位）
-//   - 人時売上 = 当日売上 ÷ 労働時間（¥X,XXX 形式）
+//   - 本年売上 当日 = 選択日に応じて：保存済 _dailyReports[date].salesToday（税抜）を最優先、
+//                     当日なら APP の calcReportFor('all').salesNoTax（税抜）をフォールバック
+//   - 本年売上 累計 = 月初〜前日の保存済 salesToday（税抜） + 当日売上（税抜）
+//   - 仕入率 = 仕入累計 ÷ 売上累計（税抜） × 100（小数第1位）
+//   - 人時売上 = 当日売上（税抜） ÷ 労働時間（¥X,XXX 形式）
 function recalcDinnerManuals() {
   const dateEl = document.getElementById('dinner-save-date');
   if (dateEl && !dateEl.value) {
@@ -2014,8 +2036,8 @@ function recalcDinnerManuals() {
   const [yy, mm, dd] = dateKey.split('-').map(Number);
   const isToday = (dateKey === todayKey());
 
-  // 当日売上の取得優先順:
-  //   ① 選択日が「今日」の場合 → APP集計の calcReportFor('all').salesTax（最新値）
+  // 当日売上（税抜）の取得優先順:
+  //   ① 選択日が「今日」の場合 → APP集計の calcReportFor('all').salesNoTax（税抜）
   //   ② 選択日が過去/未来の場合 → _dailyReports[dateKey].salesToday（保存済）
   //   ③ いずれも無ければ 0
   let salesTodayAuto = 0;
@@ -2023,7 +2045,7 @@ function recalcDinnerManuals() {
     try {
       if (typeof calcReportFor === 'function') {
         const rAll = calcReportFor('all');
-        salesTodayAuto = Math.round(Number(rAll?.salesTax) || 0);
+        salesTodayAuto = Math.round(Number(rAll?.salesNoTax) || 0);
       }
     } catch(_) { salesTodayAuto = 0; }
   } else {
@@ -2035,7 +2057,7 @@ function recalcDinnerManuals() {
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setVal('dinner-yearly-sales-today', salesTodayAuto || '');
 
-  const salesToday = salesTodayAuto;
+  const salesToday = salesTodayAuto; // 税抜
   const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || 0;
   const workHours = parseFloat(document.getElementById('dinner-work-hours')?.value) || 0;
 
@@ -2054,10 +2076,10 @@ function recalcDinnerManuals() {
   const cumSales = cumSalesPrev + salesToday;
   const cumPurch = cumPurchPrev + purchaseToday;
   const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : 0;
-  // 人時売上 = 当日売上 ÷ 労働時間
-  //   売上 0 でも労働時間入っているなら「¥0」と明示表示（空欄だと「壊れている？」と思わせるため）
-  const salesPerHour = (workHours > 0 && salesToday > 0)
-    ? Math.round(salesToday / workHours)
+  // 人時売上 = 当日売上（税抜） ÷ 労働時間
+  //   売上が 0 でも労働時間が入っていれば「¥0」と明示表示
+  const salesPerHour = workHours > 0
+    ? Math.round((Number(salesToday) || 0) / workHours)
     : 0;
 
   setVal('dinner-yearly-sales-cum', cumSales || '');
@@ -2664,6 +2686,21 @@ function renderDashboard() {
   setKpiDiff('kpi-newrate-diff', vr.rate, yvr.rate);
   setKpiDiff('kpi-foreignrate-diff', fr.rate, yfr.rate);
 
+  // サイド / トッピング / ドリンク 率
+  const todayRates = calcCategoryRates(todayOrders, customers);
+  const elSide  = document.getElementById('kpi-side-rate');
+  const elTop   = document.getElementById('kpi-topping-rate');
+  const elDrink = document.getElementById('kpi-drink-rate');
+  if (elSide)  elSide.textContent  = todayRates.sideRate.toFixed(1) + '%';
+  if (elTop)   elTop.textContent   = todayRates.toppingRate.toFixed(1) + '%';
+  if (elDrink) elDrink.textContent = todayRates.drinkRate.toFixed(1) + '%';
+  const elSideSub  = document.getElementById('kpi-side-rate-sub');
+  const elTopSub   = document.getElementById('kpi-topping-rate-sub');
+  const elDrinkSub = document.getElementById('kpi-drink-rate-sub');
+  if (elSideSub)  elSideSub.textContent  = `件数 ${todayRates.sideCount} / 客数 ${customers}`;
+  if (elTopSub)   elTopSub.textContent   = `件数 ${todayRates.toppingCount} / 客数 ${customers}`;
+  if (elDrinkSub) elDrinkSub.textContent = `件数 ${todayRates.drinkCount} / 客数 ${customers}`;
+
   renderTodayRanking(todayOrders);
   renderDailyReport();
   // 夜の報告：当日売上（自動算出）と累計を最新化
@@ -2774,6 +2811,7 @@ const DINNER_SECTIONS = [
 //   - 細麺→平打ち変更（豚骨のみ）: 小 / 並 / 大盛り の内訳
 function calcNoodleOptionCounts(orders) {
   let kaedama = 0;
+  let halfKaedama = 0;
   let thinLarge = 0;
   let flatSmall = 0;
   let flatLarge = 0;
@@ -2792,6 +2830,14 @@ function calcNoodleOptionCounts(orders) {
         const nm = item.name || '';
         const isFree = /無料|FREE|免费|무료/.test(optsStr) || /無料|FREE|免费|무료/.test(nm) || item.price === 0;
         if (!isFree) kaedama += qty;
+        return;
+      }
+      // 半替え玉（id 41）。ランチタイム無料の場合は除外。通常料金（75円）のみ集計
+      if (id === 41) {
+        const optsStr = (item.opts || []).map(x => String(x)).join(' ');
+        const nm = item.name || '';
+        const isFree = /無料|FREE|免费|무료/.test(optsStr) || /無料|FREE|免费|무료/.test(nm) || item.price === 0;
+        if (!isFree) halfKaedama += qty;
         return;
       }
 
@@ -2826,8 +2872,40 @@ function calcNoodleOptionCounts(orders) {
   });
 
   return {
-    kaedama, thinLarge, flatSmall, flatLarge,
+    kaedama, halfKaedama, thinLarge, flatSmall, flatLarge,
     tonkotsuFlatSmall, tonkotsuFlatRegular, tonkotsuFlatLarge
+  };
+}
+
+// サイド/トッピング/ドリンクのアテンドレート計算
+//   レート = アイテムqty合計 ÷ 客数 × 100（% 表記、小数1位）
+//   トッピングは替え玉(id=40)・半替え玉(id=41) を除外（別途集計のため）
+function calcCategoryRates(orders, customers) {
+  let sideCount = 0;
+  let toppingCount = 0;
+  let drinkCount = 0;
+  orders.forEach(o => {
+    (o.items || []).forEach(item => {
+      const qty = Number(item.qty) || 0;
+      if (qty <= 0) return;
+      const key = getDinnerSectionKey(item) || getDinnerSectionKey({ cat: getItemCat(item), name: { ja: item.name || '' } });
+      if (key === 'topping') {
+        if (item.itemId === 40 || item.itemId === 41) return; // 替え玉系は除外
+        toppingCount += qty;
+      } else if (key === 'side') {
+        sideCount += qty;
+      } else if (key === 'drink') {
+        drinkCount += qty;
+      }
+    });
+  });
+  const cust = Number(customers) || 0;
+  const fmt = (n) => cust > 0 ? Math.round((n / cust) * 1000) / 10 : 0;
+  return {
+    sideCount, toppingCount, drinkCount,
+    sideRate: fmt(sideCount),
+    toppingRate: fmt(toppingCount),
+    drinkRate: fmt(drinkCount)
   };
 }
 
@@ -3080,7 +3158,7 @@ function calcMonthToDate(session) {
   const customers = countCustomersFromOrders(orders);
   const visitRate = calcVisitRate(orders);
   const foreignRate = calcForeignRate(orders);
-  return { salesNoTax, customers, salesTax, visitRate, foreignRate };
+  return { salesNoTax, customers, salesTax, visitRate, foreignRate, orders };
 }
 
 // ────── Copy report ──────
@@ -3194,7 +3272,9 @@ function buildReportText(session) {
   const purchCum = parseInt(document.getElementById('dinner-purchase-cumulative')?.value || '0') || 0;
   const purchRate = document.getElementById('dinner-purchase-rate')?.value || '0';
   const workH = document.getElementById('dinner-work-hours')?.value || '0';
-  const workS = parseInt(document.getElementById('dinner-work-sales')?.value || '0') || 0;
+  // 人時売上の表示値は「¥X,XXX」形式なので、¥とカンマを取り除いてから数値化する
+  const _wsRaw = document.getElementById('dinner-work-sales')?.value || '0';
+  const workS = parseInt(String(_wsRaw).replace(/[¥￥,]/g, ''), 10) || 0;
 
   // 当月累計 = 月初〜今日のシステム集計（全セッション） + 月別繰越定数
   const mtdSales = mtdAll.salesNoTax + carry.salesNoTax;
@@ -3257,8 +3337,8 @@ function buildReportText(session) {
     if (!grouped[key].length) return;
     txt += `${sectionEmojis[key]}\n`;
     grouped[key].forEach(item => {
-      // 替え玉（id 40）は追加トッピング欄から除外（末尾で別集計）
-      if (key === 'topping' && item.id === 40) return;
+      // 替え玉（id 40）・半替え玉（id 41）は追加トッピング欄から除外（末尾で別集計）
+      if (key === 'topping' && (item.id === 40 || item.id === 41)) return;
       const cnt = r.counts[item.id] || 0;
       txt += `${item.name}　x ${cnt}\n`;
     });
@@ -3274,9 +3354,12 @@ function buildReportText(session) {
       if (getItemLogicalCat(item) === 'ramen') ramenTotal += (item.qty || 0);
     });
   });
-  const kaedamaRate = ramenTotal > 0 ? Math.round((noc.kaedama / ramenTotal) * 100) : 0;
+  // 替え玉率 = (通常料金の替え玉 + 通常料金の半替え玉) ÷ ラーメン杯数
+  const kaedamaTotal = (noc.kaedama || 0) + (noc.halfKaedama || 0);
+  const kaedamaRate = ramenTotal > 0 ? Math.round((kaedamaTotal / ramenTotal) * 100) : 0;
   txt += `${SEP}\n`;
   txt += `替え玉　x ${noc.kaedama}\n`;
+  txt += `半替え玉　x ${noc.halfKaedama}\n`;
   txt += `替え玉率　${kaedamaRate}%\n`;
   txt += `細麺大盛り　x ${noc.thinLarge}\n`;
   txt += `平打ち麺小盛り（並料金）　x ${noc.flatSmall}\n`;
@@ -3286,6 +3369,20 @@ function buildReportText(session) {
   txt += `・小（並料金）　x ${noc.tonkotsuFlatSmall}\n`;
   txt += `・並　x ${noc.tonkotsuFlatRegular}\n`;
   txt += `・大盛り　x ${noc.tonkotsuFlatLarge}\n`;
+
+  // 当日 & 当月累計のサイド/トッピング/ドリンク率（夜営業の日報のみ表示）
+  txt += `\n`;
+  const todayRates = calcCategoryRates(r.orders, r.customers);
+  // 当月累計：calcMonthToDate('all') + 繰越 を使用（売上累計と同じスコープ）
+  const mtdAllForRate = mtdAll; // 既に上で計算済み
+  const mtdCustForRate = mtdCustomers; // 当月累計客数（繰越込み）
+  const mtdRates = calcCategoryRates(mtdAllForRate.orders || [], mtdCustForRate);
+  txt += `当日サイド率 ${todayRates.sideRate}%\n`;
+  txt += `累計サイド率 ${mtdRates.sideRate}%\n`;
+  txt += `当日トッピング率 ${todayRates.toppingRate}%\n`;
+  txt += `累計トッピング率 ${mtdRates.toppingRate}%\n`;
+  txt += `当日ドリンク率 ${todayRates.drinkRate}%\n`;
+  txt += `累計ドリンク率 ${mtdRates.drinkRate}%\n`;
 
   // 辛さレベル別集計（当日分のみ／辛さ選択可能なアイテムのみ）
   const spicyCounts = {};
@@ -3409,6 +3506,18 @@ function renderAnalytics() {
   document.getElementById('an-avg').textContent = '¥' + avg.toLocaleString();
   document.getElementById('an-newrate').textContent = visitRate.rate + '%';
   document.getElementById('an-foreignrate').textContent = foreignRate.rate + '%';
+
+  // サイド / トッピング / ドリンク 率（期間集計）
+  try {
+    const rates = calcCategoryRates(allFiltered, customers);
+    const $set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    $set('an-side-rate',    rates.sideRate.toFixed(1)    + '%');
+    $set('an-topping-rate', rates.toppingRate.toFixed(1) + '%');
+    $set('an-drink-rate',   rates.drinkRate.toFixed(1)   + '%');
+    $set('an-side-count',    rates.sideCount.toLocaleString());
+    $set('an-topping-count', rates.toppingCount.toLocaleString());
+    $set('an-drink-count',   rates.drinkCount.toLocaleString());
+  } catch(_) {}
 
   // 前年対比：dailyReports の prevYearSalesToday を集計して使用
   //   ※ 売上は管理表で入力された前年値を加算。客数/客単価/新規率/外国人率は前年データなしのため「—」
