@@ -1241,12 +1241,14 @@ allNotPaid.forEach(o => {
 //   そのテーブルに「未提供アイテムを持つ pending または preparing の注文」が1件以上ある
 // → 1件目を全提供してもまだ追加注文に未提供があれば伝票は残る
 // → 全注文が served（または全アイテム提供済）になったら伝票は消える（空伝票化を防止）
+// ※ isPendingKaedamaPaid / _doneByEdit のアイテムは厨房作業対象外なので未提供判定から除外
+const isKitchenActiveItem = (i) => i && !i.served && !i.isPendingKaedamaPaid && !i._doneByEdit;
 const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   return list.some(o => {
     if (o.status !== 'pending' && o.status !== 'preparing') return false;
     const items = Array.isArray(o.items) ? o.items : [];
     if (items.length === 0) return false; // 空注文はスキップ
-    return items.some(i => !i.served);
+    return items.some(isKitchenActiveItem);
   });
 }).map(([tl, list]) => {
   // 表示用：
@@ -1268,12 +1270,15 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   // 「最初に未提供アイテムを持つ注文」の手前にある "全提供済" 注文をすべて隠す
   // 例) Order A(全提供済) → Order B(全提供済) → Order C(追加・未提供あり) のとき
   //     A・B を非表示にし、C のみ表示する
-  const firstUnservedIdx = sorted.findIndex(o => (o.items || []).some(i => !i.served));
+  //   ※ isPendingKaedamaPaid / _doneByEdit のアイテムは厨房作業対象外なので未提供判定から除外
+  const firstUnservedIdx = sorted.findIndex(o => (o.items || []).some(isKitchenActiveItem));
   let displayOrders = sorted;
   if (firstUnservedIdx > 0) {
     const allEarlierServed = sorted.slice(0, firstUnservedIdx).every(o => {
       const items = Array.isArray(o.items) ? o.items : [];
-      return items.length > 0 && items.every(i => i.served);
+      // 「厨房対象アイテム」が1つもないか、もしくは全て served なら "earlier served" 扱い
+      const kitchenItems = items.filter(i => !i.isPendingKaedamaPaid && !i._doneByEdit);
+      return items.length > 0 && (kitchenItems.length === 0 || kitchenItems.every(i => i.served));
     });
     if (allEarlierServed) {
       displayOrders = sorted.slice(firstUnservedIdx);
@@ -1606,9 +1611,10 @@ function renderTableTicket(tt) {
   //   ・過去注文がすべて提供済 → 替え玉だけ表示（新規伝票として最上段に独立）
   //   ・過去注文に未提供アイテムが残っている → 同じ伝票内に「追加」扱いで合流表示
   //     （前の伝票が消えるのを防ぎ、追加注文と同様の赤枠で示す）
-  const kaedamaOnly = orderList.filter(o => o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served));
+  const _isKitchenActive = (i) => i && !i.served && !i.isPendingKaedamaPaid && !i._doneByEdit;
+  const kaedamaOnly = orderList.filter(o => o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(_isKitchenActive));
   const hasOtherUnserved = orderList.some(o =>
-    !o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served)
+    !o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(_isKitchenActive)
   );
   const isKaedamaTicket = kaedamaOnly.length > 0 && !hasOtherUnserved;
   if (isKaedamaTicket) {
@@ -2285,7 +2291,9 @@ async function toggleGroupServed(orderId, key) {
     }
   });
   
-  const orderAllServed = newItems.length > 0 && newItems.every(i => i.served);
+  // 厨房作業対象（isPendingKaedamaPaid / _doneByEdit を除く）が全て served なら status:'served'
+  const kitchenItems = newItems.filter(i => !i.isPendingKaedamaPaid && !i._doneByEdit);
+  const orderAllServed = kitchenItems.length > 0 && kitchenItems.every(i => i.served);
   const updateData = { items: newItems, updatedAt: window.fbApi.serverTimestamp() };
   if (orderAllServed) updateData.status = 'served';
   else if (order.status === 'pending') updateData.status = 'preparing';
@@ -3983,7 +3991,8 @@ const active = orders.filter(o => o.status === 'pending' || o.status === 'prepar
 const visibleTables = new Set();
 active.forEach(o => {
   const items = Array.isArray(o.items) ? o.items : [];
-  if (items.length > 0 && items.some(i => !i.served)) {
+  // isPendingKaedamaPaid / _doneByEdit のアイテムは厨房作業対象外なので除外
+  if (items.length > 0 && items.some(i => !i.served && !i.isPendingKaedamaPaid && !i._doneByEdit)) {
     visibleTables.add(o.tableLabel || o.table || '?');
   }
 });
