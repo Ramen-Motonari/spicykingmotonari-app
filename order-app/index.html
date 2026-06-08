@@ -1976,11 +1976,12 @@ function renderModal(){
       ${flatNoteHtml}
     </div>`;
   }
-  // 麺の硬さは常時表示。細麺以外（平打ち麺等）が選択されている場合はグレーアウト
-  if(c.noodleSize) {
-    const isThinNoodle = curOpts.noodleSize && curOpts.noodleSize.includes('細麺');
+  // 麺の硬さ表示ルール：
+  //   ・豚骨（tonkotsu）：常時表示。平打ち選択時はグレーアウト
+  //   ・醤油（shouyu） / 餃子定食（teishoku）：硬さセクション自体を非表示
+  //   ・その他（noodleSize あり）：豚骨と同じ扱い
+  if(c.noodleSize && item.cat !== 'shouyu' && item.cat !== 'teishoku') {
     const isFlatNoodle = curOpts.noodleSize && /(平打ち麺|Flat|宽面|넓은면)/i.test(curOpts.noodleSize);
-    // 細麺の場合のみ必須・有効。平打ち麺選択時 or 未選択時はグレーアウト
     const kataDisabled = isFlatNoodle || !curOpts.noodleSize;
     const kataLabel = ({ja:'麺の硬さ（細麺のみ）（必須選択）',en:'Noodle Firmness (Thin only, Required)',zh:'面条软硬（仅细面・必选）',ko:'면 굵기（가는면 한정・필수 선택）'}[lang] || '麺の硬さ（細麺のみ）（必須選択）');
     const kataNote = isFlatNoodle
@@ -2054,13 +2055,17 @@ function hasRequiredFields(){
 
 function getMissingFields(){
   const c=curItem.custom, t=T[lang];
+  const cat=curItem.cat;
   const missing=[];
   if(c.chashu && !curOpts.chashu) missing.push({key:'chashu',label:t.optChashu});
   if(c.top    && !curOpts.top)    missing.push({key:'top',label:t.optTop});
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
-  if(c.noodleSize && curOpts.noodleSize && curOpts.noodleSize.includes('細麺') && !curOpts.kata)
+  // 醤油・餃子定食は硬さセクションを非表示にしているため必須から除外
+  if(c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku'
+     && curOpts.noodleSize && curOpts.noodleSize.includes('細麺') && !curOpts.kata)
     missing.push({key:'kata',label:'麺の硬さ'});
-  if(c.kata && !c.noodleSize && !curOpts.kata) missing.push({key:'kata',label:t.optNoodle});
+  if(c.kata && !c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku' && !curOpts.kata)
+    missing.push({key:'kata',label:t.optNoodle});
   if(c.rice && !curOpts.rice) missing.push({key:'rice',label:t.optRice});
   // 初回注文（ラーメンと一緒に頼む）の替え玉は硬さ選択不要（口頭オペ・キッチン待機タブで個別に対応）
   // → 替え玉アドオン（id=40）の硬さ必須チェックは削除
