@@ -148,7 +148,7 @@
     // ── 定食 ──
     {id:70, cat:'teishoku', img:'🥟',
      name:{ja:'餃子定食', en:'Gyoza Set Meal', zh:'饺子套餐', ko:'교자 정식'},
-     price:1300, spicy:false, night:false, custom:{rice:1}},
+     price:1300, spicy:false, night:false, custom:{rice:1, noodleSize:1, kata:1}},
 
     // ── トッピング ──
     {id:40, cat:'topping', img:'🍝',

@@ -2841,9 +2841,9 @@ function calcNoodleOptionCounts(orders) {
         return;
       }
 
-      // 麺サイズ：ラーメンの opts を解析（カスタム ramen も対応）
+      // 麺サイズ：ラーメン・定食の opts を解析
       const cat = getItemCat(item);
-      if (cat !== 'tonkotsu' && cat !== 'shouyu') return;
+      if (cat !== 'tonkotsu' && cat !== 'shouyu' && cat !== 'teishoku') return;
       const opts = item.opts || [];
       opts.forEach(rawOpt => {
         const s = String(rawOpt);
@@ -2866,6 +2866,10 @@ function calcNoodleOptionCounts(orders) {
             if (isLarge) flatLarge += qty;
             else if (isSmall) flatSmall += qty;
           }
+        } else if (cat === 'teishoku') {
+          // 定食：細麺のみ。大盛りは有料（+100円）/ ランチタイム無料を細麺大盛りとしてカウント
+          //   平打ち変更は無いので tonkotsuFlat 系には加算しない
+          if (isThin && isLarge && !isFree) thinLarge += qty;
         }
       });
     });
