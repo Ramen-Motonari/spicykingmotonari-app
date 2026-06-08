@@ -2007,9 +2007,14 @@ function renderModal(){
     </div>`;
   }
   // === 必須項目セクション終了：未選択があれば一括の赤枠で囲む（背景色なし）===
+  //   赤枠の上辺中央に「選択必須」バッジを配置（4言語対応）
   if (reqHtml) {
     if (!allDone) {
-      h += `<div style="border:2.5px solid #e74c3c;border-radius:14px;padding:10px 12px;margin-bottom:12px;box-shadow:0 0 0 3px rgba(231,76,60,0.08);transition:all .25s">${reqHtml}</div>`;
+      const reqBadgeLabel = (T[lang] && T[lang].requiredTag) || '選択必須';
+      h += `<div style="position:relative;border:2.5px solid #e74c3c;border-radius:14px;padding:18px 12px 10px;margin-top:16px;margin-bottom:12px;box-shadow:0 0 0 3px rgba(231,76,60,0.08);transition:all .25s">
+        <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:#e74c3c;color:#fff;font-size:12px;font-weight:900;padding:4px 16px;border-radius:14px;letter-spacing:1px;white-space:nowrap;box-shadow:0 2px 6px rgba(231,76,60,0.35)">${reqBadgeLabel}</div>
+        ${reqHtml}
+      </div>`;
     } else {
       h += reqHtml;
     }
@@ -2067,23 +2072,19 @@ function optGrpReq(label,key,opts,missing, options){
   // options = { disabled: true/false, disabledNote: string }
   const opts2 = options || {};
   const disabled = !!opts2.disabled;
-  // 未選択（必須）項目は ラベル横に「選択必須」赤バッジを表示（個別赤枠は廃止）
-  // 全体は外側のラッパーで包んで一括の赤枠表示にする（renderModal 側）
-  const isMissing = !disabled && Array.isArray(missing) && missing.some(m => m.key === key);
+  // 個別の「選択必須」タグは廃止（外側の赤枠の上にまとめて1個だけ表示する方針）
+  // ラベル末尾の「（必須選択）」「（必选）」「(Required)」等も非表示にする
+  const cleanLabel = String(label || '').replace(/\s*[（(]\s*(必須選択|必須|必选|必選|Required|필수\s*선택)\s*[）)]\s*$/i, '').trim();
   // disabled の場合だけ視覚的にグレーアウト枠を残す
   const groupStyle = disabled
     ? 'border:1.5px solid #e0e0e0;background:transparent;border-radius:10px;padding:8px 10px;opacity:0.6;pointer-events:none'
     : 'border:none;padding:6px 0';
-  const reqTag = isMissing
-    ? `<span style="display:inline-block;margin-left:8px;background:#e74c3c;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:8px;letter-spacing:0.5px;vertical-align:middle">${(T[lang] && T[lang].requiredTag) || '選択必須'}</span>`
-    : '';
   const disabledNote = (disabled && opts2.disabledNote)
     ? `<div style="font-size:10px;color:#999;margin-top:4px">${opts2.disabledNote}</div>`
     : '';
-  // disabled時はボタンも視覚的にグレーアウト
   const btnExtraClass = disabled ? ' disabled-grey' : '';
   return `<div class="option-group" id="field-${key}" style="position:relative;transition:all .25s;${groupStyle}">
-    <div class="option-label">${label}${reqTag}</div>
+    <div class="option-label">${cleanLabel}</div>
     <div class="option-btns">
       ${opts.map(o=>`<button class="option-btn${btnExtraClass} ${curOpts[key]===o?'selected':''}" onclick="pickOpt('${key}','${o}')" ${disabled?'disabled':''}>${o}</button>`).join('')}
     </div>
