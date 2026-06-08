@@ -510,6 +510,21 @@ body.dark-bg{background:#111}
   </div>
 </div>
 
+<!-- スタッフ専用商品 パスワードロック -->
+<div id="staffLockOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:780;display:none;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:18px;width:100%;max-width:360px;padding:24px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.4)">
+    <div style="font-size:42px;line-height:1">🔒</div>
+    <div style="font-family:'Oswald',sans-serif;font-size:20px;color:#e65100;font-weight:900;letter-spacing:1.5px;margin-top:6px">STAFF ONLY</div>
+    <div id="staffLockSubtitle" style="font-size:13px;color:#666;margin:8px 0 18px;line-height:1.6">この商品はスタッフ専用です<br>パスワードを入力してください</div>
+    <input id="staffPwInput" type="password" autocomplete="off" maxlength="8" placeholder="パスワード" style="width:100%;padding:14px;font-size:18px;border:2px solid #e0e0e0;border-radius:10px;text-align:center;letter-spacing:6px;font-family:'Oswald',sans-serif;font-weight:900;text-transform:uppercase;outline:none" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')checkStaffPw()">
+    <div id="staffPwErr" style="font-size:12px;color:#c0392b;font-weight:700;height:18px;margin-top:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="closeStaffLock()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #ccc;background:#fff;color:#666;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
+      <button onclick="checkStaffPw()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#e65100;color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">確定</button>
+    </div>
+  </div>
+</div>
+
 <!-- Admin Modal -->
 <div class="modal-overlay" id="adminModal" onclick="if(event.target===this)closeAdmin()">
   <div class="modal" style="max-height:90vh">
@@ -1863,6 +1878,11 @@ function openItem(id){
   if(isItemSoldout(item.id)){ showValidationMsg('🚫 申し訳ございません、この商品は売り切れです'); return; }
   if(!isAvailable(item)){ showValidationMsg('🌙 夜営業（17:00〜21:00）のみご注文いただけます'); return; }
   if(item.ghost){ openGhostLock(id); return; }
+  // スタッフ専用商品：商品名に「スタッフ専用」を含むものはパスワード認証が必要
+  if(isStaffOnlyItem(item) && !window._staffUnlocked){
+    openStaffLock(id);
+    return;
+  }
   curItem=item; curOpts={}; curQty=1;
   renderModal();
   $('itemModal').classList.add('open');
@@ -2643,6 +2663,8 @@ function resetOrder(){ $('successScreen').classList.remove('open'); }
 function showPaidScreen(){
   sessionActive = false;
   stopOrderPolling(); // ポーリング停止
+  // スタッフ専用ロック状態もリセット
+  window._staffUnlocked = false;
   $('cartBar').style.display='none';
   $('successScreen').classList.remove('open');
   document.querySelectorAll('.sub-screen.open').forEach(s=>s.classList.remove('open'));
@@ -3583,6 +3605,72 @@ function openGhostLock(id){
   $('ghostLockOverlay').classList.add('open');
   document.body.style.overflow='hidden';
 }
+
+// ────── スタッフ専用商品のパスワードロック ──────
+// 商品名に「スタッフ専用」を含むメニューは password='KSC' を入力するまで開けない
+//   ・正解後はセッション中（ページ滞在中）はロック解除状態を維持
+//   ・ページリロードまたは会計済みで再ロック
+const STAFF_PW = 'KSC';
+let _staffTargetId = null;
+
+function isStaffOnlyItem(item) {
+  if (!item) return false;
+  const names = item.name || {};
+  const all = (names.ja || '') + ' ' + (names.en || '') + ' ' + (names.zh || '') + ' ' + (names.ko || '');
+  return /スタッフ専用|Staff\s*Only|员工专用|직원\s*전용/i.test(all);
+}
+
+function openStaffLock(id) {
+  _staffTargetId = id;
+  const overlay = document.getElementById('staffLockOverlay');
+  const input = document.getElementById('staffPwInput');
+  const err = document.getElementById('staffPwErr');
+  if (input) input.value = '';
+  if (err) err.textContent = '';
+  if (overlay) {
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    // 自動フォーカス（短いdelayで仮想キーボードを起動）
+    setTimeout(() => { if (input) input.focus(); }, 50);
+  }
+}
+
+function closeStaffLock() {
+  const overlay = document.getElementById('staffLockOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+  _staffTargetId = null;
+}
+
+function checkStaffPw() {
+  const input = document.getElementById('staffPwInput');
+  const err = document.getElementById('staffPwErr');
+  const val = (input?.value || '').trim().toUpperCase();
+  if (val === STAFF_PW) {
+    // 解除：このセッション中は再入力不要
+    window._staffUnlocked = true;
+    const targetId = _staffTargetId;
+    closeStaffLock();
+    // 認証成功後に対象商品モーダルを開く
+    if (targetId != null) openItem(targetId);
+  } else {
+    if (err) err.textContent = '❌ パスワードが違います';
+    if (input) {
+      input.style.borderColor = '#c0392b';
+      input.style.animation = 'flashRed 0.4s ease 2';
+      setTimeout(() => {
+        input.style.borderColor = '#e0e0e0';
+        input.style.animation = '';
+        input.value = '';
+        input.focus();
+      }, 800);
+    }
+  }
+}
+
+// グローバル公開（HTML onclick から呼ばれる）
+window.closeStaffLock = closeStaffLock;
+window.checkStaffPw = checkStaffPw;
 
 function closeGhostLock(){
   $('ghostLockOverlay').classList.remove('open');
