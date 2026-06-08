@@ -79,6 +79,17 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 @keyframes reorderPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,134,10,0.6)}50%{box-shadow:0 0 0 6px rgba(200,134,10,0)}}
 .ticket > div:last-child{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .ticket.completing{opacity:0;transform:scale(0.9)}
+/* 全表示モード：伝票を広げて、商品カードを横に折り返し表示（スクロール不要に） */
+.ticket.expanded{flex:0 0 calc(100vw - 20px) !important;width:calc(100vw - 20px) !important;max-width:calc(100vw - 20px) !important;scroll-snap-align:start;outline:3px solid #e65100;outline-offset:-3px}
+.ticket.expanded > div:last-child{overflow-y:visible}
+.ticket.expanded .tk-tier{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;align-items:start}
+.ticket.expanded .tk-tier .tk-item-new,
+.ticket.expanded .tk-tier > .ramen-group-card,
+.ticket.expanded .tk-tier > .ticket-compact-card{min-width:0}
+/* 全表示トグルボタン */
+.tk-expand-btn{padding:4px 10px;border-radius:14px;border:1.5px solid #e65100;background:#fff;color:#e65100;font-size:11px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.3px;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+.tk-expand-btn:active{transform:scale(0.92)}
+.ticket.expanded .tk-expand-btn{background:#e65100;color:#fff;border-color:#e65100}
 .ticket-header{padding:6px 8px 4px;border-bottom:2px solid #e0e0e0;background:#fff}
 .ticket-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .ticket-table{font-family:'Oswald',sans-serif;font-size:42px;color:#111;font-weight:700}
@@ -628,6 +639,13 @@ const catOrder = ['ramen','teishoku','side','drink'];
 const catLabel = {ramen:'🍜 ラーメン', teishoku:'🥟 定食', side:'🥟 サイド', drink:'🍺 ドリンク'};
 
 let orders = [], tables = {}, soldoutIds = [];
+// 「全表示」モード対象の伝票ラベル（メモリ保持・ページリロードで初期化）
+let _expandedTickets = new Set();
+window.toggleExpandTicket = function(tableLabel) {
+  if (_expandedTickets.has(tableLabel)) _expandedTickets.delete(tableLabel);
+  else _expandedTickets.add(tableLabel);
+  if (typeof renderKitchen === 'function') renderKitchen();
+};
 let currentMode = 'kitchen', selectedTable = null, regFilter = 'all';
 // レジ画面スタッフ向け言語（ja / en）。お客様も見るメニュー名・合計金額は変更しない。
 let regLang = (function() {
@@ -1203,9 +1221,14 @@ const allNotPaid = orders.filter(o =>
 const content = document.getElementById('kitchenContent');
 if (!content) return;
 // ★ スクロール位置を保持（提供済タップでページが上にジャンプするのを防ぐ）
+//   ・kitchenScreen と content の両方のスクロール
+//   ・window 全体のスクロール（モバイル/タブレットでページ全体がスクロールするケース）
+//   ・content の横スクロール
 const scrollEl = document.getElementById('kitchenScreen') || document.scrollingElement || document.documentElement;
 const savedScrollTop = scrollEl ? scrollEl.scrollTop : 0;
 const savedScrollLeft = content.scrollLeft || 0;
+const savedContentScrollTop = content.scrollTop || 0;
+const savedWindowScrollY = window.scrollY || 0;
 
 // === テーブル単位グループ化 ===
 const tableMap = new Map();
@@ -1317,7 +1340,10 @@ const newOuterHtml = renderTableTicket(tt);
 if (el) {
 const tempDiv = document.createElement('div');
 tempDiv.innerHTML = newOuterHtml;
-const newInner = tempDiv.firstElementChild.innerHTML;
+const newRoot = tempDiv.firstElementChild;
+const newInner = newRoot.innerHTML;
+// outer の className も同期（completing / expanded など状態クラスを反映）
+if (el.className !== newRoot.className) el.className = newRoot.className;
 if (el._lastInner !== newInner) {
 el.innerHTML = newInner;
 el._lastInner = newInner;
@@ -1377,16 +1403,24 @@ el.style.transform = '';
 }
 });
 
-// ★ スクロール位置を復元（FLIPアニメーションは個別要素なので scrollEl は触らない）
-if (scrollEl && savedScrollTop > 0) {
-  // 即時 + 次フレームの2回復元（FLIPで一時的に位置変化があっても確実に戻す）
-  scrollEl.scrollTop = savedScrollTop;
-  requestAnimationFrame(() => { scrollEl.scrollTop = savedScrollTop; });
-}
-if (content && savedScrollLeft > 0) {
-  content.scrollLeft = savedScrollLeft;
-  requestAnimationFrame(() => { content.scrollLeft = savedScrollLeft; });
-}
+// ★ スクロール位置を復元
+//   ・即時 + 次フレーム + 60ms 後の3回復元（FLIP/再描画で動いてしまうのを確実に防止）
+//   ・kitchenScreen, content（縦・横）, window 全て対象
+const restoreScroll = () => {
+  if (scrollEl && savedScrollTop > 0 && scrollEl.scrollTop !== savedScrollTop) {
+    scrollEl.scrollTop = savedScrollTop;
+  }
+  if (content) {
+    if (savedScrollLeft > 0 && content.scrollLeft !== savedScrollLeft) content.scrollLeft = savedScrollLeft;
+    if (savedContentScrollTop > 0 && content.scrollTop !== savedContentScrollTop) content.scrollTop = savedContentScrollTop;
+  }
+  if (savedWindowScrollY > 0 && Math.abs(window.scrollY - savedWindowScrollY) > 1) {
+    window.scrollTo({ top: savedWindowScrollY, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+};
+restoreScroll();
+requestAnimationFrame(restoreScroll);
+setTimeout(restoreScroll, 60);
 }
 
 // DOM ID 用に tableLabel を安全な文字列に変換
@@ -1568,12 +1602,20 @@ function renderTableTicket(tt) {
   const tIdSafe = tableIdSafe(tLabel);
   const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
   const visitLabel = first.visitType === 'first' ? '初回' : 'リピーター';
-  // 替え玉オーダー（isPendingKaedamaOrder）を含む場合は、それだけを表示（過去ラーメンは隠す）
+  // 替え玉オーダー（isPendingKaedamaOrder）処理:
+  //   ・過去注文がすべて提供済 → 替え玉だけ表示（新規伝票として最上段に独立）
+  //   ・過去注文に未提供アイテムが残っている → 同じ伝票内に「追加」扱いで合流表示
+  //     （前の伝票が消えるのを防ぎ、追加注文と同様の赤枠で示す）
   const kaedamaOnly = orderList.filter(o => o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served));
-  const isKaedamaTicket = kaedamaOnly.length > 0;
+  const hasOtherUnserved = orderList.some(o =>
+    !o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served)
+  );
+  const isKaedamaTicket = kaedamaOnly.length > 0 && !hasOtherUnserved;
   if (isKaedamaTicket) {
     orderList = kaedamaOnly;
   }
+  // ※ hasOtherUnserved=true の場合は orderList を切り替えず、
+  //    既存ロジック（isNewOrder 判定→赤枠 + 「追加」バッジ）が自然に効く
 
   // すべての注文から groups を収集（NEW フラグ付き）
   // 追加注文の NEW 表示は、注文作成から 60 秒以内のものに限定
@@ -1645,7 +1687,9 @@ function renderTableTicket(tt) {
   // 新規追加が含まれているか（伝票全体のバッジ用）
   const hasNewItems = entries.some(e => e.isNewOrder);
 
-  return `<div class="ticket ${allServed?'completing':''}" id="ticket-${tIdSafe}">
+  const isExpanded = _expandedTickets.has(tLabel);
+  const expandBtnLabel = isExpanded ? '↺ 戻す' : '⤢ 全表示';
+  return `<div class="ticket ${allServed?'completing':''} ${isExpanded?'expanded':''}" id="ticket-${tIdSafe}">
 <div class="ticket-reorder">
   <button class="tk-reord-btn" onclick="moveTicket('${tLabel}',-1)" aria-label="左に移動">←</button>
   <button class="tk-reord-btn" onclick="moveTicket('${tLabel}',1)" aria-label="右に移動">→</button>
@@ -1657,7 +1701,10 @@ function renderTableTicket(tt) {
 <span class="ticket-visit ${visitClass}">${visitLabel}</span>
 ${isKaedamaTicket ? '<span class="ticket-new-flag" style="background:linear-gradient(135deg,#e65100 0%,#ff9800 100%)">🍝 替え玉</span>' : (hasNewItems ? '<span class="ticket-new-flag">🆕 追加あり</span>' : '')}
 </div>
+<div style="display:flex;align-items:center;gap:6px">
+<button class="tk-expand-btn" onclick="event.stopPropagation();toggleExpandTicket('${tLabel}')" title="伝票を横に広げて全商品を一度に表示">${expandBtnLabel}</button>
 <div class="ticket-time">${formatOrderTime(first)}</div>
+</div>
 </div>
 </div>
 <div style="padding:4px 0 8px">${sectionsHtml}</div>
@@ -1854,20 +1901,18 @@ function stripParens(s) {
 function getAbbrevJa(item) {
   if (!item) return '';
   const id = item.itemId;
-  // 替え玉（id=40）表記の出し分け：
-  //   ・有料先払い権利の消化（kaedamaWasPaid/kaedamaPrepaid）→「替え玉（先払い）」
-  //   ・平日ランチ無料の替え玉（lunchFree=true） → 「無料替え玉」
-  //   ・上記以外の price/total=0 の保険分岐 → 「無料替え玉」
+  // 替え玉（id=40 / id=41）表記の出し分け：
+  //   ・事前注文済バッジから注文された替え玉（isPrepaidKaedamaRequest）→「替え玉（事前注文済）」
+  //   ・無料/有料の区別はせず、お客様が事前に注文した（権利を行使した）ものとして統一表記
+  //   ・上記に該当しない単発の替え玉注文（legacy / 通常追加）は従来通り
+  if (id === 40 || id === 41) {
+    if (item.isPrepaidKaedamaRequest === true) {
+      return (id === 41 ? '半替え玉（事前注文済）' : '替え玉（事前注文済）');
+    }
+  }
   if (id === 40) {
-    if (item.kaedamaWasPaid === true || item.kaedamaPrepaid === true) {
-      return '替え玉';
-    }
-    if (item.lunchFree === true) {
-      return '無料替え玉';
-    }
-    if (item.isKaedama && (item.price === 0 || item.total === 0)) {
-      return '無料替え玉';
-    }
+    if (item.lunchFree === true) return '無料替え玉';
+    if (item.isKaedama && (item.price === 0 || item.total === 0)) return '無料替え玉';
   }
   // チャーシュー3枚（id:62）は opts の 豚/鶏 を読み取り表示
   if (id === 62 && Array.isArray(item.opts)) {
@@ -2035,14 +2080,12 @@ function renderRamenGroupCard(orderId, grp) {
 
   const p = parseRamenOpts(opts, main);
 
-  // ━━━ Section 1: 名前 + 辛さ ━━━
-  const headerHtml = `<div class="rg-sec rg-sec-header">
-    <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
-    ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
-  </div>`;
-  // 替え玉「権利」が紐付いている場合のバッジ（金額の左側に配置・無料/有料合計）
+  // 替え玉「権利」が紐付いている場合のバッジ（ヘッダー＋金額左側の両方に配置）
   // 1ラーメン中に複数権利あれば「替え玉 ×N」表記
+  //   無料権利（pendingKaedamaRight）+ 有料権利（pendingKaedamaRightsPaid[]）の合計
+  //   待機が残ってればオレンジ #ff9800、全て注文済になればグレー #bdbdbd
   let kaedamaRightBadge = '';
+  let kaedamaRightBadgeBig = '';
   {
     const freeR = main.pendingKaedamaRight;
     const freePending = !!(freeR && !freeR.requested);
@@ -2053,13 +2096,28 @@ function renderRamenGroupCard(orderId, grp) {
     const totalPending = (freePending ? 1 : 0) + paidPending;
     const totalDone    = (freeDone    ? 1 : 0) + paidDone;
     const total = totalPending + totalDone;
+    // デバッグログ（バッジが出ない時の原因切り分け用）
+    if (freeR || paidArr.length) {
+      console.log('[kitchen kaedama badge]',
+        'itemId=', main.itemId, 'name=', main.name,
+        'freeR=', freeR, 'paid=', paidArr,
+        'totalPending=', totalPending, 'totalDone=', totalDone);
+    }
     if (total > 0) {
-      // 待機が残ってればオレンジ、全て注文済になればグレー
       const bg = totalPending > 0 ? '#ff9800' : '#bdbdbd';
       const label = total > 1 ? `替え玉 ×${total}` : '替え玉';
+      // 小さい版（金額左側用）
       kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">${label}</span>`;
+      // 大きい版（ヘッダー名右側用 — 確実に視認できるように）
+      kaedamaRightBadgeBig = `<span style="background:${bg};color:#fff;border-radius:8px;padding:4px 12px;font-size:14px;font-weight:900;letter-spacing:.5px;box-shadow:0 1px 4px rgba(0,0,0,0.15)">🍝 ${label}</span>`;
     }
   }
+  // ━━━ Section 1: 名前 + 辛さ + 替え玉バッジ ━━━
+  const headerHtml = `<div class="rg-sec rg-sec-header" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
+    ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
+    ${kaedamaRightBadgeBig}
+  </div>`;
 
   // ━━━ Section 2: 麺種 / 量 / 硬さ ━━━
   // 表示ルール:
