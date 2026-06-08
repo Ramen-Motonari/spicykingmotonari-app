@@ -364,6 +364,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 @keyframes bellShake{0%,100%{transform:rotate(0deg)}15%{transform:rotate(-22deg)}30%{transform:rotate(22deg)}45%{transform:rotate(-14deg)}60%{transform:rotate(14deg)}75%{transform:rotate(-8deg)}90%{transform:rotate(8deg)}}
 @keyframes newOrderGlow{0%,100%{box-shadow:0 0 0px rgba(46,204,113,0)}50%{box-shadow:0 0 18px rgba(46,204,113,0.6)}}
 @keyframes flashRed{0%,100%{background:#e74c3c;box-shadow:0 0 0 0 rgba(231,76,60,0.6)}50%{background:#ff6b5b;box-shadow:0 0 0 6px rgba(231,76,60,0)}}
+/* 電卓ボタン押下時の即時視覚フィードバック（タップ感度の体感向上） */
+.calc-btn:active{transform:scale(0.92);filter:brightness(0.85)}
+.calc-btn{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
@@ -3216,26 +3219,26 @@ function openCashCalculator(type, total, mergeFlag, opts) {
 
       <!-- クイック金額 -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
-        <button onclick="addCash(1000)" style="${calcBtnStyle('quick')}">+1,000</button>
-        <button onclick="addCash(5000)" style="${calcBtnStyle('quick')}">+5,000</button>
-        <button onclick="addCash(10000)" style="${calcBtnStyle('quick')}">+10,000</button>
-        <button onclick="useExact()" style="${calcBtnStyle('exact')}">ぴったり</button>
+        <button class="calc-btn" onclick="addCash(1000)" style="${calcBtnStyle('quick')}">+1,000</button>
+        <button class="calc-btn" onclick="addCash(5000)" style="${calcBtnStyle('quick')}">+5,000</button>
+        <button class="calc-btn" onclick="addCash(10000)" style="${calcBtnStyle('quick')}">+10,000</button>
+        <button class="calc-btn" onclick="useExact()" style="${calcBtnStyle('exact')}">ぴったり</button>
       </div>
 
       <!-- テンキー -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
-        <button onclick="appendCashDigit('1')" style="${calcBtnStyle('digit')}">1</button>
-        <button onclick="appendCashDigit('2')" style="${calcBtnStyle('digit')}">2</button>
-        <button onclick="appendCashDigit('3')" style="${calcBtnStyle('digit')}">3</button>
-        <button onclick="appendCashDigit('4')" style="${calcBtnStyle('digit')}">4</button>
-        <button onclick="appendCashDigit('5')" style="${calcBtnStyle('digit')}">5</button>
-        <button onclick="appendCashDigit('6')" style="${calcBtnStyle('digit')}">6</button>
-        <button onclick="appendCashDigit('7')" style="${calcBtnStyle('digit')}">7</button>
-        <button onclick="appendCashDigit('8')" style="${calcBtnStyle('digit')}">8</button>
-        <button onclick="appendCashDigit('9')" style="${calcBtnStyle('digit')}">9</button>
-        <button onclick="appendCashDigit('00')" style="${calcBtnStyle('digit')}">00</button>
-        <button onclick="appendCashDigit('0')" style="${calcBtnStyle('digit')}">0</button>
-        <button onclick="clearCash()" style="${calcBtnStyle('clear')}">C</button>
+        <button class="calc-btn" onclick="appendCashDigit('1')" style="${calcBtnStyle('digit')}">1</button>
+        <button class="calc-btn" onclick="appendCashDigit('2')" style="${calcBtnStyle('digit')}">2</button>
+        <button class="calc-btn" onclick="appendCashDigit('3')" style="${calcBtnStyle('digit')}">3</button>
+        <button class="calc-btn" onclick="appendCashDigit('4')" style="${calcBtnStyle('digit')}">4</button>
+        <button class="calc-btn" onclick="appendCashDigit('5')" style="${calcBtnStyle('digit')}">5</button>
+        <button class="calc-btn" onclick="appendCashDigit('6')" style="${calcBtnStyle('digit')}">6</button>
+        <button class="calc-btn" onclick="appendCashDigit('7')" style="${calcBtnStyle('digit')}">7</button>
+        <button class="calc-btn" onclick="appendCashDigit('8')" style="${calcBtnStyle('digit')}">8</button>
+        <button class="calc-btn" onclick="appendCashDigit('9')" style="${calcBtnStyle('digit')}">9</button>
+        <button class="calc-btn" onclick="appendCashDigit('00')" style="${calcBtnStyle('digit')}">00</button>
+        <button class="calc-btn" onclick="appendCashDigit('0')" style="${calcBtnStyle('digit')}">0</button>
+        <button class="calc-btn" onclick="clearCash()" style="${calcBtnStyle('clear')}">C</button>
       </div>
 
       <div style="display:flex;gap:8px;margin-top:6px">
@@ -3248,7 +3251,13 @@ function openCashCalculator(type, total, mergeFlag, opts) {
 }
 
 function calcBtnStyle(kind) {
-  const base = 'padding:16px 0;border-radius:10px;font-size:16px;font-weight:900;cursor:pointer;font-family:\'Oswald\',sans-serif;letter-spacing:0.5px;-webkit-tap-highlight-color:transparent;transition:transform .08s';
+  // 反応速度を最適化:
+  //   ・touch-action:manipulation で iOS の 300ms タップ遅延を除去
+  //   ・user-select:none / -webkit-user-select:none でテキスト選択遅延を防止
+  //   ・-webkit-tap-highlight-color:transparent でタップハイライトのちらつき除去
+  //   ・transition は速い transform のみ（背景は遷移なし＝即時）
+  //   ・will-change:transform でブラウザ最適化ヒント
+  const base = 'padding:16px 0;border-radius:10px;font-size:16px;font-weight:900;cursor:pointer;font-family:\'Oswald\',sans-serif;letter-spacing:0.5px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .06s ease-out;will-change:transform';
   if (kind === 'digit') return `${base};border:1px solid #3a3a3a;background:#222;color:#fff`;
   if (kind === 'quick') return `${base};border:1.5px solid var(--accent);background:rgba(200,134,10,0.15);color:var(--accent);font-size:13px`;
   if (kind === 'exact') return `${base};border:1.5px solid var(--green);background:rgba(34,197,94,0.15);color:var(--green);font-size:13px`;
