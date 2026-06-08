@@ -80,26 +80,38 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket > div:last-child{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .ticket.completing{opacity:0;transform:scale(0.9)}
 /* ─── ラーメン一覧モード ─── */
-#ramenListContent{position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px - 26px);width:100vw;padding:8px 10px 90px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#f4ede0;box-sizing:border-box}
+#ramenListContent{position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px - 26px);width:100vw;padding:8px 10px 90px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:var(--bg);box-sizing:border-box}
 @media (max-height:760px){#ramenListContent{top:32px;height:calc(100vh - 47px - 32px)}}
+/* スマホでラーメン一覧モード時：注文件数バーを非表示にして表示領域を最大化 */
+@media (max-width: 640px){
+  body.ramen-list-mode #kitchenCountBar{display:none}
+  body.ramen-list-mode #ramenListContent{top:0;height:calc(100vh - 53px)}
+}
+/* 全サイズで縦1列：iPadでもスマホでも横並び1列でカードがフル幅 */
 .rlist-grid{display:grid;gap:6px;grid-template-columns:1fr}
-@media (min-width:600px){.rlist-grid{grid-template-columns:repeat(2,1fr)}}
-@media (min-width:900px){.rlist-grid{grid-template-columns:repeat(3,1fr)}}
-@media (min-width:1200px){.rlist-grid{grid-template-columns:repeat(4,1fr)}}
-.rlist-card{background:#fff;border:none;border-radius:0;box-shadow:1px 0 0 #2a2a2a inset,-1px 0 0 #2a2a2a inset;padding:8px 12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-height:90px}
-.rlist-card.served{opacity:.45;background:#f5f5f5}
-.rlist-card.served .rlist-name,.rlist-card.served .rlist-table,.rlist-card.served .rlist-row1,.rlist-card.served .rlist-row2{text-decoration:line-through;color:#aaa !important}
-.rlist-head{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1.5px solid #1a1008;padding-bottom:4px}
-.rlist-head-left{display:flex;align-items:baseline;gap:14px;min-width:0;flex:1}
-.rlist-table{font-family:'Oswald',sans-serif;font-size:32px;font-weight:700;color:#111;line-height:1;letter-spacing:1px}
-.rlist-name{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:30px;font-weight:900;color:#1a1008;line-height:1;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rlist-spice{font-family:'Oswald',sans-serif;font-size:28px;font-weight:900;color:#c0392b;line-height:1;letter-spacing:1px;flex-shrink:0}
+.rlist-card{background:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.45);padding:10px 14px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.rlist-card.served{opacity:.4;background:#3a3a3a;box-shadow:none}
+.rlist-card.served *{text-decoration:line-through;color:#aaa !important}
+/* 1行目：テーブル番号 + 商品名 + 辛さ + 麺/硬さ/チャーシュー を横並び */
+.rlist-line1{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;line-height:1.2}
+.rlist-table{font-family:'Oswald',sans-serif;font-size:28px;font-weight:700;color:#111;line-height:1;letter-spacing:1px;margin-right:8px}
+.rlist-name{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:24px;font-weight:900;color:#1a1008;line-height:1;letter-spacing:1px}
+.rlist-spice{font-family:'Oswald',sans-serif;font-size:22px;font-weight:900;color:#c0392b;line-height:1;letter-spacing:1px}
 .rlist-spice.zero{color:#888}
-.rlist-row1{font-family:'Noto Sans JP',sans-serif;font-size:17px;font-weight:700;color:#222;display:flex;flex-wrap:wrap;align-items:center;gap:2px;border-bottom:1px solid #e8d9b8;padding-bottom:4px;line-height:1.3}
-.rlist-row1 .sep{color:#bbb;margin:0 4px}
-.rlist-row2{font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;color:#222;display:flex;flex-wrap:wrap;align-items:center;gap:4px;line-height:1.3}
-.rlist-row2-empty{display:none}
-.rlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:50vh;color:#aaa;font-family:'Noto Sans JP',sans-serif}
+.rlist-info{font-family:'Noto Sans JP',sans-serif;font-size:17px;font-weight:700;color:#111;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 6px;line-height:1.2}
+.rlist-sep{color:#bbb;font-size:18px;font-weight:700;margin:0 4px}
+.rlist-noodle-change{color:#c0392b;font-weight:900}
+/* 2行目：追加トッピング */
+.rlist-line2{font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;color:#222;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;line-height:1.3;margin-top:2px;padding-top:4px;border-top:1px solid #e8d9b8}
+.rlist-line2-empty{display:none}
+@media (max-width:640px){
+  .rlist-table{font-size:22px;margin-right:4px}
+  .rlist-name{font-size:20px}
+  .rlist-spice{font-size:20px}
+  .rlist-info{font-size:14px}
+  .rlist-line2{font-size:13px}
+}
+.rlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:50vh;color:#777;font-family:'Noto Sans JP',sans-serif}
 .rlist-empty-icon{font-size:64px;margin-bottom:10px}
 .rlist-empty-text{font-size:14px}
 /* 全表示モード：伝票を広げて、商品カードを横に折り返し表示（スクロール不要に） */
@@ -155,12 +167,12 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-spice.zero{color:#666}
 .rg-sec-noodle{font-size:20px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-noodle-change{color:#e74c3c;font-weight:900}
-.rg-qty{font-weight:900;color:#c8860a}
-.rg-firm{font-weight:700;color:#333}
+.rg-qty{font-weight:900;color:#111}
+.rg-firm{font-weight:700;color:#222}
 .rg-sec-chashu{font-size:20px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
-.rg-chashu{font-weight:800}
-.rg-chashu-cnt{font-family:'Oswald',sans-serif;font-size:18px;color:#c8860a;margin-left:4px;font-weight:700}
-.rg-curry{font-weight:800;color:#8b4513}
+.rg-chashu{font-weight:800;color:#111}
+.rg-chashu-cnt{font-family:'Oswald',sans-serif;font-size:18px;color:#111;margin-left:4px;font-weight:700}
+.rg-curry{font-weight:800;color:#111}
 .rg-sep{color:#bbb;font-size:14px;margin:0 6px}
 .rg-sec-other{font-size:18px;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-sec-addons{padding-top:8px}
@@ -677,6 +689,9 @@ window.toggleRamenListView = function() {
   const contentEl = document.getElementById('kitchenContent');
   const listEl = document.getElementById('ramenListContent');
   const btnLbl = document.getElementById('ramenListBtnLbl');
+  // body にクラスを付与（スマホ表示用 CSS が反応する）
+  if (_ramenListMode) document.body.classList.add('ramen-list-mode');
+  else document.body.classList.remove('ramen-list-mode');
   if (_ramenListMode) {
     if (contentEl) contentEl.style.display = 'none';
     if (listEl) listEl.style.display = 'block';
@@ -2366,40 +2381,44 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   const p = parseRamenOpts(opts, main);
   // qty>1 の場合は servedIndices で個別管理
   const isServed = (Array.isArray(main.servedIndices) && main.servedIndices.includes(unitIdx)) || (main.qty <= 1 && main.served);
-  // 麺種・量・硬さ・チャーシューを1行目に
-  const row1Parts = [];
-  if (p.noodleType && p.noodleChanged) row1Parts.push(`<span class="rg-noodle-change" style="color:#c0392b;font-weight:900">${p.noodleType}変更</span>`);
-  if (p.qty) row1Parts.push(`<span>${p.qty}</span>`);
-  if (p.firmness) row1Parts.push(`<span>${p.firmness}</span>`);
-  // チャーシュー（枚数も含めて表示）
+  // 1行目を組み立て：T1 / SKSP / 3辛 / 麺・硬さ・チャーシュー
+  //   セパレータ「/」で 3 ブロックに分割：
+  //     ブロックA: テーブル番号 + 商品名 + 辛さ
+  //     ブロックB: 量 + 硬さ
+  //     ブロックC: チャーシュー + カレートッピング + その他
+  const blockB = [];
+  if (p.noodleType && p.noodleChanged) blockB.push(`<span class="rlist-noodle-change">${p.noodleType}変更</span>`);
+  if (p.qty) blockB.push(`<span>${p.qty}</span>`);
+  if (p.firmness) blockB.push(`<span>${p.firmness}</span>`);
+  const blockC = [];
   if (p.chashu) {
     const cnt = (typeof getChashuCount === 'function') ? getChashuCount(main) : 1;
-    row1Parts.push(`<span>${p.chashu} ${cnt}枚</span>`);
+    blockC.push(`<span>${p.chashu} ${cnt}枚</span>`);
   }
-  // カレートッピング
-  if (p.curryTopping === 'とんかつ') row1Parts.push(`<span>とんかつ（一枚）</span>`);
-  else if (p.curryTopping === 'チキンカツ') row1Parts.push(`<span>チキンカツ（２枚）</span>`);
-  else if (p.curryTopping) row1Parts.push(`<span>${p.curryTopping}</span>`);
-  // その他
-  p.other.forEach(o => row1Parts.push(`<span>${o}</span>`));
-  const row1Html = row1Parts.length
-    ? row1Parts.map((s,i) => i === 0 ? s : `<span class="sep">/</span>${s}`).join('')
-    : '<span style="color:#aaa">（オプションなし）</span>';
-  // 追加トッピング（2行目）
+  if (p.curryTopping === 'とんかつ') blockC.push(`<span>とんかつ（一枚）</span>`);
+  else if (p.curryTopping === 'チキンカツ') blockC.push(`<span>チキンカツ（２枚）</span>`);
+  else if (p.curryTopping) blockC.push(`<span>${p.curryTopping}</span>`);
+  p.other.forEach(o => blockC.push(`<span>${o}</span>`));
+  // 1行目 HTML
+  const infoBlocks = [];
+  if (blockB.length) infoBlocks.push(`<span class="rlist-info">${blockB.join(' ')}</span>`);
+  if (blockC.length) infoBlocks.push(`<span class="rlist-info">${blockC.join(' ')}</span>`);
+  const infoHtml = infoBlocks.length
+    ? infoBlocks.map(b => `<span class="rlist-sep">/</span>${b}`).join('')
+    : '';
+  // 2行目：追加トッピング
   const row2Items = addons.map(a => `<span>＋${getAbbrevJa(a)}${a.qty > 1 ? ` ×${a.qty}` : ''}</span>`);
   const row2Html = row2Items.length ? row2Items.join('') : '';
-  const row2Class = row2Items.length ? 'rlist-row2' : 'rlist-row2 rlist-row2-empty';
+  const row2Class = row2Items.length ? 'rlist-line2' : 'rlist-line2 rlist-line2-empty';
   // タップで提供済トグル（既存の toggleGroupServed を呼ぶ）
   const groupKey = (typeof getGroupKey === 'function') ? getGroupKey({ groupId: main.groupId, items:[main], main, isSolo: !main.groupId }) : ('item:' + (main.itemId || main.id || ''));
   return `<div class="rlist-card ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','${groupKey}')">
-    <div class="rlist-head">
-      <div class="rlist-head-left">
-        <span class="rlist-table">${tLabel}</span>
-        <span class="rlist-name">${mainName}</span>
-      </div>
+    <div class="rlist-line1">
+      <span class="rlist-table">${tLabel}</span>
+      <span class="rlist-name">${mainName}</span>
       ${p.spice ? `<span class="rlist-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
+      ${infoHtml}
     </div>
-    <div class="rlist-row1">${row1Html}</div>
     <div class="${row2Class}">${row2Html}</div>
   </div>`;
 }
