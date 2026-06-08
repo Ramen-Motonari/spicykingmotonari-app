@@ -87,7 +87,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket.expanded .tk-tier > .ramen-group-card,
 .ticket.expanded .tk-tier > .ticket-compact-card{min-width:0}
 /* 全表示トグルボタン */
-.tk-expand-btn{padding:4px 10px;border-radius:14px;border:1.5px solid #e65100;background:#fff;color:#e65100;font-size:11px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.3px;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+.tk-expand-btn{padding:9px 18px;border-radius:20px;border:2px solid #e65100;background:#fff;color:#e65100;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.5px;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(230,81,0,0.25)}
 .tk-expand-btn:active{transform:scale(0.92)}
 .ticket.expanded .tk-expand-btn{background:#e65100;color:#fff;border-color:#e65100}
 .ticket-header{padding:6px 8px 4px;border-bottom:2px solid #e0e0e0;background:#fff}
@@ -2120,11 +2120,11 @@ function renderRamenGroupCard(orderId, grp) {
       kaedamaRightBadgeBig = `<span style="background:${bg};color:#fff;border-radius:8px;padding:4px 12px;font-size:14px;font-weight:900;letter-spacing:.5px;box-shadow:0 1px 4px rgba(0,0,0,0.15)">🍝 ${label}</span>`;
     }
   }
-  // ━━━ Section 1: 名前 + 辛さ + 替え玉バッジ ━━━
-  const headerHtml = `<div class="rg-sec rg-sec-header" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+  // ━━━ Section 1: 名前 + 辛さ ━━━
+  //   ※ 替え玉バッジは金額の左側にのみ表示（ヘッダー側は削除）
+  const headerHtml = `<div class="rg-sec rg-sec-header">
     <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
     ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
-    ${kaedamaRightBadgeBig}
   </div>`;
 
   // ━━━ Section 2: 麺種 / 量 / 硬さ ━━━
