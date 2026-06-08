@@ -2293,9 +2293,10 @@ function renderServicePage() {
 
 // ────── メンテナンスページ ──────
 function renderMaintenancePage() {
-  // オーダーAPPのURLを推定：admin / kitchen / order-app いずれのパスからも
-  // ルート（オーダーAPP）に正しく解決できるよう、複数のパス候補を除去する
-  let base = location.origin + location.pathname.replace(/\/(admin|kitchen|order-app)\/?.*$/, '/');
+  // オーダーAPPの URL は明示的に /order-app/ パスを指定する
+  //   ・ルート / が万が一別アプリ（kitchen 等）に置き換わっていても
+  //     order-app/ への直接リンクなら確実にオーダーAPP が起動する
+  let base = location.origin + location.pathname.replace(/\/(admin|kitchen|order-app)\/?.*$/, '/') + 'order-app/';
   const normalUrl = base + '?table=T1';
   const testUrl = base + '?table=T1&test=1';
   const n = document.getElementById('testUrlNormal'); if (n) n.textContent = normalUrl;
