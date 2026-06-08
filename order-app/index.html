@@ -335,7 +335,7 @@ body.dark-bg{background:#111}
 <button class="admin-fab" id="adminFab" onclick="openAdmin()" title="管理">⚙</button>
 
 <!-- 替え玉（無料/有料）オーダー用フローティングボタン（未注文の権利がある時のみ表示） -->
-<button id="kaedamaFloatBtn" onclick="openPendingKaedamaCard()" style="display:none;position:fixed;bottom:90px;right:14px;z-index:550;background:#e65100;color:#fff;border:none;border-radius:50px;padding:14px 22px;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;box-shadow:0 6px 22px rgba(230,81,0,0.5);display:none;align-items:center;gap:8px;animation:flashRed 1.8s ease infinite">
+<button id="kaedamaFloatBtn" onclick="openPendingKaedamaCard()" style="display:none;position:fixed;bottom:90px;right:14px;z-index:550;background:#e65100;color:#fff;border:none;border-radius:50px;padding:14px 22px;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;box-shadow:0 6px 22px rgba(230,81,0,0.5);align-items:center;gap:8px;animation:flashRed 1.8s ease infinite">
   <span style="font-size:22px">🍝</span>
   <span id="kaedamaFloatBtnLabel">替え玉を注文</span>
 </button>
@@ -2275,8 +2275,11 @@ function addCart(){
         }
         // ラーメンと一緒に頼む初回注文の替え玉は硬さ選択なし（食後の追加注文時のみ硬さあり）
         const isKaedamaAddon = (m.id === 40);
-        // 有料替え玉（id=40）は権利化：カート行に追加せず、メインの pendingKaedamaRightsPaid に紐付け
-        // 料金はメインの total に加算（カート UI ではメイン側に "替え玉(¥150)" バッジで表示）
+        // 有料替え玉（id=40）：権利化（pendingKaedamaRightsPaid を主に追加）+ カート行も残す
+        // カート行は「先払い・後で注文」フラグ付きで保存され、初回キッチン伝票では非表示。
+        // 後にお客様が替え玉モーダルから注文確定したタイミングで、新規 isPendingKaedamaOrder
+        // のオーダーが厨房に届く。元の替え玉行は「先払い済」として注文ドキュメント内に残るので、
+        // 別会計/履歴/合計金額のいずれも料金が抜け落ちない。
         if (isKaedamaAddon) {
           const kPrice = Number(m.price) || 0;
           for (let n = 0; n < qty; n++) {
@@ -2287,8 +2290,18 @@ function addCart(){
               price: kPrice
             });
           }
-          mainCartItem.total = (Number(mainCartItem.total) || 0) + kPrice * qty;
-          return; // カート行は追加しない
+          // カート行（厨房非表示・先払い済を示すフラグ付き）
+          const kCartItem = {
+            id:Date.now()+Math.random(), groupId,
+            isAddon:true, isKaedama:true, parentItemId:curItem.id,
+            itemId:m.id, name:m.name[lang], opts:[],
+            qty, price:kPrice, total:kPrice*qty,
+            isPendingKaedamaPaid:true,   // ← 厨房伝票の初回非表示判定に使用
+            kaedamaPrepaid:false,
+            kaedamaRequestedQty:qty
+          };
+          cart.push(kCartItem);
+          return;
         }
         // variant がある場合は opts に格納（伝票で「ブタ/トリ」識別に使用）
         const addonOpts = variant ? [variant] : [];
@@ -2370,22 +2383,24 @@ function renderCart(){
       const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
       kaedamaBadgeHtml += `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#fff3e0;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
     }
-    // 有料替え玉権利が紐付いている場合の表示（複数まとめて1バッジ）
-    if (Array.isArray(i.pendingKaedamaRightsPaid) && i.pendingKaedamaRightsPaid.length > 0) {
-      const paidQty = i.pendingKaedamaRightsPaid.length;
-      const paidUnit = Number(i.pendingKaedamaRightsPaid[0]?.price) || 0;
-      const labelJa = `替え玉 ×${paidQty}（+¥${(paidUnit*paidQty).toLocaleString()}・後でご注文）`;
-      const labelEn = `Extra Noodles ×${paidQty} (+¥${(paidUnit*paidQty).toLocaleString()}, order later)`;
-      const labelZh = `加面 ×${paidQty}（+¥${(paidUnit*paidQty).toLocaleString()}・餐后下单）`;
-      const labelKo = `면 추가 ×${paidQty}（+¥${(paidUnit*paidQty).toLocaleString()}・식후 주문）`;
+    // 有料替え玉はカート行として独立表示するためバッジ不要
+    // （カート行側で「後でご注文」フラグを別途表示）
+    // 有料替え玉カート行は「先払い・後でご注文」を明示
+    let deferredTagHtml = '';
+    if (i.isPendingKaedamaPaid) {
+      const labelJa = '先払い・食後に注文';
+      const labelEn = 'Prepaid · order after meal';
+      const labelZh = '先付款・餐后下单';
+      const labelKo = '선결제・식후 주문';
       const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
-      kaedamaBadgeHtml += `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#e3f2fd;border:1.5px solid #1976d2;color:#0d47a1;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
+      deferredTagHtml = `<div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:#e3f2fd;border:1px solid #90caf9;color:#0d47a1;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.3px">🕑 ${label}</div>`;
     }
     return `
     <div class="cart-row${sold?' soldout':''}">
       <div style="flex:1">
         <div class="cart-row-name">${i.name} × ${i.qty}${sold?'<span class="soldout-tag">🚫 売切</span>':''}</div>
         ${i.opts.length?`<div class="cart-row-sub">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
+        ${deferredTagHtml}
         ${kaedamaBadgeHtml}
       </div>
       <div class="cart-row-price">¥${(Number(i.total)||0).toLocaleString()}</div>
@@ -2399,7 +2414,28 @@ function renderCart(){
   setText('cartTotal',`¥${cart.reduce((s,i)=>s+(Number(i.total)||0),0).toLocaleString()}`);
 }
 
-function removeCart(id){ cart=cart.filter(i=>i.id!==id); renderCart(); updateCartBar(); }
+function removeCart(id){
+  // 削除対象の特定
+  const removed = cart.find(i => i.id === id);
+  cart = cart.filter(i => i.id !== id);
+  // 有料替え玉の行を削除した場合、紐付くラーメンの pendingKaedamaRightsPaid からも該当数を取り除く
+  if (removed && removed.isPendingKaedamaPaid && removed.groupId) {
+    const parent = cart.find(i => i.isMain && i.groupId === removed.groupId);
+    if (parent && Array.isArray(parent.pendingKaedamaRightsPaid)) {
+      const qtyToRemove = Number(removed.qty) || 0;
+      parent.pendingKaedamaRightsPaid.splice(0, qtyToRemove);
+      if (parent.pendingKaedamaRightsPaid.length === 0) {
+        delete parent.pendingKaedamaRightsPaid;
+      }
+    }
+  }
+  // メインラーメンの行を削除した場合、紐付く有料替え玉行も同時削除
+  if (removed && removed.isMain && removed.groupId) {
+    cart = cart.filter(i => !(i.isPendingKaedamaPaid && i.groupId === removed.groupId));
+  }
+  renderCart();
+  updateCartBar();
+}
 
 /* ========== ORDER (Firebase) ========== */
 async function placeOrder(){
@@ -2465,7 +2501,9 @@ async function placeOrder(){
           isKaedama: !!i.isKaedama,
           kaedamaPrepaid: !!i.kaedamaPrepaid,
           kaedamaRequestedQty: i.kaedamaPrepaid ? (i.kaedamaRequestedQty || 0) : (i.qty || 1),
-          parentItemId: i.parentItemId || null
+          parentItemId: i.parentItemId || null,
+          // 有料替え玉：初回キッチン伝票で非表示にするフラグ（料金計算には影響しない）
+          isPendingKaedamaPaid: !!i.isPendingKaedamaPaid
         };
         // 平日ランチ無料替え玉/半替え玉の「権利」を Firestore に必ず保存
         // （これがないとキッチンの待機件数や、お客様再来店時の権利検出が機能しない）
@@ -3067,7 +3105,14 @@ function updateKaedamaFloatBtn() {
   const overlay = document.getElementById('kaedamaPendingOverlay');
   const overlayOpen = overlay && overlay.style.display === 'flex';
   const showBtn = pending.length > 0 && !overlayOpen && sessionActive;
-  btn.style.display = showBtn ? 'flex' : 'none';
+  // デバッグログ：ボタンが出ない場合の原因切り分け用
+  console.log('[kaedamaFloatBtn]',
+    'pending=', pending.length,
+    'overlayOpen=', overlayOpen,
+    'sessionActive=', sessionActive,
+    '→ show=', showBtn);
+  // !important で確実にフラグを上書き（CSS の :hover 等との競合を回避）
+  btn.style.setProperty('display', showBtn ? 'flex' : 'none', 'important');
   // 多言語ラベル更新
   const lbl = document.getElementById('kaedamaFloatBtnLabel');
   const tk = (T_KPC && T_KPC[lang]) || T_KPC.ja;
@@ -3264,7 +3309,7 @@ async function submitPendingKaedamaOrder() {
       const itemId = isHalf ? 41 : 40;
       const isPaid = !!p.paid;
       const name = isPaid
-        ? '替え玉（先払い）'
+        ? '替え玉'
         : (isHalf ? '半替え玉（無料）' : '替え玉（無料）');
       return {
         itemId,
