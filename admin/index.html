@@ -47,15 +47,33 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .cat-row-sub{font-size:11px;color:var(--muted);margin-top:2px}
 .cat-row-actions{display:flex;gap:6px;flex-shrink:0}
 .cat-row-btn{padding:6px 10px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
-.main{margin-left:220px;flex:1;padding:32px;min-height:100vh}
+.main{margin-left:220px;flex:1;padding:32px;min-height:100vh;min-width:0;overflow-x:hidden}
 .page{display:none}
 .page.active{display:block}
 .page-title{font-family:'Oswald',sans-serif;font-size:24px;letter-spacing:2px;margin-bottom:6px;color:#a06008}
 .page-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.kpi-cols-5{grid-template-columns:repeat(5,1fr)}
+.kpi-cols-3{grid-template-columns:repeat(3,1fr)}
 .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
 .kpi-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
 .kpi-value{font-family:'Oswald',sans-serif;font-size:28px;font-weight:700;margin-bottom:4px}
+/* レスポンシブ：当日集計のKPIカード（5列・3列）を画面幅に応じて段組み変更 */
+@media (max-width:1100px){
+  .kpi-cols-5{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:780px){
+  .kpi-cols-5{grid-template-columns:repeat(2,1fr)}
+  .kpi-cols-3{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:560px){
+  /* スマホ：縦並び1列、各カード横幅いっぱい */
+  .kpi-grid{gap:10px;margin-bottom:18px}
+  .kpi-cols-5,.kpi-cols-3{grid-template-columns:1fr}
+  .kpi-card{padding:14px 16px}
+  .kpi-value{font-size:24px}
+  .kpi-label{font-size:10px}
+}
 .kpi-diff{font-size:11px}
 .kpi-diff.up{color:var(--green)}
 .kpi-diff.down{color:var(--accent2)}
@@ -130,7 +148,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .manual-field input,.weather-select{background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;width:100%}
 .manual-field input:focus,.weather-select:focus{border-color:var(--accent)}
 .form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none}
-@media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
+@media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid:not(.kpi-cols-5):not(.kpi-cols-3){grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
 /* ────── PDF / 印刷 用デザイン（APP表示と分離・A4横向き1枚に最適化、数値大きめ） ────── */
 /* pdf-export-mode は html2pdf レンダー中、print-target は印刷時にも適用 */
 body.pdf-export-mode .print-target,
@@ -444,14 +462,14 @@ window.adminLogout = adminLogout;
         <button class="stab" onclick="switchDashboardSession(this,'dinner')">夜営業</button>
       </div>
     </div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+    <div class="kpi-grid kpi-cols-5">
       <div class="kpi-card"><div class="kpi-label" id="kpi-sales-label">当日累計売上（税抜）</div><div class="kpi-value" style="color:var(--accent)" id="kpi-sales">¥0</div><div class="kpi-diff" id="kpi-sales-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-customers-label">当日累計客数</div><div class="kpi-value" style="color:var(--green)" id="kpi-customers">0</div><div class="kpi-diff" id="kpi-customers-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-avg-label">当日累計客単価（税抜）</div><div class="kpi-value" style="color:var(--purple)" id="kpi-avg">¥0</div><div class="kpi-diff" id="kpi-avg-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-newrate-label">当日新規率</div><div class="kpi-value" style="color:var(--blue)" id="kpi-newrate">0%</div><div class="kpi-diff" id="kpi-newrate-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-foreignrate-label">当日外国人率</div><div class="kpi-value" style="color:#e2a14b" id="kpi-foreignrate">0%</div><div class="kpi-diff" id="kpi-foreignrate-diff"></div></div>
     </div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
+    <div class="kpi-grid kpi-cols-3" style="margin-top:10px">
       <div class="kpi-card"><div class="kpi-label">当日サイド率</div><div class="kpi-value" style="color:#26a69a" id="kpi-side-rate">0%</div><div class="kpi-diff" id="kpi-side-rate-sub"></div></div>
       <div class="kpi-card"><div class="kpi-label">当日トッピング率</div><div class="kpi-value" style="color:#ef6c00" id="kpi-topping-rate">0%</div><div class="kpi-diff" id="kpi-topping-rate-sub"></div></div>
       <div class="kpi-card"><div class="kpi-label">当日ドリンク率</div><div class="kpi-value" style="color:#7b1fa2" id="kpi-drink-rate">0%</div><div class="kpi-diff" id="kpi-drink-rate-sub"></div></div>
@@ -2275,8 +2293,9 @@ function renderServicePage() {
 
 // ────── メンテナンスページ ──────
 function renderMaintenancePage() {
-  // オーダーAPPのURLを推定（adminのURLから ../ に上がる）
-  let base = location.origin + location.pathname.replace(/\/admin\/?.*$/, '/');
+  // オーダーAPPのURLを推定：admin / kitchen / order-app いずれのパスからも
+  // ルート（オーダーAPP）に正しく解決できるよう、複数のパス候補を除去する
+  let base = location.origin + location.pathname.replace(/\/(admin|kitchen|order-app)\/?.*$/, '/');
   const normalUrl = base + '?table=T1';
   const testUrl = base + '?table=T1&test=1';
   const n = document.getElementById('testUrlNormal'); if (n) n.textContent = normalUrl;
