@@ -4,6 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
+<script>
+// ────── テーブル QR ガード ──────
+// キッチンAPP に「?table=...」付きでアクセスされた場合 = お客様がテーブルQRをスキャンしたが
+// 誤って /kitchen/ パスに来てしまったケース。即座にオーダーAPP（ルート）へリダイレクトする。
+(function(){
+  try {
+    var p = new URLSearchParams(location.search);
+    if (p.get('table')) {
+      // /kitchen/ 部分を除去してルートに戻し、検索パラメータをそのまま引き継ぐ
+      var newPath = location.pathname.replace(/\/kitchen\/?.*$/, '/');
+      var dest = location.origin + newPath + location.search + location.hash;
+      // ループ防止：すでにルート/order-app 等にいる場合はスキップ
+      if (dest !== location.href) {
+        location.replace(dest);
+      }
+    }
+  } catch(_) {}
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700;400&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;--surface3:#262626;--accent:#c8860a;--accent2:#c0392b;--green:#22c55e;--blue:#3b82f6;--purple:#a855f7;--yellow:#eab308;--text:#f0ece4;--muted:#b8b8b8;--border:#2a2a2a}
