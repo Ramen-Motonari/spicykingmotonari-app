@@ -1904,27 +1904,30 @@ function renderModal(){
 
   if(hasRequiredFields()){
     if(allDone){
-      h+=`<div id="req-banner" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;background:#e8f5e9;border:1.5px solid #a5d6a7;border-radius:10px;font-size:12px;font-weight:700;color:#2e7d32;transition:all .3s">
+      h+=`<div id="req-banner" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;padding:10px 14px;font-size:13px;font-weight:700;color:#2e7d32;transition:all .3s;text-align:center">
         <span style="font-size:16px">✅</span>
         <span>${t.allSelectedMsg}</span>
       </div>`;
     } else {
-      h+=`<div id="req-banner" style="margin-bottom:16px;padding:10px 14px;background:#fff5f5;border:1.5px solid #f5c6c6;border-radius:10px">
-        <div style="font-size:13px;font-weight:700;color:#c0392b">${t.selectRequiredMsg}</div>
+      // 「選択してください」案内：赤枠/背景なし・センター寄せ・🔻で挟む
+      h+=`<div id="req-banner" style="margin-bottom:12px;padding:6px 0;text-align:center;font-size:14px;font-weight:900;color:#c0392b;letter-spacing:.5px">
+        🔻 ${t.selectRequiredMsg} 🔻
       </div>`;
     }
   }
 
-  if(c.chashu)     h+=optGrpReq(t.optChashu,'chashu',chashuOpts[lang],missing);
-  if(c.top)        h+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
-  if(c.kata && !c.noodleSize) h+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
+  // === 必須項目セクション開始 — 未選択がある場合は外側を1つの赤枠で囲む ===
+  let reqHtml = '';
+  if(c.chashu)     reqHtml+=optGrpReq(t.optChashu,'chashu',chashuOpts[lang],missing);
+  if(c.top)        reqHtml+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
+  if(c.kata && !c.noodleSize) reqHtml+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
   if(c.noodleSize) {
     // 平日ランチのとんこつ・定食では「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
     let noodleOpts = getNoodleSizeOpts(lang, curItem&&curItem.cat);
     if (isLunchWeekday() && curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')) {
       noodleOpts = noodleOpts.filter(o => !/無料|FREE|免费|무료/i.test(o));
     }
-    h+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
+    reqHtml+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
   }
   // 平日ランチ特典：替え玉無料 / 大盛り無料（麺サイズの直下に配置）
   if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu' || item.cat === 'teishoku')){
@@ -1967,7 +1970,7 @@ function renderModal(){
         <button onclick="pickLunchFree('kaedamaHalf')" style="${btnBase};${choice==='kaedamaHalf'?btnOn:btnOff}">${lblKaedamaHalf}</button>`;
     }
     const flatNoteHtml = (isTonkotsu && isFlat) ? `<div style="font-size:10px;color:#c0392b;text-align:center;margin-top:4px">${lblFlatNote}</div>` : '';
-    h+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:10px">
+    reqHtml+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:10px">
       <div style="font-size:11px;font-weight:700;color:#e65100;text-align:center;letter-spacing:0.5px">${lblTitle}</div>
       <div style="display:flex;gap:8px">${buttonsHtml}</div>
       ${flatNoteHtml}
@@ -1983,13 +1986,13 @@ function renderModal(){
     const kataNote = isFlatNoodle
       ? ({ja:'※平打ち麺は硬さ選択不要です',en:'※ Firmness not applicable for Flat noodles',zh:'※ 宽面无需选择硬度',ko:'※ 넓은면은 굵기 선택 불필요'}[lang] || '')
       : (!curOpts.noodleSize ? ({ja:'※ 麺サイズを選択してください',en:'※ Please choose noodle size first',zh:'※ 请先选择面条种类',ko:'※ 면 종류를 먼저 선택해 주세요'}[lang] || '') : '');
-    h += optGrpReq(kataLabel,'kata',kataOpts[lang],missing,{disabled:kataDisabled, disabledNote:kataNote});
+    reqHtml += optGrpReq(kataLabel,'kata',kataOpts[lang],missing,{disabled:kataDisabled, disabledNote:kataNote});
   }
-  if(c.rice)       h+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing);
+  if(c.rice)       reqHtml+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing);
   if(c.karasaAdd){
     // 0辛〜10辛を常時表示。0辛 = 辛さなし（追加料金なし）
     const currentLv = curOpts.spicyLv || '0辛';
-    h+=`<div class="option-group">
+    reqHtml+=`<div class="option-group">
       <div class="option-label">${t.optSpicy}</div>
       <div class="spicy-grid">
         ${spicyLevels.map(s=>{
@@ -2002,6 +2005,14 @@ function renderModal(){
         }).join('')}
       </div>
     </div>`;
+  }
+  // === 必須項目セクション終了：未選択があれば一括の赤枠で囲む（背景色なし）===
+  if (reqHtml) {
+    if (!allDone) {
+      h += `<div style="border:2.5px solid #e74c3c;border-radius:14px;padding:10px 12px;margin-bottom:12px;box-shadow:0 0 0 3px rgba(231,76,60,0.08);transition:all .25s">${reqHtml}</div>`;
+    } else {
+      h += reqHtml;
+    }
   }
 
   if(isMainDish){
@@ -2056,17 +2067,13 @@ function optGrpReq(label,key,opts,missing, options){
   // options = { disabled: true/false, disabledNote: string }
   const opts2 = options || {};
   const disabled = !!opts2.disabled;
-  // 未選択（必須）の項目は赤枠で囲み、ユーザーに視覚的に警告
-  //   ただし disabled の場合は対象外（選択不要のためグレーアウト表示）
+  // 未選択（必須）項目は ラベル横に「選択必須」赤バッジを表示（個別赤枠は廃止）
+  // 全体は外側のラッパーで包んで一括の赤枠表示にする（renderModal 側）
   const isMissing = !disabled && Array.isArray(missing) && missing.some(m => m.key === key);
-  let reqStyle;
-  if (disabled) {
-    reqStyle = 'border:2.5px solid #e0e0e0;background:#f5f5f5;border-radius:12px;padding:10px 12px;opacity:0.6;pointer-events:none';
-  } else if (isMissing) {
-    reqStyle = 'border:2.5px solid #e74c3c;background:rgba(231,76,60,0.05);border-radius:12px;padding:10px 12px;box-shadow:0 0 0 3px rgba(231,76,60,0.08)';
-  } else {
-    reqStyle = 'border:2.5px solid transparent;padding:10px 12px';
-  }
+  // disabled の場合だけ視覚的にグレーアウト枠を残す
+  const groupStyle = disabled
+    ? 'border:1.5px solid #e0e0e0;background:transparent;border-radius:10px;padding:8px 10px;opacity:0.6;pointer-events:none'
+    : 'border:none;padding:6px 0';
   const reqTag = isMissing
     ? `<span style="display:inline-block;margin-left:8px;background:#e74c3c;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:8px;letter-spacing:0.5px;vertical-align:middle">${(T[lang] && T[lang].requiredTag) || '選択必須'}</span>`
     : '';
@@ -2075,7 +2082,7 @@ function optGrpReq(label,key,opts,missing, options){
     : '';
   // disabled時はボタンも視覚的にグレーアウト
   const btnExtraClass = disabled ? ' disabled-grey' : '';
-  return `<div class="option-group" id="field-${key}" style="position:relative;transition:all .25s;${reqStyle}">
+  return `<div class="option-group" id="field-${key}" style="position:relative;transition:all .25s;${groupStyle}">
     <div class="option-label">${label}${reqTag}</div>
     <div class="option-btns">
       ${opts.map(o=>`<button class="option-btn${btnExtraClass} ${curOpts[key]===o?'selected':''}" onclick="pickOpt('${key}','${o}')" ${disabled?'disabled':''}>${o}</button>`).join('')}
