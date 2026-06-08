@@ -141,6 +141,7 @@ body.dark-bg{background:#111}
 .option-btn{padding:8px 16px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
 .option-btn.selected{border-color:var(--accent);background:rgba(200,134,10,.1);color:var(--accent)}
 .option-btn.spicy-sel{border-color:var(--spicy);background:rgba(231,76,60,.1);color:var(--spicy)}
+.option-btn.disabled-grey,.option-btn.disabled-grey:hover,.option-btn[disabled]{color:#bbb !important;border-color:#e0e0e0 !important;background:#f5f5f5 !important;cursor:not-allowed !important}
 
 .spicy-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
 .spicy-item{padding:8px 4px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-align:center;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
@@ -728,8 +729,24 @@ const noodleSizeOptsShouyu = {
   zh:['宽面少量','宽面普通','宽面大碗+¥150'],
   ko:['넓은면 적게','넓은면 보통','넓은면 곱배기+¥150']
 };
+// 麺サイズ選択（餃子定食など定食）：細麺のみ。平打ち変更なし。
+//   平日ランチタイム：大盛り無料
+//   それ以外：大盛り +100円
+const noodleSizeOptsTeishokuWeekday = {
+  ja:['細麺 並','細麺 大盛り 無料🎉'],
+  en:['Thin Regular','Thin Large FREE🎉'],
+  zh:['细面普通','细面大碗 免费🎉'],
+  ko:['가는면 보통','가는면 곱배기 무료🎉']
+};
+const noodleSizeOptsTeishokuWeekend = {
+  ja:['細麺 並','細麺 大盛り +100円'],
+  en:['Thin Regular','Thin Large +¥100'],
+  zh:['细面普通','细面大碗+¥100'],
+  ko:['가는면 보통','가는면 곱배기+¥100']
+};
 function getNoodleSizeOpts(l, cat){
   if (cat === 'shouyu') return noodleSizeOptsShouyu[l];
+  if (cat === 'teishoku') return isLunchWeekday() ? noodleSizeOptsTeishokuWeekday[l] : noodleSizeOptsTeishokuWeekend[l];
   return isLunchWeekday() ? noodleSizeOptsWeekday[l] : noodleSizeOptsWeekend[l];
 }
 
@@ -1902,28 +1919,29 @@ function renderModal(){
   if(c.top)        h+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
   if(c.kata && !c.noodleSize) h+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
   if(c.noodleSize) {
-    // 平日ランチのとんこつでは「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
+    // 平日ランチのとんこつ・定食では「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
     let noodleOpts = getNoodleSizeOpts(lang, curItem&&curItem.cat);
-    if (isLunchWeekday() && curItem && curItem.cat === 'tonkotsu') {
+    if (isLunchWeekday() && curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')) {
       noodleOpts = noodleOpts.filter(o => !/無料|FREE|免费|무료/i.test(o));
     }
     h+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
   }
   // 平日ランチ特典：替え玉無料 / 大盛り無料（麺サイズの直下に配置）
-  if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu')){
+  if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu' || item.cat === 'teishoku')){
     const choice = curOpts.lunchFreeChoice || '';
     const isTonkotsu = (item.cat === 'tonkotsu');
-    // 現在選択中の麺サイズが「平打ち麺系」かどうかを判定（とんこつのみ大盛り無料の可否に影響）
+    const isTeishoku = (item.cat === 'teishoku');
+    // 現在選択中の麺サイズが「平打ち麺系」かどうかを判定（とんこつのみ大盛り無料の可否に影響／定食には平打ちなし）
     const noodleSize = curOpts.noodleSize || '';
     const isFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(noodleSize);
-    const lblTitle = isTonkotsu
+    const lblTitle = (isTonkotsu || isTeishoku)
       ? ({ja:'🎉 平日ランチ特典：どちらか1つ無料',en:'🎉 Weekday Lunch: pick ONE free',zh:'🎉 工作日午餐：任选1份免费',ko:'🎉 평일 런치：1개 무료'}[lang] || '')
       : ({ja:'🎉 平日ランチ特典：替え玉（細麺）無料',en:'🎉 Weekday Lunch: Extra Noodles (Thin) FREE',zh:'🎉 工作日午餐：加面（细面）免费',ko:'🎉 평일 런치：면 추가(가는면) 무료'}[lang] || '');
     const lblOomori = {ja:'大盛り無料 (細麺)',en:'Large FREE (Thin)',zh:'大碗免费 (细面)',ko:'곱배기 무료 (가는면)'}[lang] || '大盛り無料 (細麺)';
-    const lblKaedama = isTonkotsu
+    const lblKaedama = (isTonkotsu || isTeishoku)
       ? ({ja:'替え玉無料 (細麺)',en:'Extra Noodles FREE (Thin)',zh:'加面免费 (细面)',ko:'면 추가 무료 (가는면)'}[lang] || '替え玉無料 (細麺)')
       : ({ja:'替え玉無料 (細麺) を希望する',en:'Order FREE Extra Noodles (Thin)',zh:'要免费加面 (细面)',ko:'면 추가 (가는면) 무료 주문'}[lang] || '替え玉無料 (細麺)');
-    const lblKaedamaHalf = isTonkotsu
+    const lblKaedamaHalf = (isTonkotsu || isTeishoku)
       ? ({ja:'半替え玉無料 (細麺)',en:'Half Noodles FREE (Thin)',zh:'半份加面免费 (细面)',ko:'반 면 추가 무료 (가는면)'}[lang] || '半替え玉無料 (細麺)')
       : ({ja:'半替え玉無料 (細麺) を希望する',en:'Order FREE Half Extra Noodles (Thin)',zh:'要免费半份加面 (细面)',ko:'반 면 추가 (가는면) 무료 주문'}[lang] || '半替え玉無料 (細麺)');
     const lblFlatNote = {ja:'※平打ち麺選択中は大盛り無料は対象外です',en:'※ Free Large not available with Flat noodles',zh:'※ 选择宽面时大碗免费不适用',ko:'※ 넓은면 선택 시 곱배기 무료 대상 외'}[lang] || '';
@@ -1932,9 +1950,10 @@ function renderModal(){
     const btnOff = 'background:#fff;color:#e65100;border:2px solid #ffd54f';
     const btnDisabled = 'background:#f5f5f5;color:#bbb;border:2px solid #e0e0e0;cursor:not-allowed;box-shadow:none';
     let buttonsHtml = '';
-    if(isTonkotsu){
-      // 平打ち麺選択中は大盛り無料ボタンを無効化
-      const oomoriDisabled = isFlat;
+    if(isTonkotsu || isTeishoku){
+      // とんこつ：平打ち麺選択中は大盛り無料ボタンを無効化
+      // 定食：平打ち麺の選択肢自体が無いので oomoriDisabled は常に false
+      const oomoriDisabled = isTonkotsu ? isFlat : false;
       const oomoriStyle = oomoriDisabled ? btnDisabled : (choice==='oomori' ? btnOn : btnOff);
       const oomoriOnclick = oomoriDisabled ? '' : `onclick="pickLunchFree('oomori')"`;
       buttonsHtml = `
@@ -1954,8 +1973,18 @@ function renderModal(){
       ${flatNoteHtml}
     </div>`;
   }
-  if(c.noodleSize && curOpts.noodleSize && curOpts.noodleSize.includes('細麺'))
-    h+=optGrpReq('麺の硬さ（細麺のみ）（必須選択）','kata',kataOpts[lang],missing);
+  // 麺の硬さは常時表示。細麺以外（平打ち麺等）が選択されている場合はグレーアウト
+  if(c.noodleSize) {
+    const isThinNoodle = curOpts.noodleSize && curOpts.noodleSize.includes('細麺');
+    const isFlatNoodle = curOpts.noodleSize && /(平打ち麺|Flat|宽面|넓은면)/i.test(curOpts.noodleSize);
+    // 細麺の場合のみ必須・有効。平打ち麺選択時 or 未選択時はグレーアウト
+    const kataDisabled = isFlatNoodle || !curOpts.noodleSize;
+    const kataLabel = ({ja:'麺の硬さ（細麺のみ）（必須選択）',en:'Noodle Firmness (Thin only, Required)',zh:'面条软硬（仅细面・必选）',ko:'면 굵기（가는면 한정・필수 선택）'}[lang] || '麺の硬さ（細麺のみ）（必須選択）');
+    const kataNote = isFlatNoodle
+      ? ({ja:'※平打ち麺は硬さ選択不要です',en:'※ Firmness not applicable for Flat noodles',zh:'※ 宽面无需选择硬度',ko:'※ 넓은면은 굵기 선택 불필요'}[lang] || '')
+      : (!curOpts.noodleSize ? ({ja:'※ 麺サイズを選択してください',en:'※ Please choose noodle size first',zh:'※ 请先选择面条种类',ko:'※ 면 종류를 먼저 선택해 주세요'}[lang] || '') : '');
+    h += optGrpReq(kataLabel,'kata',kataOpts[lang],missing,{disabled:kataDisabled, disabledNote:kataNote});
+  }
   if(c.rice)       h+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing);
   if(c.karasaAdd){
     // 0辛〜10辛を常時表示。0辛 = 辛さなし（追加料金なし）
@@ -1986,6 +2015,16 @@ function renderModal(){
     }
   }
 
+  // 未選択の必須項目がある場合：ボタンの上に赤文字で案内
+  if (!allDone) {
+    const incompleteMsg = ({
+      ja:'⚠ ページ上部《選択項目》を完了させてください。',
+      en:'⚠ Please complete the《Required Selections》at the top of the page.',
+      zh:'⚠ 请完成页面上方的《选择项目》。',
+      ko:'⚠ 페이지 상단의 《선택 항목》을 완료해 주세요.'
+    }[lang] || '⚠ ページ上部《選択項目》を完了させてください。');
+    h += `<div style="margin-top:16px;padding:12px 14px;background:rgba(231,76,60,0.08);border:1.5px solid #e74c3c;border-radius:10px;text-align:center;font-size:13px;font-weight:900;color:#c0392b;letter-spacing:.3px;line-height:1.5">${incompleteMsg}</div>`;
+  }
   h+=`<button id="add-to-cart-btn" class="btn-primary ${allDone?'':'disabled'}" onclick="addCart()">${t.addToCart} — ¥${calcTotal().toLocaleString()}</button>
     <button class="btn-secondary" onclick="maybeCloseItem()">${t.backToMenu}</button>`;
 
@@ -2013,12 +2052,35 @@ function getMissingFields(){
   return missing;
 }
 
-function optGrpReq(label,key,opts,missing){
-  return `<div class="option-group" id="field-${key}" style="position:relative;border:none;padding:0;transition:all .3s">
-    <div class="option-label">${label}</div>
+function optGrpReq(label,key,opts,missing, options){
+  // options = { disabled: true/false, disabledNote: string }
+  const opts2 = options || {};
+  const disabled = !!opts2.disabled;
+  // 未選択（必須）の項目は赤枠で囲み、ユーザーに視覚的に警告
+  //   ただし disabled の場合は対象外（選択不要のためグレーアウト表示）
+  const isMissing = !disabled && Array.isArray(missing) && missing.some(m => m.key === key);
+  let reqStyle;
+  if (disabled) {
+    reqStyle = 'border:2.5px solid #e0e0e0;background:#f5f5f5;border-radius:12px;padding:10px 12px;opacity:0.6;pointer-events:none';
+  } else if (isMissing) {
+    reqStyle = 'border:2.5px solid #e74c3c;background:rgba(231,76,60,0.05);border-radius:12px;padding:10px 12px;box-shadow:0 0 0 3px rgba(231,76,60,0.08)';
+  } else {
+    reqStyle = 'border:2.5px solid transparent;padding:10px 12px';
+  }
+  const reqTag = isMissing
+    ? `<span style="display:inline-block;margin-left:8px;background:#e74c3c;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:8px;letter-spacing:0.5px;vertical-align:middle">${(T[lang] && T[lang].requiredTag) || '選択必須'}</span>`
+    : '';
+  const disabledNote = (disabled && opts2.disabledNote)
+    ? `<div style="font-size:10px;color:#999;margin-top:4px">${opts2.disabledNote}</div>`
+    : '';
+  // disabled時はボタンも視覚的にグレーアウト
+  const btnExtraClass = disabled ? ' disabled-grey' : '';
+  return `<div class="option-group" id="field-${key}" style="position:relative;transition:all .25s;${reqStyle}">
+    <div class="option-label">${label}${reqTag}</div>
     <div class="option-btns">
-      ${opts.map(o=>`<button class="option-btn ${curOpts[key]===o?'selected':''}" onclick="pickOpt('${key}','${o}')">${o}</button>`).join('')}
+      ${opts.map(o=>`<button class="option-btn${btnExtraClass} ${curOpts[key]===o?'selected':''}" onclick="pickOpt('${key}','${o}')" ${disabled?'disabled':''}>${o}</button>`).join('')}
     </div>
+    ${disabledNote}
   </div>`;
 }
 
@@ -2120,8 +2182,8 @@ function pickLunchFree(choice){
     delete curOpts.lunchFreeChoice;
   } else {
     curOpts.lunchFreeChoice = choice;
-    // 大盛り希望なら 細麺 大盛り 無料 を自動選択（とんこつ・細麺の場合のみ）
-    if(choice === 'oomori' && curItem && curItem.cat === 'tonkotsu'){
+    // 大盛り希望なら 細麺 大盛り 無料 を自動選択（とんこつ・定食の細麺の場合）
+    if(choice === 'oomori' && curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')){
       const noodleOpts = getNoodleSizeOpts(lang, curItem.cat);
       const freeOpt = noodleOpts.find(o => /無料|FREE|免费|무료/i.test(o));
       if(freeOpt) curOpts.noodleSize = freeOpt;
@@ -3308,9 +3370,8 @@ async function submitPendingKaedamaOrder() {
       const isHalf = sel.type === 'half';
       const itemId = isHalf ? 41 : 40;
       const isPaid = !!p.paid;
-      const name = isPaid
-        ? '替え玉'
-        : (isHalf ? '半替え玉（無料）' : '替え玉（無料）');
+      // 事前注文済の替え玉は、無料/有料に関わらず統一表記「替え玉（事前注文済）」
+      const name = isHalf ? '半替え玉（事前注文済）' : '替え玉（事前注文済）';
       return {
         itemId,
         name,
@@ -3324,10 +3385,11 @@ async function submitPendingKaedamaOrder() {
         isMain: false,
         isAddon: true,
         isKaedama: true,
-        kaedamaPrepaid: isPaid,        // 有料権利の消化（先払い済）
+        kaedamaPrepaid: isPaid,
         kaedamaRequestedQty: p.qty,
         lunchFree: !isPaid,
-        kaedamaWasPaid: isPaid,        // キッチン伝票表示用フラグ
+        kaedamaWasPaid: isPaid,
+        isPrepaidKaedamaRequest: true,  // ← キッチン伝票表示判定用（事前注文済バッジ→消化）
         parentItemId: p.parentItemId
       };
     });
