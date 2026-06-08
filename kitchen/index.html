@@ -121,6 +121,31 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket.expanded .tk-tier .tk-item-new,
 .ticket.expanded .tk-tier > .ramen-group-card,
 .ticket.expanded .tk-tier > .ticket-compact-card{min-width:0}
+/* スマホで全表示モード時：ラーメンカードを「SKSP 3辛 / 並 フツウ / ブタ 3枚」の横並びコンパクト表示に */
+@media (max-width:640px){
+  .ticket.expanded .ramen-group-card{padding:8px 10px}
+  .ticket.expanded .ramen-group-card .rg-content{display:flex;flex-direction:column;gap:2px}
+  /* 名前・辛さ・麺・チャーシューを 1 行に集約 */
+  .ticket.expanded .rg-sec{padding:0;border-top:none;display:inline}
+  .ticket.expanded .rg-sec-header{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+  .ticket.expanded .rg-main-name{font-size:18px}
+  .ticket.expanded .rg-spice{font-size:16px}
+  .ticket.expanded .rg-sec-noodle,
+  .ticket.expanded .rg-sec-chashu,
+  .ticket.expanded .rg-sec-other{font-size:13px;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px}
+  /* セクション間にセパレータ「/」を擬似要素で挿入 */
+  .ticket.expanded .rg-sec-noodle::before,
+  .ticket.expanded .rg-sec-chashu::before,
+  .ticket.expanded .rg-sec-other::before{content:"/";color:#bbb;margin:0 6px;font-weight:700}
+  /* 1行目（名前〜チャーシュー）をひとつの行にラップして表示 */
+  .ticket.expanded .rg-content > .rg-sec-header,
+  .ticket.expanded .rg-content > .rg-sec-noodle,
+  .ticket.expanded .rg-content > .rg-sec-chashu,
+  .ticket.expanded .rg-content > .rg-sec-other{display:inline;line-height:1.6}
+  /* 追加トッピングは別行に */
+  .ticket.expanded .rg-sec-addons{display:block !important;font-size:12px;border-top:1px solid #e8d9b8;padding-top:4px !important;margin-top:2px}
+  .ticket.expanded .rg-attached-item{display:inline-flex;margin-right:8px;font-size:12px}
+}
 /* 全表示トグルボタン */
 .tk-expand-btn{padding:9px 18px;border-radius:20px;border:2px solid #e65100;background:#fff;color:#e65100;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.5px;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(230,81,0,0.25)}
 .tk-expand-btn:active{transform:scale(0.92)}
@@ -240,9 +265,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .reorder-toggle-btn{padding:5px 8px;font-size:14px;letter-spacing:0}
   .reorder-toggle-btn .lbl{display:none}
   #soldoutBtn{padding:5px 8px !important;font-size:14px !important}
-  #soldoutBtn .lbl{display:none}
+  #soldoutBtn .lbl{display:none !important}
   #ramenListBtn{padding:5px 8px !important;font-size:14px !important}
-  #ramenListBtn .lbl{display:none}
+  #ramenListBtn .lbl{display:none !important}
   /* 件数バー */
   #kitchenCountBar{height:32px;font-size:12px;gap:10px;letter-spacing:1px}
   #kitchenCountBar #kitchenCountNum{font-size:20px}
@@ -1004,7 +1029,18 @@ return `<div class="soldout-list-item">
 function updateSoldoutBadge() {
 const count = getSoldoutIds().length;
 const btn = document.getElementById('soldoutBtn');
-if (btn) btn.textContent = count > 0 ? `🚫 売り切れ (${count})` : '🚫 売り切れ';
+if (!btn) return;
+// span.ico / span.lbl の構造を維持して中身だけ更新（スマホ用 CSS で .lbl を非表示にしているため）
+let ico = btn.querySelector('.ico');
+let lbl = btn.querySelector('.lbl');
+if (!ico || !lbl) {
+  // 構造が壊れている場合は再生成
+  btn.innerHTML = '<span class="ico">🚫</span><span class="lbl"> 売り切れ</span>';
+  ico = btn.querySelector('.ico');
+  lbl = btn.querySelector('.lbl');
+}
+ico.textContent = '🚫';
+lbl.textContent = count > 0 ? ` 売り切れ (${count})` : ' 売り切れ';
 }
 function updateSoldoutModeLabel() {
 const count = getSoldoutIds().length;
@@ -2191,10 +2227,11 @@ function renderRamenGroupCard(orderId, grp) {
       kaedamaRightBadgeBig = `<span style="background:${bg};color:#fff;border-radius:8px;padding:4px 12px;font-size:14px;font-weight:900;letter-spacing:.5px;box-shadow:0 1px 4px rgba(0,0,0,0.15)">🍝 ${label}</span>`;
     }
   }
-  // ━━━ Section 1: 名前 + 辛さ ━━━
-  //   ※ 替え玉バッジは金額の左側にのみ表示（ヘッダー側は削除）
+  // ━━━ Section 1: 名前 + 替え玉バッジ + 辛さ ━━━
+  //   替え玉バッジはラーメン名のすぐ右に配置（値段は廃止したため）
   const headerHtml = `<div class="rg-sec rg-sec-header">
     <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
+    ${kaedamaRightBadge}
     ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
   </div>`;
 
@@ -2243,23 +2280,8 @@ function renderRamenGroupCard(orderId, grp) {
     ${addons.map(a => `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}</div>`).join('')}
   </div>` : '';
 
-  // ━━━ Section 5: 合計金額 (main + spicy + noodle extras + addons) ━━━
-  // main.price は order-app 側で unitPrice = base + spicy + noodleExtra で計算済み
-  // 有料替え玉は別カート行として注文ドキュメント内に残しているので、
-  // ここでは「グループに含まれる項目（addons）」の合計と main 単価×qty を足すだけで正しい。
-  const mainQty = main.qty || 1;
-  const mainTotal = getItemUnitPrice(main) * mainQty;
-  // ただし isPendingKaedamaPaid の addon（初回伝票には出さない）は表示金額からも除外する
-  //   → お客様が後で替え玉を実注文した時、その新規伝票で改めて金額表示される
-  //   → 初回伝票は「実際にいま厨房が作るぶんの金額」だけ示すほうが直感的
-  const addonsTotal = addons.reduce((s, a) => {
-    if (a.isPendingKaedamaPaid) return s;
-    return s + getItemUnitPrice(a) * (a.qty || 1);
-  }, 0);
-  const groupTotal = mainTotal + addonsTotal;
-  const totalHtml = groupTotal > 0
-    ? `<div class="rg-sec rg-sec-total" style="display:flex;align-items:center;justify-content:flex-end;gap:8px">${kaedamaRightBadge}<span>¥${groupTotal.toLocaleString()}</span></div>`
-    : (kaedamaRightBadge ? `<div class="rg-sec rg-sec-total" style="display:flex;align-items:center;justify-content:flex-end;gap:8px">${kaedamaRightBadge}</div>` : '');
+  // ※ 値段（合計金額）表示は削除（全デバイス共通の方針）
+  //   替え玉バッジは Section 1 のラーメン名右側に移動済み
 
   return `<div class="ramen-group-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="rg-check"></div>
@@ -2269,7 +2291,6 @@ ${noodleHtml}
 ${chashuHtml}
 ${otherHtml}
 ${addonsHtml}
-${totalHtml}
 </div>
 </div>`;
 }
