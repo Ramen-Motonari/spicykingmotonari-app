@@ -123,28 +123,36 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket.expanded .tk-tier > .ticket-compact-card{min-width:0}
 /* スマホで全表示モード時：ラーメンカードを「SKSP 3辛 / 並 フツウ / ブタ 3枚」の横並びコンパクト表示に */
 @media (max-width:640px){
-  .ticket.expanded .ramen-group-card{padding:8px 10px}
-  .ticket.expanded .ramen-group-card .rg-content{display:flex;flex-direction:column;gap:2px}
-  /* 名前・辛さ・麺・チャーシューを 1 行に集約 */
-  .ticket.expanded .rg-sec{padding:0;border-top:none;display:inline}
-  .ticket.expanded .rg-sec-header{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+  .ticket.expanded .ramen-group-card{padding:8px 10px !important;margin:4px 6px !important;gap:6px !important}
+  /* rg-content をブロックレイアウトに（インライン子要素が自然に折り返す） */
+  .ticket.expanded .ramen-group-card .rg-content{display:block !important}
+  /* 全 rg-sec の枠線・余白をリセット（インラインで隣接させるため） */
+  .ticket.expanded .rg-sec{padding:0 !important;border-top:none !important;margin:0 !important;display:inline !important;line-height:1.5}
+  /* ヘッダー（名前＋辛さ＋替え玉バッジ）もインライン化 */
+  .ticket.expanded .rg-sec-header{display:inline !important}
   .ticket.expanded .rg-main-name{font-size:18px}
-  .ticket.expanded .rg-spice{font-size:16px}
+  .ticket.expanded .rg-main-qty{font-size:14px;margin-left:4px}
+  .ticket.expanded .rg-spice{font-size:16px;margin-left:6px}
+  /* 麺・チャーシューもインラインで連結 */
   .ticket.expanded .rg-sec-noodle,
   .ticket.expanded .rg-sec-chashu,
-  .ticket.expanded .rg-sec-other{font-size:13px;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px}
+  .ticket.expanded .rg-sec-other{font-size:13px;color:#111}
+  .ticket.expanded .rg-sec-noodle > *,
+  .ticket.expanded .rg-sec-chashu > *,
+  .ticket.expanded .rg-sec-other > *{display:inline}
   /* セクション間にセパレータ「/」を擬似要素で挿入 */
   .ticket.expanded .rg-sec-noodle::before,
   .ticket.expanded .rg-sec-chashu::before,
-  .ticket.expanded .rg-sec-other::before{content:"/";color:#bbb;margin:0 6px;font-weight:700}
-  /* 1行目（名前〜チャーシュー）をひとつの行にラップして表示 */
-  .ticket.expanded .rg-content > .rg-sec-header,
-  .ticket.expanded .rg-content > .rg-sec-noodle,
-  .ticket.expanded .rg-content > .rg-sec-chashu,
-  .ticket.expanded .rg-content > .rg-sec-other{display:inline;line-height:1.6}
-  /* 追加トッピングは別行に */
-  .ticket.expanded .rg-sec-addons{display:block !important;font-size:12px;border-top:1px solid #e8d9b8;padding-top:4px !important;margin-top:2px}
-  .ticket.expanded .rg-attached-item{display:inline-flex;margin-right:8px;font-size:12px}
+  .ticket.expanded .rg-sec-other::before{content:" / ";color:#999;font-weight:700;margin:0 2px}
+  /* 既存のセパレータ <span class="rg-sep">/</span> はそのまま使用 */
+  .ticket.expanded .rg-sep{color:#999;margin:0 4px}
+  /* 追加トッピングは別行（block）に分離 */
+  .ticket.expanded .rg-sec-addons{display:block !important;font-size:12px;border-top:1px solid #e8d9b8;padding-top:4px !important;margin-top:4px !important;line-height:1.4}
+  .ticket.expanded .rg-attached-item{display:inline-flex;align-items:center;margin-right:10px;font-size:13px}
+  .ticket.expanded .ra-bullet{margin-right:2px}
+  .ticket.expanded .ra-name{font-weight:700}
+  /* ＋ マークは先頭の追加トッピングだけ表示（2番目以降はカンマ的に並べる） */
+  .ticket.expanded .rg-attached-item:not(:first-child) .ra-bullet{display:none}
 }
 /* 全表示トグルボタン */
 .tk-expand-btn{padding:9px 18px;border-radius:20px;border:2px solid #e65100;background:#fff;color:#e65100;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.5px;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(230,81,0,0.25)}
