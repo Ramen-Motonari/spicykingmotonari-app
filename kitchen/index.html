@@ -2105,7 +2105,15 @@ function renderRamenGroupCard(orderId, grp) {
     }
     if (total > 0) {
       const bg = totalPending > 0 ? '#ff9800' : '#bdbdbd';
-      const label = total > 1 ? `替え玉 ×${total}` : '替え玉';
+      // お客様の注文言語に合わせて4言語対応
+      //   キッチンスタッフが顧客の母国語も認識できるよう、日本語＋顧客言語 を併記
+      const order = orders.find(o => o.id === orderId);
+      const custLang = (order && order.language) || 'ja';
+      const kaedamaTr = { ja:'替え玉', en:'Extra Noodles', zh:'加面', ko:'면 추가' };
+      const labelJa = total > 1 ? `替え玉 ×${total}` : '替え玉';
+      const labelCust = total > 1 ? `${kaedamaTr[custLang] || kaedamaTr.ja} ×${total}` : (kaedamaTr[custLang] || kaedamaTr.ja);
+      // 顧客が日本語ならそのまま、それ以外なら「JP / 顧客言語」併記
+      const label = (custLang === 'ja') ? labelJa : `${labelJa} / ${labelCust}`;
       // 小さい版（金額左側用）
       kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">${label}</span>`;
       // 大きい版（ヘッダー名右側用 — 確実に視認できるように）
