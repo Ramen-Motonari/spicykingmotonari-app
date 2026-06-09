@@ -173,7 +173,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .ticket.expanded .rg-attached-item:not(:first-child) .ra-bullet{display:none}
 }
 /* 全表示トグルボタン */
-.tk-expand-btn{padding:9px 18px;border-radius:20px;border:2px solid #e65100;background:#fff;color:#e65100;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.5px;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(230,81,0,0.25)}
+.tk-expand-btn{padding:5px 9px;border-radius:14px;border:1.5px solid #e65100;background:#fff;color:#e65100;font-size:12px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.3px;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 3px rgba(230,81,0,0.2)}
 .tk-expand-btn:active{transform:scale(0.92)}
 .ticket.expanded .tk-expand-btn{background:#e65100;color:#fff;border-color:#e65100}
 .ticket-header{padding:6px 8px 4px;border-bottom:2px solid #e0e0e0;background:#fff}
@@ -1824,7 +1824,7 @@ function renderTableTicket(tt) {
   const hasNewItems = entries.some(e => e.isNewOrder);
 
   const isExpanded = _expandedTickets.has(tLabel);
-  const expandBtnLabel = isExpanded ? '↺ 戻す' : '⤢ 全表示';
+  const expandBtnLabel = isExpanded ? '戻' : '全';
   return `<div class="ticket ${allServed?'completing':''} ${isExpanded?'expanded':''}" id="ticket-${tIdSafe}">
 <div class="ticket-reorder">
   <button class="tk-reord-btn" onclick="moveTicket('${tLabel}',-1)" aria-label="左に移動">←</button>
