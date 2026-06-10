@@ -93,6 +93,7 @@ body.dark-bg{background:#111}
 
 .section-title{padding:18px 16px 14px;font-size:22px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#1a1a1a;border-bottom:2px solid #1a1a1a;display:flex;align-items:center;gap:4px;background:linear-gradient(to right,rgba(200,134,10,.08),transparent)}
 .section-title span{color:var(--accent);font-family:'Oswald',sans-serif;font-size:18px;margin-right:2px}
+/* 子カテゴリ見出し：左に長い線、右に名前 */
 .subcat-divider{display:flex;align-items:center;gap:12px;padding:18px 14px 8px 0;margin-top:6px;min-width:0;overflow:hidden;box-sizing:border-box}
 .subcat-divider .subcat-line{flex:1 1 auto;min-width:20px;height:0;border-bottom:1.5px solid #1a1a1a}
 .subcat-divider .subcat-name{font-size:14px;font-weight:700;color:#1a1a1a;letter-spacing:1px;padding-right:4px;text-align:right;line-height:1.25;flex-shrink:1;min-width:0;overflow-wrap:break-word;word-break:break-word;max-width:75%}
@@ -140,6 +141,7 @@ body.dark-bg{background:#111}
 .option-btn{padding:8px 16px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
 .option-btn.selected{border-color:var(--accent);background:rgba(200,134,10,.1);color:var(--accent)}
 .option-btn.spicy-sel{border-color:var(--spicy);background:rgba(231,76,60,.1);color:var(--spicy)}
+.option-btn.disabled-grey,.option-btn.disabled-grey:hover,.option-btn[disabled]{color:#bbb !important;border-color:#e0e0e0 !important;background:#f5f5f5 !important;cursor:not-allowed !important}
 
 .spicy-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
 .spicy-item{padding:8px 4px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-align:center;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
@@ -333,6 +335,30 @@ body.dark-bg{background:#111}
 <!-- Admin FAB -->
 <button class="admin-fab" id="adminFab" onclick="openAdmin()" title="管理">⚙</button>
 
+<!-- 替え玉（無料/有料）オーダー用フローティングボタン（未注文の権利がある時のみ表示） -->
+<button id="kaedamaFloatBtn" onclick="openPendingKaedamaCard()" style="display:none;position:fixed;bottom:90px;right:14px;z-index:550;background:#e65100;color:#fff;border:none;border-radius:50px;padding:14px 22px;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;box-shadow:0 6px 22px rgba(230,81,0,0.5);align-items:center;gap:8px;animation:flashRed 1.8s ease infinite">
+  <span style="font-size:22px">🍝</span>
+  <span id="kaedamaFloatBtnLabel">替え玉を注文</span>
+</button>
+
+<!-- 替え玉オーダー用モーダル（無料/有料権利を統合表示） -->
+<div id="kaedamaPendingOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:780;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:16px 18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;background:#fff8e1">
+      <div>
+        <div id="kaedamaPendingTitle" style="font-size:18px;font-weight:900;color:#e65100">🍝 替え玉を注文</div>
+        <div id="kaedamaPendingSubtitle" style="font-size:11px;color:#666;margin-top:2px"></div>
+      </div>
+      <button onclick="closePendingKaedamaCard()" style="background:none;border:none;color:#666;font-size:22px;cursor:pointer">×</button>
+    </div>
+    <div id="kaedamaPendingBody" style="padding:14px 18px;overflow-y:auto;flex:1"></div>
+    <div style="padding:12px 18px;border-top:1px solid #eee;display:flex;gap:8px">
+      <button id="kaedamaPendingCancelBtn" onclick="closePendingKaedamaCard()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #ccc;background:#fff;color:#666;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">戻る</button>
+      <button id="kaedamaPendingSubmitBtn" onclick="submitPendingKaedamaOrder()" disabled style="flex:2;padding:12px;border-radius:10px;border:none;background:#bbb;color:#fff;font-size:14px;font-weight:900;cursor:not-allowed;font-family:'Noto Sans JP',sans-serif">注文する</button>
+    </div>
+  </div>
+</div>
+
 <!-- Bottom Nav -->
 <div class="cart-bar" id="cartBar" style="display:none">
   <div class="bottom-nav">
@@ -417,7 +443,11 @@ body.dark-bg{background:#111}
 <!-- Item Modal -->
 <div class="modal-overlay" id="itemModal" onclick="maybeCloseItem(event)">
   <div class="modal">
-    <div class="modal-img-wrap" id="modalImg"></div>
+    <div class="modal-img-wrap" id="modalImg" style="position:relative">
+      <!-- 商品画像右上の閉じるボタン（白文字×） -->
+      <button onclick="event.stopPropagation();forceCloseItem()" aria-label="閉じる"
+        style="position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:18px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,0.35);z-index:5;font-family:'Noto Sans JP',sans-serif;-webkit-tap-highlight-color:transparent">✕</button>
+    </div>
     <div class="modal-inner">
       <div class="modal-handle"></div>
       <div id="modalBody"></div>
@@ -481,6 +511,21 @@ body.dark-bg{background:#111}
     <div class="ghost-err" id="ghostErr"></div>
     <div class="ghost-keypad" id="ghostKeypad"></div>
     <button class="ghost-lock-cancel" onclick="closeGhostLock()">キャンセル</button>
+  </div>
+</div>
+
+<!-- スタッフ専用商品 パスワードロック -->
+<div id="staffLockOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:780;display:none;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:18px;width:100%;max-width:360px;padding:24px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.4)">
+    <div style="font-size:42px;line-height:1">🔒</div>
+    <div style="font-family:'Oswald',sans-serif;font-size:20px;color:#e65100;font-weight:900;letter-spacing:1.5px;margin-top:6px">STAFF ONLY</div>
+    <div id="staffLockSubtitle" style="font-size:13px;color:#666;margin:8px 0 18px;line-height:1.6">この商品はスタッフ専用です<br>パスワードを入力してください</div>
+    <input id="staffPwInput" type="password" autocomplete="off" maxlength="8" placeholder="パスワード" style="width:100%;padding:14px;font-size:18px;border:2px solid #e0e0e0;border-radius:10px;text-align:center;letter-spacing:6px;font-family:'Oswald',sans-serif;font-weight:900;text-transform:uppercase;outline:none" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')checkStaffPw()">
+    <div id="staffPwErr" style="font-size:12px;color:#c0392b;font-weight:700;height:18px;margin-top:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="closeStaffLock()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #ccc;background:#fff;color:#666;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
+      <button onclick="checkStaffPw()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#e65100;color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">確定</button>
+    </div>
   </div>
 </div>
 
@@ -585,6 +630,90 @@ const T = {
   ko:{visitTitle:'처음 방문하셨나요?',visitSub:'선택해 주세요',lblFirst:'처음 방문',subFirst:'はじめて',lblRepeat:'재방문',subRepeat:'2回目以降',cartBtn:'주문 확정 화면으로',cartTitle:'주문 내역',totalLabel:'합계 금액 (세금 포함)',orderBtn:'주문 확정 🍜',successMsg:'주문을 접수했습니다\n잠시 기다려 주세요.',successTitle:'주문 완료',backBtn:'계속 주문하기',emptyCart:'장바구니가 비어 있습니다',tabAll:'전체',tabTonkotsu:'돈코츠',tabShouyu:'쇼유',tabTeishoku:'정식',tabTakeout:'테이크아웃',tabSide:'사이드',tabTopping:'토핑',tabDrink:'음료',addToCart:'장바구니에 추가',optChashu:'차슈를 선택해 주세요（필수 선택）',optNoodle:'면 굵기를 선택해 주세요（필수 선택）',optTop:'토핑을 선택해 주세요（필수 선택）',optSpicy:'매운맛을 선택해 주세요（필수 선택）',spicyNone:'맵지 않게',spicyPick:'매운맛 추가🌶',nightNote:'🌙 야간 한정 메뉴 포함',badgeCustom:'커스텀',badgeNight:'🌙 야간한정',badgePirikara:'🌶 약간 매움',badgeSpicyCurry:'🌶 약간매운 베이스｜매운맛 0〜10',badgeSpicy:'🌶 매운맛 0〜10',badgeSpicyPlain:'🌶 매움',badgeGhost:'🏴 극한매움｜10매운맛 완식자 한정🔒',bnavMenu:'메뉴',bnavCart:'장바구니',bnavHistory:'주문내역',bnavPayment:'결제',historyTitle:'주문 내역',paymentTitle:'결제',noHistory:'아직 주문 내역이 없습니다',historySubtotal:'소계',paymentOrderLabel:'주문 내역',paymentTotalLabel:'합계 금액 (세금 포함)',paymentGuideMsg:'테이블 번호를 계산대에 제시해 주세요<br>현금 및 신용카드로 결제 가능합니다',tableNumLabel:'번 테이블',cartBackBtn:'‹ 메뉴로 돌아가기',backToMenu:'‹ 메뉴로 돌아가기',removeBtn:'✕',addonToppingLabel:'추가 토핑을 선택해 주세요',addonSideLabel:'사이드 메뉴를 선택해 주세요',addonDrinkLabel:'음료를 선택해 주세요',addonNone:'없음',addonYes:'추가',addonNoodleLabel:'면 종류・양을 선택해 주세요（필수 선택）',optRice:'밥 크기를 선택해 주세요（필수 선택）',selectRequiredMsg:'아래 항목을 선택해 주세요',allSelectedMsg:'선택 완료！장바구니에 추가할 수 있습니다',lunchFreeMsg:'평일 런치 혜택：가는면 곱배기 또는 면 추가 중 1개 무료！',kaedamaBtnLabel:'🍝 면 추가 주문',kaedamaBtnFreeLabel:'🎉 면 추가 무료 주문',kaedamaModalTitle:'면 추가',kaedamaSelectRamen:'어떤 라멘에 추가하시겠습니까?',kaedamaFreeBadge:'1그릇 무료',kaedamaPaidBadge:'+¥150',kaedamaHardness:'면 굵기',kaedamaQty:'수량',kaedamaAddBtn:'장바구니에 추가',kaedamaCartTitle:'추가 주문 장바구니',kaedamaSubmitBtn:'추가 주문 확정 🍝',kaedamaEmptyRamen:'면 추가가 가능한 라멘 주문이 없습니다',kaedamaSuccessMsg:'면 추가를 완료했습니다',kaedamaNoteLunch:'평일 런치：첫 그릇 무료（곱배기 선택 시 제외）',kaedamaNoteShoyu:'쇼유：평일 런치 시에만 첫 그릇 무료',kaedamaAddonNote:'※선결제：면 추가를 원하실 때 직원에게 말씀해 주세요',statusPending:'접수 완료',statusPreparing:'조리 중',statusServed:'제공 완료',connecting:'연결 중...',connected:'온라인',offline:'오프라인',sending:'전송 중...',sendError:'전송 실패',requiredTag:'필수 선택'}
 };
 
+// 替え玉待機カード（pending kaedama card）専用の多言語辞書
+const T_KPC = {
+  ja:{
+    floatBtn:'替え玉を注文',
+    modalTitle:'🍝 替え玉を注文',
+    subtitle:n=>`${n}件の替え玉ご注文権利`,
+    target:'対象',
+    size:'サイズ',
+    full:'替え玉',
+    half:'半替え玉',
+    hardness:'麺の硬さ',
+    h_futsuu:'ふつう',
+    h_katame:'かため',
+    h_yawa:'やわらかめ',
+    h_barikata:'ばりかた',
+    cancel:'戻る',
+    submit:'注文する',
+    success:'替え玉を注文しました',
+    hint:'※ 硬さ未選択の権利は今回スキップされ、次回ご注文時に再表示されます',
+    statusReady:'今回ご注文',
+    statusSkip:'今回スキップ'
+  },
+  en:{
+    floatBtn:'Order Extra Noodles',
+    modalTitle:'🍝 Order Extra Noodles',
+    subtitle:n=>`${n} extra-noodle right${n>1?'s':''}`,
+    target:'Target',
+    size:'Size',
+    full:'Extra Noodles',
+    half:'Half Extra Noodles',
+    hardness:'Noodle Firmness',
+    h_futsuu:'Medium',
+    h_katame:'Firm',
+    h_yawa:'Soft',
+    h_barikata:'Extra Firm',
+    cancel:'Back',
+    submit:'Order',
+    success:'Extra noodles ordered',
+    hint:'※ Rights without a firmness choice will be skipped and shown again next time',
+    statusReady:'Will order',
+    statusSkip:'Skip this time'
+  },
+  zh:{
+    floatBtn:'下单加面',
+    modalTitle:'🍝 下单加面',
+    subtitle:n=>`${n}份加面权利`,
+    target:'对应拉面',
+    size:'份量',
+    full:'加面',
+    half:'半份加面',
+    hardness:'面条硬度',
+    h_futsuu:'普通',
+    h_katame:'偏硬',
+    h_yawa:'偏软',
+    h_barikata:'极硬',
+    cancel:'返回',
+    submit:'下单',
+    success:'已下单加面',
+    hint:'※ 未选择硬度的权利将本次跳过，下次会再次显示',
+    statusReady:'本次下单',
+    statusSkip:'本次跳过'
+  },
+  ko:{
+    floatBtn:'면 추가 주문',
+    modalTitle:'🍝 면 추가 주문',
+    subtitle:n=>`${n}건의 면 추가 권리`,
+    target:'대상',
+    size:'양',
+    full:'면 추가',
+    half:'반 면 추가',
+    hardness:'면 굵기',
+    h_futsuu:'보통',
+    h_katame:'단단함',
+    h_yawa:'부드러움',
+    h_barikata:'아주 단단함',
+    cancel:'돌아가기',
+    submit:'주문하기',
+    success:'면 추가를 주문했습니다',
+    hint:'※ 굵기를 선택하지 않은 권리는 이번에 건너뛰고 다음 번 주문 시 다시 표시됩니다',
+    statusReady:'이번 주문',
+    statusSkip:'이번 건너뛰기'
+  }
+};
+
 let catLabels = {
   ja:{tonkotsu:'豚骨 Tonkotsu',shouyu:'醤油 Shouyu',teishoku:'定食',side:'サイドメニュー',topping:'追加トッピング',drink:'ドリンク'},
   en:{tonkotsu:'Tonkotsu',shouyu:'Shouyu',teishoku:'Set Meal',side:'Side Menu',topping:'Extra Toppings',drink:'Drinks'},
@@ -619,8 +748,24 @@ const noodleSizeOptsShouyu = {
   zh:['宽面少量','宽面普通','宽面大碗+¥150'],
   ko:['넓은면 적게','넓은면 보통','넓은면 곱배기+¥150']
 };
+// 麺サイズ選択（餃子定食など定食）：細麺のみ。平打ち変更なし。
+//   平日ランチタイム：大盛り無料
+//   それ以外：大盛り +100円
+const noodleSizeOptsTeishokuWeekday = {
+  ja:['細麺 並','細麺 大盛り 無料🎉'],
+  en:['Thin Regular','Thin Large FREE🎉'],
+  zh:['细面普通','细面大碗 免费🎉'],
+  ko:['가는면 보통','가는면 곱배기 무료🎉']
+};
+const noodleSizeOptsTeishokuWeekend = {
+  ja:['細麺 並','細麺 大盛り +100円'],
+  en:['Thin Regular','Thin Large +¥100'],
+  zh:['细面普通','细面大碗+¥100'],
+  ko:['가는면 보통','가는면 곱배기+¥100']
+};
 function getNoodleSizeOpts(l, cat){
   if (cat === 'shouyu') return noodleSizeOptsShouyu[l];
+  if (cat === 'teishoku') return isLunchWeekday() ? noodleSizeOptsTeishokuWeekday[l] : noodleSizeOptsTeishokuWeekend[l];
   return isLunchWeekday() ? noodleSizeOptsWeekday[l] : noodleSizeOptsWeekend[l];
 }
 
@@ -674,9 +819,9 @@ let menu = [];
 let _menuOverrides = {};
 let _customMenuItems = [];
 let _customCategories = [];
-let _categoryOrder = null;   // appConfig/categoryOrder で管理する全カテゴリ並び順（配列 of keys）
+let _categoryOrder = null;
 let _itemOrder = { byCategory: {} }; // appConfig/itemOrder（管理APPで設定する商品並び順）
-let _subCategories = []; // subCategories collection
+let _subCategories = []; // subCategories collection: [{docId, cat, name, order}]
 
 function wrapLunchFree(m) {
   if (!m.lunchFreeBase) return m;
@@ -723,6 +868,7 @@ function rebuildMenu() {
   });
   // カテゴリ内ソート：appConfig/itemOrder（editKey配列）を真実の順序として直接使用
   //   → ブラウザの Array.sort 実装差や comparator returning 0 の不安定さを完全に排除
+  // custom item に _docId を補完
   _customMenuItems.forEach(c => {
     const found = merged.find(x => x.id === c.id && x.cat === c.cat);
     if (found && !found._docId) found._docId = c.docId;
@@ -730,8 +876,8 @@ function rebuildMenu() {
   const orderMap = (_itemOrder && _itemOrder.byCategory) || {};
   const editKeyOf = (m) => m._docId ? `custom:${m._docId}` : `canonical:${m.id}`;
   // ① カテゴリごとにグループ化（カテゴリ間の相対順は merged の元の順序を維持）
-  const groups = new Map();
-  const catOrder = [];
+  const groups = new Map(); // cat -> items[]
+  const catOrder = [];      // cat の登場順
   merged.forEach(m => {
     if (!groups.has(m.cat)) { groups.set(m.cat, []); catOrder.push(m.cat); }
     groups.get(m.cat).push(m);
@@ -743,10 +889,12 @@ function rebuildMenu() {
     const savedOrder = orderMap[cat] || [];
     const byKey = new Map(items.map(m => [editKeyOf(m), m]));
     const used = new Set();
+    // 保存順を優先
     savedOrder.forEach(k => {
       const it = byKey.get(k);
       if (it) { rebuilt.push(it); used.add(k); }
     });
+    // 保存順に無いアイテムは旧 _sortOrder 昇順で末尾に
     const leftovers = items.filter(m => !used.has(editKeyOf(m)));
     leftovers.sort((a, b) => (a._sortOrder || 0) - (b._sortOrder || 0));
     rebuilt.push(...leftovers);
@@ -762,14 +910,11 @@ function rebuildMenu() {
       });
     }
   });
-  // カテゴリ並び順：appConfig/categoryOrder が指定されていればそれを使い、
-  // それ以外は BASE_CAT_ORDER + custom を順序通り採用
+  // カテゴリ並び順：appConfig/categoryOrder が指定されていればそれを使う
   let newCatKeys;
   if (Array.isArray(_categoryOrder) && _categoryOrder.length > 0) {
-    // 保存済の順序を使用（存在するカテゴリのみ）
     const allValid = new Set([...BASE_CAT_ORDER, ..._customCategories.map(c => c.key).filter(Boolean)]);
     newCatKeys = _categoryOrder.filter(k => allValid.has(k));
-    // 保存に含まれない（新規追加された）カテゴリを末尾に追加
     allValid.forEach(k => { if (!newCatKeys.includes(k)) newCatKeys.push(k); });
   } else {
     newCatKeys = [...BASE_CAT_ORDER];
@@ -1009,6 +1154,20 @@ function subscribeCategoryOrder(){
     rebuildMenu();
   }, err => console.error('categoryOrder listener:', err));
 }
+// subCategories を購読：管理APPで子カテゴリ追加・並び替えされたら即時反映
+let unsubSubCategories = null;
+function subscribeSubCategories(){
+  if(!fbReady) return;
+  if(unsubSubCategories) unsubSubCategories();
+  const colRef = window.FB.collection(window.FB.db, 'subCategories');
+  unsubSubCategories = window.FB.onSnapshot(colRef, (snap) => {
+    _subCategories = [];
+    snap.forEach(d => { _subCategories.push({ docId: d.id, ...d.data() }); });
+    _subCategories.sort((a,b) => (a.order||0) - (b.order||0));
+    if(typeof renderMenu === 'function') renderMenu();
+  }, err => console.error('subCategories listener:', err));
+}
+
 // appConfig/itemOrder を購読：管理APPで商品並び替えされたら即時反映
 let unsubItemOrder = null;
 function subscribeItemOrder(){
@@ -1024,19 +1183,6 @@ function subscribeItemOrder(){
     }
     rebuildMenu();
   }, err => console.error('itemOrder listener:', err));
-}
-// subCategories を購読
-let unsubSubCategories = null;
-function subscribeSubCategories(){
-  if(!fbReady) return;
-  if(unsubSubCategories) unsubSubCategories();
-  const colRef = window.FB.collection(window.FB.db, 'subCategories');
-  unsubSubCategories = window.FB.onSnapshot(colRef, (snap) => {
-    _subCategories = [];
-    snap.forEach(d => { _subCategories.push({ docId: d.id, ...d.data() }); });
-    _subCategories.sort((a,b) => (a.order||0) - (b.order||0));
-    if(typeof renderMenu === 'function') renderMenu();
-  }, err => console.error('subCategories listener:', err));
 }
 
 window.addEventListener('fb-error', (e) => {
@@ -1155,6 +1301,8 @@ function subscribeOrders(){
     console.log('[subscribeOrders] snapshot received — orderHistory.length=', orderHistory.length);
     if($('historyScreen').classList.contains('open')) renderHistory();
     if($('paymentScreen').classList.contains('open')) renderPayment();
+    // 無料替え玉の未注文権利をチェック → フローティングボタン表示更新
+    updateKaedamaFloatBtn();
     // 全注文が paid になったら即時ロック
     checkAllPaidAndLock();
   }, (err) => {
@@ -1325,9 +1473,11 @@ function toggleLangMenu(e) {
   const open = menu.style.display === 'flex';
   menu.style.display = open ? 'none' : 'flex';
   if (!open) {
+    // 現在の言語をハイライト
     menu.querySelectorAll('.lang-opt').forEach(b => {
       b.classList.toggle('current', b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${lang}'`));
     });
+    // 外側タップで閉じる
     setTimeout(() => {
       document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     }, 0);
@@ -1338,6 +1488,7 @@ function closeLangMenuOnOutside(e) {
   const btn = document.getElementById('langSwitchBtn');
   if (!menu || !btn) return;
   if (menu.contains(e.target) || btn.contains(e.target)) {
+    // 中をタップした場合は再登録
     document.addEventListener('click', closeLangMenuOnOutside, { once: true });
     return;
   }
@@ -1345,13 +1496,17 @@ function closeLangMenuOnOutside(e) {
 }
 function changeLang(l) {
   lang = l;
+  // フラッグ更新
   const flag = document.getElementById('langSwitchFlag');
   if (flag) flag.textContent = LANG_FLAGS[l] || '🌐';
+  // メニュー閉じる
   const menu = document.getElementById('langSwitchMenu');
   if (menu) menu.style.display = 'none';
+  // 翻訳適用 + メニュー再描画
   applyLang();
   if (typeof renderMenu === 'function') renderMenu();
   if (typeof renderCart === 'function') renderCart();
+  // 開いている履歴・支払い画面も更新
   if (typeof renderHistory === 'function') renderHistory();
   if (typeof renderPayment === 'function') renderPayment();
 }
@@ -1626,6 +1781,7 @@ function renderMenu(){
   const t=T[lang], cl=catLabels[lang] || {};
   const cats = currentCat==='all' ? allCatKeys : [currentCat];
 
+  // メニューアイテムカードを生成するヘルパー
   const buildItemEl = (item) => {
     const d=document.createElement('div');
     const soldout = isItemSoldout(item.id);
@@ -1666,13 +1822,15 @@ function renderMenu(){
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
       sec.innerHTML+=`<div class="night-notice">${t.nightNote}</div>`;
 
+    // サブカテゴリでグループ化（管理APP「カテゴリ管理」の order に従う）
     const registeredSubs = (_subCategories || []).filter(s => s.cat === cat).sort((a,b) => (a.order||0) - (b.order||0));
+    // 子カテゴリの表示名を多言語対応で取得
     const subNameFor = (s, langKey) => {
       if (!s || !s.name) return '';
       if (typeof s.name === 'string') return s.name;
       return s.name[langKey] || s.name.ja || '';
     };
-    const groupMap = new Map();
+    const groupMap = new Map();        // 商品の subCat 文字列(ja) → group
     const unregisteredGroups = [];
     let noneGroup = null;
     items.forEach(item => {
@@ -1725,6 +1883,11 @@ function openItem(id){
   if(isItemSoldout(item.id)){ showValidationMsg('🚫 申し訳ございません、この商品は売り切れです'); return; }
   if(!isAvailable(item)){ showValidationMsg('🌙 夜営業（17:00〜21:00）のみご注文いただけます'); return; }
   if(item.ghost){ openGhostLock(id); return; }
+  // スタッフ専用商品：商品名に「スタッフ専用」を含むものはパスワード認証が必要
+  if(isStaffOnlyItem(item) && !window._staffUnlocked){
+    openStaffLock(id);
+    return;
+  }
   curItem=item; curOpts={}; curQty=1;
   renderModal();
   $('itemModal').classList.add('open');
@@ -1742,6 +1905,12 @@ function maybeCloseItem(e){
   $('itemModal').classList.remove('open');
   document.body.style.overflow='';
 }
+// 画像右上の✕ボタンから明示的に閉じる時に使用
+function forceCloseItem(){
+  $('itemModal').classList.remove('open');
+  document.body.style.overflow='';
+}
+window.forceCloseItem = forceCloseItem;
 
 function renderModal(){
   const item=curItem, t=T[lang];
@@ -1766,74 +1935,96 @@ function renderModal(){
 
   if(hasRequiredFields()){
     if(allDone){
-      h+=`<div id="req-banner" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;background:#e8f5e9;border:1.5px solid #a5d6a7;border-radius:10px;font-size:12px;font-weight:700;color:#2e7d32;transition:all .3s">
+      h+=`<div id="req-banner" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;padding:10px 14px;font-size:13px;font-weight:700;color:#2e7d32;transition:all .3s;text-align:center">
         <span style="font-size:16px">✅</span>
         <span>${t.allSelectedMsg}</span>
       </div>`;
     } else {
-      h+=`<div id="req-banner" style="margin-bottom:16px;padding:10px 14px;background:#fff5f5;border:1.5px solid #f5c6c6;border-radius:10px">
-        <div style="font-size:13px;font-weight:700;color:#c0392b">${t.selectRequiredMsg}</div>
+      // 「選択してください」案内：赤枠/背景なし・センター寄せ・🔻で挟む
+      h+=`<div id="req-banner" style="margin-bottom:12px;padding:6px 0;text-align:center;font-size:14px;font-weight:900;color:#c0392b;letter-spacing:.5px">
+        🔻 ${t.selectRequiredMsg} 🔻
       </div>`;
     }
   }
 
-  if(c.chashu)     h+=optGrpReq(t.optChashu,'chashu',chashuOpts[lang],missing);
-  if(c.top)        h+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
-  if(c.kata && !c.noodleSize) h+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
+  // === 必須項目セクション開始 — 未選択がある場合は外側を1つの赤枠で囲む ===
+  let reqHtml = '';
+  if(c.chashu)     reqHtml+=optGrpReq(t.optChashu,'chashu',chashuOpts[lang],missing);
+  if(c.top)        reqHtml+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
+  if(c.kata && !c.noodleSize) reqHtml+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
   if(c.noodleSize) {
-    // 平日ランチのとんこつでは「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
+    // 平日ランチのとんこつ・定食では「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
     let noodleOpts = getNoodleSizeOpts(lang, curItem&&curItem.cat);
-    if (isLunchWeekday() && curItem && curItem.cat === 'tonkotsu') {
+    if (isLunchWeekday() && curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')) {
       noodleOpts = noodleOpts.filter(o => !/無料|FREE|免费|무료/i.test(o));
     }
-    h+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
+    reqHtml+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
   }
   // 平日ランチ特典：替え玉無料 / 大盛り無料（麺サイズの直下に配置）
-  if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu')){
+  if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu' || item.cat === 'teishoku')){
     const choice = curOpts.lunchFreeChoice || '';
     const isTonkotsu = (item.cat === 'tonkotsu');
-    // 現在選択中の麺サイズが「平打ち麺系」かどうかを判定（とんこつのみ大盛り無料の可否に影響）
+    const isTeishoku = (item.cat === 'teishoku');
+    // 現在選択中の麺サイズが「平打ち麺系」かどうかを判定（とんこつのみ大盛り無料の可否に影響／定食には平打ちなし）
     const noodleSize = curOpts.noodleSize || '';
     const isFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(noodleSize);
-    const lblTitle = isTonkotsu
+    const lblTitle = (isTonkotsu || isTeishoku)
       ? ({ja:'🎉 平日ランチ特典：どちらか1つ無料',en:'🎉 Weekday Lunch: pick ONE free',zh:'🎉 工作日午餐：任选1份免费',ko:'🎉 평일 런치：1개 무료'}[lang] || '')
       : ({ja:'🎉 平日ランチ特典：替え玉（細麺）無料',en:'🎉 Weekday Lunch: Extra Noodles (Thin) FREE',zh:'🎉 工作日午餐：加面（细面）免费',ko:'🎉 평일 런치：면 추가(가는면) 무료'}[lang] || '');
     const lblOomori = {ja:'大盛り無料 (細麺)',en:'Large FREE (Thin)',zh:'大碗免费 (细面)',ko:'곱배기 무료 (가는면)'}[lang] || '大盛り無料 (細麺)';
-    const lblKaedama = isTonkotsu
+    const lblKaedama = (isTonkotsu || isTeishoku)
       ? ({ja:'替え玉無料 (細麺)',en:'Extra Noodles FREE (Thin)',zh:'加面免费 (细面)',ko:'면 추가 무료 (가는면)'}[lang] || '替え玉無料 (細麺)')
       : ({ja:'替え玉無料 (細麺) を希望する',en:'Order FREE Extra Noodles (Thin)',zh:'要免费加面 (细面)',ko:'면 추가 (가는면) 무료 주문'}[lang] || '替え玉無料 (細麺)');
+    const lblKaedamaHalf = (isTonkotsu || isTeishoku)
+      ? ({ja:'半替え玉無料 (細麺)',en:'Half Noodles FREE (Thin)',zh:'半份加面免费 (细面)',ko:'반 면 추가 무료 (가는면)'}[lang] || '半替え玉無料 (細麺)')
+      : ({ja:'半替え玉無料 (細麺) を希望する',en:'Order FREE Half Extra Noodles (Thin)',zh:'要免费半份加面 (细面)',ko:'반 면 추가 (가는면) 무료 주문'}[lang] || '半替え玉無料 (細麺)');
     const lblFlatNote = {ja:'※平打ち麺選択中は大盛り無料は対象外です',en:'※ Free Large not available with Flat noodles',zh:'※ 选择宽面时大碗免费不适用',ko:'※ 넓은면 선택 시 곱배기 무료 대상 외'}[lang] || '';
-    const btnBase = 'flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:900;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;transition:all 0.15s;line-height:1.3';
+    const btnBase = 'flex:1;padding:12px 6px;border-radius:10px;font-size:12px;font-weight:900;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;transition:all 0.15s;line-height:1.3';
     const btnOn = 'background:#e65100;color:#fff;border:2px solid #e65100;box-shadow:0 2px 8px rgba(230,81,0,0.35)';
     const btnOff = 'background:#fff;color:#e65100;border:2px solid #ffd54f';
     const btnDisabled = 'background:#f5f5f5;color:#bbb;border:2px solid #e0e0e0;cursor:not-allowed;box-shadow:none';
     let buttonsHtml = '';
-    if(isTonkotsu){
-      // 平打ち麺選択中は大盛り無料ボタンを無効化
-      const oomoriDisabled = isFlat;
+    if(isTonkotsu || isTeishoku){
+      // とんこつ：平打ち麺選択中は大盛り無料ボタンを無効化
+      // 定食：平打ち麺の選択肢自体が無いので oomoriDisabled は常に false
+      const oomoriDisabled = isTonkotsu ? isFlat : false;
       const oomoriStyle = oomoriDisabled ? btnDisabled : (choice==='oomori' ? btnOn : btnOff);
       const oomoriOnclick = oomoriDisabled ? '' : `onclick="pickLunchFree('oomori')"`;
       buttonsHtml = `
-        <button onclick="pickLunchFree('kaedama')" style="${btnBase};${choice==='kaedama'?btnOn:btnOff}">🍝 ${lblKaedama}</button>
-        <button ${oomoriOnclick} ${oomoriDisabled?'disabled':''} style="${btnBase};${oomoriStyle}">🍜 ${lblOomori}</button>`;
+        <button onclick="pickLunchFree('kaedama')" style="${btnBase};${choice==='kaedama'?btnOn:btnOff}">${lblKaedama}</button>
+        <button onclick="pickLunchFree('kaedamaHalf')" style="${btnBase};${choice==='kaedamaHalf'?btnOn:btnOff}">${lblKaedamaHalf}</button>
+        <button ${oomoriOnclick} ${oomoriDisabled?'disabled':''} style="${btnBase};${oomoriStyle}">${lblOomori}</button>`;
     } else {
-      // 醤油は替え玉のみ
-      buttonsHtml = `<button onclick="pickLunchFree('kaedama')" style="${btnBase};${choice==='kaedama'?btnOn:btnOff}">🍝 ${lblKaedama}</button>`;
+      // 醤油は替え玉のみ（半替え玉も追加）
+      buttonsHtml = `
+        <button onclick="pickLunchFree('kaedama')" style="${btnBase};${choice==='kaedama'?btnOn:btnOff}">${lblKaedama}</button>
+        <button onclick="pickLunchFree('kaedamaHalf')" style="${btnBase};${choice==='kaedamaHalf'?btnOn:btnOff}">${lblKaedamaHalf}</button>`;
     }
     const flatNoteHtml = (isTonkotsu && isFlat) ? `<div style="font-size:10px;color:#c0392b;text-align:center;margin-top:4px">${lblFlatNote}</div>` : '';
-    h+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:10px">
+    reqHtml+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:10px">
       <div style="font-size:11px;font-weight:700;color:#e65100;text-align:center;letter-spacing:0.5px">${lblTitle}</div>
       <div style="display:flex;gap:8px">${buttonsHtml}</div>
       ${flatNoteHtml}
     </div>`;
   }
-  if(c.noodleSize && curOpts.noodleSize && curOpts.noodleSize.includes('細麺'))
-    h+=optGrpReq('麺の硬さ（細麺のみ）（必須選択）','kata',kataOpts[lang],missing);
-  if(c.rice)       h+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing);
+  // 麺の硬さ表示ルール：
+  //   ・豚骨（tonkotsu）：常時表示。平打ち選択時はグレーアウト
+  //   ・醤油（shouyu） / 餃子定食（teishoku）：硬さセクション自体を非表示
+  //   ・その他（noodleSize あり）：豚骨と同じ扱い
+  if(c.noodleSize && item.cat !== 'shouyu' && item.cat !== 'teishoku') {
+    const isFlatNoodle = curOpts.noodleSize && /(平打ち麺|Flat|宽面|넓은면)/i.test(curOpts.noodleSize);
+    const kataDisabled = isFlatNoodle || !curOpts.noodleSize;
+    const kataLabel = ({ja:'麺の硬さ（細麺のみ）（必須選択）',en:'Noodle Firmness (Thin only, Required)',zh:'面条软硬（仅细面・必选）',ko:'면 굵기（가는면 한정・필수 선택）'}[lang] || '麺の硬さ（細麺のみ）（必須選択）');
+    const kataNote = isFlatNoodle
+      ? ({ja:'※平打ち麺は硬さ選択不要です',en:'※ Firmness not applicable for Flat noodles',zh:'※ 宽面无需选择硬度',ko:'※ 넓은면은 굵기 선택 불필요'}[lang] || '')
+      : (!curOpts.noodleSize ? ({ja:'※ 麺サイズを選択してください',en:'※ Please choose noodle size first',zh:'※ 请先选择面条种类',ko:'※ 면 종류를 먼저 선택해 주세요'}[lang] || '') : '');
+    reqHtml += optGrpReq(kataLabel,'kata',kataOpts[lang],missing,{disabled:kataDisabled, disabledNote:kataNote});
+  }
+  if(c.rice)       reqHtml+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing);
   if(c.karasaAdd){
     // 0辛〜10辛を常時表示。0辛 = 辛さなし（追加料金なし）
     const currentLv = curOpts.spicyLv || '0辛';
-    h+=`<div class="option-group">
+    reqHtml+=`<div class="option-group">
       <div class="option-label">${t.optSpicy}</div>
       <div class="spicy-grid">
         ${spicyLevels.map(s=>{
@@ -1847,6 +2038,19 @@ function renderModal(){
       </div>
     </div>`;
   }
+  // === 必須項目セクション終了：未選択があれば一括の赤枠で囲む（背景色なし）===
+  //   赤枠の上辺中央に「選択必須」バッジを配置（4言語対応）
+  if (reqHtml) {
+    if (!allDone) {
+      const reqBadgeLabel = (T[lang] && T[lang].requiredTag) || '選択必須';
+      h += `<div style="position:relative;border:2.5px solid #e74c3c;border-radius:14px;padding:18px 12px 10px;margin-top:16px;margin-bottom:12px;box-shadow:0 0 0 3px rgba(231,76,60,0.08);transition:all .25s">
+        <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:#e74c3c;color:#fff;font-size:12px;font-weight:900;padding:4px 16px;border-radius:14px;letter-spacing:1px;white-space:nowrap;box-shadow:0 2px 6px rgba(231,76,60,0.35)">${reqBadgeLabel}</div>
+        ${reqHtml}
+      </div>`;
+    } else {
+      h += reqHtml;
+    }
+  }
 
   if(isMainDish){
     const addonTop  = addonSection('addonTopping',t.addonToppingLabel,'topping',t,true);
@@ -1859,6 +2063,16 @@ function renderModal(){
     }
   }
 
+  // 未選択の必須項目がある場合：ボタンの上に赤文字で案内
+  if (!allDone) {
+    const incompleteMsg = ({
+      ja:'⚠ ページ上部《選択項目》を完了させてください。',
+      en:'⚠ Please complete the《Required Selections》at the top of the page.',
+      zh:'⚠ 请完成页面上方的《选择项目》。',
+      ko:'⚠ 페이지 상단의 《선택 항목》을 완료해 주세요.'
+    }[lang] || '⚠ ページ上部《選択項目》を完了させてください。');
+    h += `<div style="margin-top:16px;padding:12px 14px;background:rgba(231,76,60,0.08);border:1.5px solid #e74c3c;border-radius:10px;text-align:center;font-size:13px;font-weight:900;color:#c0392b;letter-spacing:.3px;line-height:1.5">${incompleteMsg}</div>`;
+  }
   h+=`<button id="add-to-cart-btn" class="btn-primary ${allDone?'':'disabled'}" onclick="addCart()">${t.addToCart} — ¥${calcTotal().toLocaleString()}</button>
     <button class="btn-secondary" onclick="maybeCloseItem()">${t.backToMenu}</button>`;
 
@@ -1872,13 +2086,17 @@ function hasRequiredFields(){
 
 function getMissingFields(){
   const c=curItem.custom, t=T[lang];
+  const cat=curItem.cat;
   const missing=[];
   if(c.chashu && !curOpts.chashu) missing.push({key:'chashu',label:t.optChashu});
   if(c.top    && !curOpts.top)    missing.push({key:'top',label:t.optTop});
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
-  if(c.noodleSize && curOpts.noodleSize && curOpts.noodleSize.includes('細麺') && !curOpts.kata)
+  // 醤油・餃子定食は硬さセクションを非表示にしているため必須から除外
+  if(c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku'
+     && curOpts.noodleSize && curOpts.noodleSize.includes('細麺') && !curOpts.kata)
     missing.push({key:'kata',label:'麺の硬さ'});
-  if(c.kata && !c.noodleSize && !curOpts.kata) missing.push({key:'kata',label:t.optNoodle});
+  if(c.kata && !c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku' && !curOpts.kata)
+    missing.push({key:'kata',label:t.optNoodle});
   if(c.rice && !curOpts.rice) missing.push({key:'rice',label:t.optRice});
   // 初回注文（ラーメンと一緒に頼む）の替え玉は硬さ選択不要（口頭オペ・キッチン待機タブで個別に対応）
   // → 替え玉アドオン（id=40）の硬さ必須チェックは削除
@@ -1886,12 +2104,27 @@ function getMissingFields(){
   return missing;
 }
 
-function optGrpReq(label,key,opts,missing){
-  return `<div class="option-group" id="field-${key}" style="position:relative;border:none;padding:0;transition:all .3s">
-    <div class="option-label">${label}</div>
+function optGrpReq(label,key,opts,missing, options){
+  // options = { disabled: true/false, disabledNote: string }
+  const opts2 = options || {};
+  const disabled = !!opts2.disabled;
+  // 個別の「選択必須」タグは廃止（外側の赤枠の上にまとめて1個だけ表示する方針）
+  // ラベル末尾の「（必須選択）」「（必选）」「(Required)」等も非表示にする
+  const cleanLabel = String(label || '').replace(/\s*[（(]\s*(必須選択|必須|必选|必選|Required|필수\s*선택)\s*[）)]\s*$/i, '').trim();
+  // disabled の場合だけ視覚的にグレーアウト枠を残す
+  const groupStyle = disabled
+    ? 'border:1.5px solid #e0e0e0;background:transparent;border-radius:10px;padding:8px 10px;opacity:0.6;pointer-events:none'
+    : 'border:none;padding:6px 0';
+  const disabledNote = (disabled && opts2.disabledNote)
+    ? `<div style="font-size:10px;color:#999;margin-top:4px">${opts2.disabledNote}</div>`
+    : '';
+  const btnExtraClass = disabled ? ' disabled-grey' : '';
+  return `<div class="option-group" id="field-${key}" style="position:relative;transition:all .25s;${groupStyle}">
+    <div class="option-label">${cleanLabel}</div>
     <div class="option-btns">
-      ${opts.map(o=>`<button class="option-btn ${curOpts[key]===o?'selected':''}" onclick="pickOpt('${key}','${o}')">${o}</button>`).join('')}
+      ${opts.map(o=>`<button class="option-btn${btnExtraClass} ${curOpts[key]===o?'selected':''}" onclick="pickOpt('${key}','${o}')" ${disabled?'disabled':''}>${o}</button>`).join('')}
     </div>
+    ${disabledNote}
   </div>`;
 }
 
@@ -1924,8 +2157,8 @@ function addonSection(key,label,cat,t,isFirstShown){
     } else if (item.id === 62) {
       // チャーシュー3枚は 豚/鶏 のバリアントを別カードで表示
       const variants = [
-        {kJa:'豚', kEn:'Pork', label:{ja:'チャーシュー（豚）3枚',en:'Chashu (Pork) ×3',zh:'叉烧（猪）3片',ko:'차슈（돼지）3장'}},
-        {kJa:'鶏', kEn:'Chicken', label:{ja:'チャーシュー（鶏）3枚',en:'Chashu (Chicken) ×3',zh:'叉烧（鸡）3片',ko:'차슈（닭）3장'}}
+        {kJa:'豚', label:{ja:'チャーシュー（豚）3枚',en:'Chashu (Pork) ×3',zh:'叉烧（猪）3片',ko:'차슈（돼지）3장'}},
+        {kJa:'鶏', label:{ja:'チャーシュー（鶏）3枚',en:'Chashu (Chicken) ×3',zh:'叉烧（鸡）3片',ko:'차슈（닭）3장'}}
       ];
       variants.forEach(v => {
         const compKey = `${item.id}:${v.kJa}`;
@@ -1993,14 +2226,14 @@ function pickLunchFree(choice){
     delete curOpts.lunchFreeChoice;
   } else {
     curOpts.lunchFreeChoice = choice;
-    // 大盛り希望なら 細麺 大盛り 無料 を自動選択（とんこつ・細麺の場合のみ）
-    if(choice === 'oomori' && curItem && curItem.cat === 'tonkotsu'){
+    // 大盛り希望なら 細麺 大盛り 無料 を自動選択（とんこつ・定食の細麺の場合）
+    if(choice === 'oomori' && curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')){
       const noodleOpts = getNoodleSizeOpts(lang, curItem.cat);
       const freeOpt = noodleOpts.find(o => /無料|FREE|免费|무료/i.test(o));
       if(freeOpt) curOpts.noodleSize = freeOpt;
     }
-    // 替え玉希望なら、もし大盛り無料を選択中だったら 細麺 並 に戻す
-    if(choice === 'kaedama' && curOpts.noodleSize && /無料|FREE|免费|무료/i.test(curOpts.noodleSize)){
+    // 替え玉 or 半替え玉希望なら、もし大盛り無料を選択中だったら 細麺 並 に戻す
+    if((choice === 'kaedama' || choice === 'kaedamaHalf') && curOpts.noodleSize && /無料|FREE|免费|무료/i.test(curOpts.noodleSize)){
       const noodleOpts = getNoodleSizeOpts(lang, curItem.cat);
       const regularOpt = noodleOpts.find(o => /細麺.*並|Thin.*Regular|细面普通|가는면.*보통/i.test(o));
       if(regularOpt) curOpts.noodleSize = regularOpt;
@@ -2114,7 +2347,20 @@ function addCart(){
   const qtySafe = Number(curQty) || 1;
   const unitPrice = basePrice + spicyExtra + noodleExtra;
   const mainTotal = unitPrice * qtySafe;
-  cart.push({id:Date.now(), groupId, isMain:true, itemId:curItem.id, name:curItem.name[lang], opts, qty:qtySafe, price:unitPrice, total:mainTotal});
+  const mainCartItem = {id:Date.now(), groupId, isMain:true, itemId:curItem.id, name:curItem.name[lang], opts, qty:qtySafe, price:unitPrice, total:mainTotal};
+  // 平日ランチの替え玉/半替え玉無料権を「権利」としてラーメン本体に紐付け（先注文・後提供）
+  // キッチンは初回伝票では替え玉を出さない。お客様が再度オーダーAPPを開いた時に実注文する。
+  if (curOpts.lunchFreeChoice === 'kaedama' || curOpts.lunchFreeChoice === 'kaedamaHalf') {
+    mainCartItem.pendingKaedamaRight = {
+      type: curOpts.lunchFreeChoice === 'kaedamaHalf' ? 'half' : 'full',
+      requested: false,
+      qty: qtySafe
+    };
+  }
+  // 有料替え玉も同じく「権利」として紐付ける（初回伝票には出さない）
+  // アドオンとして追加された id=40 替え玉は、後で取り出してメインに添付する
+  mainCartItem.pendingKaedamaRightsPaid = []; // 後で push
+  cart.push(mainCartItem);
 
   // アドオン（追加トッピング/サイド/ドリンク）— 売り切れはスキップしてユーザーに通知
   const skippedSoldout = [];
@@ -2135,44 +2381,52 @@ function addCart(){
         }
         // ラーメンと一緒に頼む初回注文の替え玉は硬さ選択なし（食後の追加注文時のみ硬さあり）
         const isKaedamaAddon = (m.id === 40);
+        // 有料替え玉（id=40）：権利化（pendingKaedamaRightsPaid を主に追加）+ カート行も残す
+        // カート行は「先払い・後で注文」フラグ付きで保存され、初回キッチン伝票では非表示。
+        // 後にお客様が替え玉モーダルから注文確定したタイミングで、新規 isPendingKaedamaOrder
+        // のオーダーが厨房に届く。元の替え玉行は「先払い済」として注文ドキュメント内に残るので、
+        // 別会計/履歴/合計金額のいずれも料金が抜け落ちない。
+        if (isKaedamaAddon) {
+          const kPrice = Number(m.price) || 0;
+          for (let n = 0; n < qty; n++) {
+            mainCartItem.pendingKaedamaRightsPaid.push({
+              type: 'full',
+              requested: false,
+              qty: 1,
+              price: kPrice
+            });
+          }
+          // カート行（厨房非表示・先払い済を示すフラグ付き）
+          const kCartItem = {
+            id:Date.now()+Math.random(), groupId,
+            isAddon:true, isKaedama:true, parentItemId:curItem.id,
+            itemId:m.id, name:m.name[lang], opts:[],
+            qty, price:kPrice, total:kPrice*qty,
+            isPendingKaedamaPaid:true,   // ← 厨房伝票の初回非表示判定に使用
+            kaedamaPrepaid:false,
+            kaedamaRequestedQty:qty
+          };
+          cart.push(kCartItem);
+          return;
+        }
         // variant がある場合は opts に格納（伝票で「ブタ/トリ」識別に使用）
         const addonOpts = variant ? [variant] : [];
-        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:isKaedamaAddon, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
-        if (isKaedamaAddon){
-          // 「呼ぶ」ボタンは廃止（口頭オペレーションに移行）。最初から「作る対象」として送る。
-          cartItem.kaedamaPrepaid = false;
-          cartItem.kaedamaRequestedQty = qty;
-        }
+        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:false, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
         cart.push(cartItem);
       }
     });
   });
+  // 権利が0件なら属性自体を削除（クリーンな保存のため）
+  if (mainCartItem.pendingKaedamaRightsPaid.length === 0) {
+    delete mainCartItem.pendingKaedamaRightsPaid;
+  }
 
   if(skippedSoldout.length > 0){
     showValidationMsg('🚫 売り切れのため除外：' + skippedSoldout.join('、'));
   }
 
-  // 平日ランチ「替え玉無料」希望 → 無料の替え玉（細麺）を別商品としてカートに追加（硬さは口頭で対応）
-  if(curOpts.lunchFreeChoice === 'kaedama'){
-    const kaedamaMenu = menu.find(m => m.id === 40);
-    const kaedamaName = (kaedamaMenu && kaedamaMenu.name[lang]) || '替え玉（細麺）';
-    cart.push({
-      id: Date.now() + Math.random(),
-      groupId,
-      isAddon: true,
-      isKaedama: true,
-      parentItemId: curItem.id,
-      itemId: 40,
-      name: kaedamaName,
-      opts: [],
-      qty: curQty,
-      price: 0,
-      total: 0,
-      kaedamaPrepaid: false,
-      kaedamaRequestedQty: curQty,
-      lunchFree: true
-    });
-  }
+  // ※ ランチ無料替え玉/半替え玉は権利として mainCartItem.pendingKaedamaRight に保存済み
+  //    実際の替え玉アイテムは「お客様が再オーダー時」に追加される
 
   maybeCloseItem();
   updateCartBar();
@@ -2224,11 +2478,36 @@ function renderCart(){
   $('orderBtn').disabled = hasSoldoutInCart;
   list.innerHTML = cart.map(i=>{
     const sold = i.itemId && isItemSoldout(i.itemId);
+    // 平日ランチ無料替え玉権利が紐付いている場合の表示
+    let kaedamaBadgeHtml = '';
+    if (i.pendingKaedamaRight) {
+      const isHalf = i.pendingKaedamaRight.type === 'half';
+      const labelJa = isHalf ? '半替え玉（無料・後でご注文）' : '替え玉（無料・後でご注文）';
+      const labelEn = isHalf ? 'Half Kaedama (Free, order later)' : 'Kaedama (Free, order later)';
+      const labelZh = isHalf ? '半份加面（免费・餐后下单）' : '加面（免费・餐后下单）';
+      const labelKo = isHalf ? '반 면 추가（무료・식후 주문）' : '면 추가（무료・식후 주문）';
+      const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
+      kaedamaBadgeHtml += `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#fff3e0;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
+    }
+    // 有料替え玉はカート行として独立表示するためバッジ不要
+    // （カート行側で「後でご注文」フラグを別途表示）
+    // 有料替え玉カート行は「先払い・後でご注文」を明示
+    let deferredTagHtml = '';
+    if (i.isPendingKaedamaPaid) {
+      const labelJa = '先払い・食後に注文';
+      const labelEn = 'Prepaid · order after meal';
+      const labelZh = '先付款・餐后下单';
+      const labelKo = '선결제・식후 주문';
+      const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
+      deferredTagHtml = `<div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:#e3f2fd;border:1px solid #90caf9;color:#0d47a1;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.3px">🕑 ${label}</div>`;
+    }
     return `
     <div class="cart-row${sold?' soldout':''}">
       <div style="flex:1">
         <div class="cart-row-name">${i.name} × ${i.qty}${sold?'<span class="soldout-tag">🚫 売切</span>':''}</div>
         ${i.opts.length?`<div class="cart-row-sub">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
+        ${deferredTagHtml}
+        ${kaedamaBadgeHtml}
       </div>
       <div class="cart-row-price">¥${(Number(i.total)||0).toLocaleString()}</div>
       <button class="remove-btn" onclick="removeCart(${i.id})">${t.removeBtn}</button>
@@ -2241,7 +2520,28 @@ function renderCart(){
   setText('cartTotal',`¥${cart.reduce((s,i)=>s+(Number(i.total)||0),0).toLocaleString()}`);
 }
 
-function removeCart(id){ cart=cart.filter(i=>i.id!==id); renderCart(); updateCartBar(); }
+function removeCart(id){
+  // 削除対象の特定
+  const removed = cart.find(i => i.id === id);
+  cart = cart.filter(i => i.id !== id);
+  // 有料替え玉の行を削除した場合、紐付くラーメンの pendingKaedamaRightsPaid からも該当数を取り除く
+  if (removed && removed.isPendingKaedamaPaid && removed.groupId) {
+    const parent = cart.find(i => i.isMain && i.groupId === removed.groupId);
+    if (parent && Array.isArray(parent.pendingKaedamaRightsPaid)) {
+      const qtyToRemove = Number(removed.qty) || 0;
+      parent.pendingKaedamaRightsPaid.splice(0, qtyToRemove);
+      if (parent.pendingKaedamaRightsPaid.length === 0) {
+        delete parent.pendingKaedamaRightsPaid;
+      }
+    }
+  }
+  // メインラーメンの行を削除した場合、紐付く有料替え玉行も同時削除
+  if (removed && removed.isMain && removed.groupId) {
+    cart = cart.filter(i => !(i.isPendingKaedamaPaid && i.groupId === removed.groupId));
+  }
+  renderCart();
+  updateCartBar();
+}
 
 /* ========== ORDER (Firebase) ========== */
 async function placeOrder(){
@@ -2291,7 +2591,7 @@ async function placeOrder(){
         const canon = i.itemId != null ? menu.find(m=>m.id===i.itemId) : null;
         const nameJa = (canon && canon.name && canon.name.ja) || i.name;
         const optsJa = (i.opts || []).map(o => optToJa(o, lang));
-        return {
+        const out = {
           itemId: i.itemId||null,
           name: nameJa,
           opts: optsJa,
@@ -2307,8 +2607,29 @@ async function placeOrder(){
           isKaedama: !!i.isKaedama,
           kaedamaPrepaid: !!i.kaedamaPrepaid,
           kaedamaRequestedQty: i.kaedamaPrepaid ? (i.kaedamaRequestedQty || 0) : (i.qty || 1),
-          parentItemId: i.parentItemId || null
+          parentItemId: i.parentItemId || null,
+          // 有料替え玉：初回キッチン伝票で非表示にするフラグ（料金計算には影響しない）
+          isPendingKaedamaPaid: !!i.isPendingKaedamaPaid
         };
+        // 平日ランチ無料替え玉/半替え玉の「権利」を Firestore に必ず保存
+        // （これがないとキッチンの待機件数や、お客様再来店時の権利検出が機能しない）
+        if (i.pendingKaedamaRight) {
+          out.pendingKaedamaRight = {
+            type: i.pendingKaedamaRight.type || 'full',
+            requested: !!i.pendingKaedamaRight.requested,
+            qty: Number(i.pendingKaedamaRight.qty) || Number(i.qty) || 1
+          };
+        }
+        // 有料替え玉の「権利」配列を保存
+        if (Array.isArray(i.pendingKaedamaRightsPaid) && i.pendingKaedamaRightsPaid.length > 0) {
+          out.pendingKaedamaRightsPaid = i.pendingKaedamaRightsPaid.map(r => ({
+            type: r.type || 'full',
+            requested: !!r.requested,
+            qty: Number(r.qty) || 1,
+            price: Number(r.price) || 0
+          }));
+        }
+        return out;
       }),
       total,
       status: 'pending',
@@ -2353,6 +2674,8 @@ function resetOrder(){ $('successScreen').classList.remove('open'); }
 function showPaidScreen(){
   sessionActive = false;
   stopOrderPolling(); // ポーリング停止
+  // スタッフ専用ロック状態もリセット
+  window._staffUnlocked = false;
   $('cartBar').style.display='none';
   $('successScreen').classList.remove('open');
   document.querySelectorAll('.sub-screen.open').forEach(s=>s.classList.remove('open'));
@@ -2839,6 +3162,353 @@ function renderKaedamaCart(){
   totalEl.textContent = `¥${tot.toLocaleString()}`;
 }
 
+// ────── 無料替え玉（先注文・後提供）の保留権利フロー ──────
+// 過去に「pendingKaedamaRight / pendingKaedamaRightsPaid」が紐づいた未提供/提供済オーダーから、未注文の権利を抽出
+function getPendingKaedamaRights() {
+  const pending = [];
+  (orderHistory || []).forEach(o => {
+    if (o.paymentType === 'cancelled_by_edit') return;
+    (o.items || []).forEach((it, idx) => {
+      // 無料権利（単一）
+      const right = it.pendingKaedamaRight;
+      if (right && !right.requested) {
+        pending.push({
+          orderId: o.fbId,
+          orderItemIdx: idx,
+          parentItemId: it.itemId,
+          parentName: it.name,
+          type: right.type || 'full',
+          qty: right.qty || 1,
+          paid: false,
+          price: 0,
+          paidRightIdx: null
+        });
+      }
+      // 有料権利（配列、各要素ごと1件）
+      const paidArr = Array.isArray(it.pendingKaedamaRightsPaid) ? it.pendingKaedamaRightsPaid : [];
+      paidArr.forEach((r, pIdx) => {
+        if (!r || r.requested) return;
+        pending.push({
+          orderId: o.fbId,
+          orderItemIdx: idx,
+          parentItemId: it.itemId,
+          parentName: it.name,
+          type: r.type || 'full',
+          qty: r.qty || 1,
+          paid: true,
+          price: Number(r.price) || 0,
+          paidRightIdx: pIdx
+        });
+      });
+    });
+  });
+  return pending;
+}
+
+function updateKaedamaFloatBtn() {
+  const btn = document.getElementById('kaedamaFloatBtn');
+  if (!btn) return;
+  const pending = getPendingKaedamaRights();
+  // 保留権利あり、かつメニュー画面表示中、かつ替え玉モーダル未表示
+  const overlay = document.getElementById('kaedamaPendingOverlay');
+  const overlayOpen = overlay && overlay.style.display === 'flex';
+  const showBtn = pending.length > 0 && !overlayOpen && sessionActive;
+  // デバッグログ：ボタンが出ない場合の原因切り分け用
+  console.log('[kaedamaFloatBtn]',
+    'pending=', pending.length,
+    'overlayOpen=', overlayOpen,
+    'sessionActive=', sessionActive,
+    '→ show=', showBtn);
+  // !important で確実にフラグを上書き（CSS の :hover 等との競合を回避）
+  btn.style.setProperty('display', showBtn ? 'flex' : 'none', 'important');
+  // 多言語ラベル更新
+  const lbl = document.getElementById('kaedamaFloatBtnLabel');
+  const tk = (T_KPC && T_KPC[lang]) || T_KPC.ja;
+  if (lbl) lbl.textContent = tk.floatBtn;
+}
+
+// 保留権利を選択モーダルにロード
+let _pendingKaedamaSelections = {}; // { rightIdx: { type:'full'|'half', hardness:string } }
+
+function openPendingKaedamaCard() {
+  const pending = getPendingKaedamaRights();
+  if (!pending.length) { updateKaedamaFloatBtn(); return; }
+  _pendingKaedamaSelections = {};
+  const tk = (T_KPC && T_KPC[lang]) || T_KPC.ja;
+  const body = document.getElementById('kaedamaPendingBody');
+  const sub = document.getElementById('kaedamaPendingSubtitle');
+  const ttl = document.getElementById('kaedamaPendingTitle');
+  const cancelBtn = document.getElementById('kaedamaPendingCancelBtn');
+  if (ttl) ttl.textContent = tk.modalTitle;
+  if (sub) sub.textContent = tk.subtitle(pending.length);
+  if (cancelBtn) cancelBtn.textContent = tk.cancel;
+  // 硬さオプション（内部キーは日本語固定でキッチン伝票互換性を維持）
+  const HARDNESS = [
+    {key:'ふつう',    label:tk.h_futsuu},
+    {key:'かため',    label:tk.h_katame},
+    {key:'やわらかめ',label:tk.h_yawa},
+    {key:'ばりかた',  label:tk.h_barikata}
+  ];
+  // 対象のラーメン名を多言語化（itemId からカノニカル取得）
+  const localizeParent = (p) => {
+    if (p.parentItemId != null) {
+      const m = menu.find(x => x.id === p.parentItemId);
+      if (m && m.name && m.name[lang]) return m.name[lang];
+    }
+    return p.parentName || '';
+  };
+  // 複数件あるときは「個別注文OK」をユーザーに伝えるヒントを上部に表示
+  const hintHtml = (pending.length > 1 && tk.hint)
+    ? `<div style="font-size:11px;color:#5d4037;background:#fff3e0;border-left:3px solid #ff9800;border-radius:6px;padding:8px 10px;margin-bottom:10px;line-height:1.5">${tk.hint}</div>`
+    : '';
+  body.innerHTML = hintHtml + pending.map((p, i) => {
+    // 有料権利は青系・無料は黄系で区別
+    const isPaid = !!p.paid;
+    const cardBg = isPaid ? '#e3f2fd' : '#fff8e1';
+    const cardBd = isPaid ? '#90caf9' : '#ffd54f';
+    const priceTag = isPaid && p.price ? `<span style="margin-left:6px;background:#1976d2;color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:900">+¥${Number(p.price).toLocaleString()}（${(lang==='en'?'paid':lang==='zh'?'已付款':lang==='ko'?'결제완료':'お支払い済')}）</span>` : '';
+    // 有料は size 選択肢を非表示（id=40 のみ。常に full）
+    const sizeBlock = isPaid ? '' : `
+      <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.size}</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button data-pkn="type-${i}-full" onclick="pickPendingKaedamaType(${i},'full')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.full}</button>
+        <button data-pkn="type-${i}-half" onclick="pickPendingKaedamaType(${i},'half')" style="flex:1;padding:10px;border-radius:8px;border:2px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${tk.half}</button>
+      </div>`;
+    return `<div style="border:1.5px solid ${cardBd};background:${cardBg};border-radius:12px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:11px;color:#666">${tk.target}${priceTag}</div>
+        <div id="pkn-status-${i}" style="font-size:10px;font-weight:900;letter-spacing:.3px;padding:2px 8px;border-radius:8px;background:#e0e0e0;color:#757575">${tk.statusSkip}</div>
+      </div>
+      <div style="font-size:13px;color:#333;font-weight:700;margin-bottom:10px">${localizeParent(p)}</div>
+      ${sizeBlock}
+      <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.hardness}</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
+        ${HARDNESS.map(h => `<button data-pkn="hard-${i}-${h.key}" onclick="pickPendingKaedamaHardness(${i},'${h.key}')" style="padding:9px;border-radius:8px;border:1.5px solid #e0e0e0;background:#f5f5f5;color:#bdbdbd;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${h.label}</button>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  // 初期デフォルト：保留権利が full → 替え玉 / half → 半替え玉（有料は常に full 固定）
+  pending.forEach((p, i) => {
+    if (p.paid) {
+      // 有料は size ボタンが無いので type を内部状態だけセット
+      if (!_pendingKaedamaSelections[i]) _pendingKaedamaSelections[i] = {};
+      _pendingKaedamaSelections[i].type = 'full';
+    } else {
+      pickPendingKaedamaType(i, p.type === 'half' ? 'half' : 'full');
+    }
+  });
+  document.getElementById('kaedamaPendingOverlay').style.display = 'flex';
+  updateKaedamaFloatBtn();
+  refreshPendingKaedamaSubmitBtn();
+  // submit ボタンのラベルも多言語化（無効時もテキストは反映）
+  const submitBtn = document.getElementById('kaedamaPendingSubmitBtn');
+  if (submitBtn) submitBtn.textContent = tk.submit;
+  // pendingリストをカードに保存
+  window._pendingKaedamaList = pending;
+}
+
+function closePendingKaedamaCard() {
+  document.getElementById('kaedamaPendingOverlay').style.display = 'none';
+  _pendingKaedamaSelections = {};
+  window._pendingKaedamaList = null;
+  updateKaedamaFloatBtn();
+}
+
+function pickPendingKaedamaType(idx, type) {
+  if (!_pendingKaedamaSelections[idx]) _pendingKaedamaSelections[idx] = {};
+  _pendingKaedamaSelections[idx].type = type;
+  // ボタンの見た目を更新（未選択はグレーアウト、選択はオレンジ）
+  const styleSel = { bg:'#e65100', color:'#fff', border:'#e65100' };
+  const styleOff = { bg:'#f5f5f5', color:'#bdbdbd', border:'#e0e0e0' };
+  document.querySelectorAll(`[data-pkn="type-${idx}-full"]`).forEach(b => {
+    const s = type === 'full' ? styleSel : styleOff;
+    b.style.background = s.bg; b.style.color = s.color; b.style.borderColor = s.border;
+  });
+  document.querySelectorAll(`[data-pkn="type-${idx}-half"]`).forEach(b => {
+    const s = type === 'half' ? styleSel : styleOff;
+    b.style.background = s.bg; b.style.color = s.color; b.style.borderColor = s.border;
+  });
+  updatePendingKaedamaCardStatus(idx);
+  refreshPendingKaedamaSubmitBtn();
+}
+
+function pickPendingKaedamaHardness(idx, hardness) {
+  if (!_pendingKaedamaSelections[idx]) _pendingKaedamaSelections[idx] = {};
+  _pendingKaedamaSelections[idx].hardness = hardness;
+  const HARDNESS = ['ふつう','かため','やわらかめ','ばりかた'];
+  const styleSel = { bg:'#e65100', color:'#fff', border:'#e65100' };
+  const styleOff = { bg:'#f5f5f5', color:'#bdbdbd', border:'#e0e0e0' };
+  HARDNESS.forEach(h => {
+    document.querySelectorAll(`[data-pkn="hard-${idx}-${h}"]`).forEach(b => {
+      const s = h === hardness ? styleSel : styleOff;
+      b.style.background = s.bg; b.style.color = s.color; b.style.borderColor = s.border;
+    });
+  });
+  updatePendingKaedamaCardStatus(idx);
+  refreshPendingKaedamaSubmitBtn();
+}
+
+// 各カードの「今回注文 / 今回スキップ」バッジを更新
+function updatePendingKaedamaCardStatus(idx) {
+  const tk = (T_KPC && T_KPC[lang]) || T_KPC.ja;
+  const el = document.getElementById(`pkn-status-${idx}`);
+  if (!el) return;
+  const s = _pendingKaedamaSelections[idx] || {};
+  const ready = !!(s.type && s.hardness);
+  if (ready) {
+    el.textContent = tk.statusReady || '今回ご注文';
+    el.style.background = '#e65100';
+    el.style.color = '#fff';
+  } else {
+    el.textContent = tk.statusSkip || '今回スキップ';
+    el.style.background = '#e0e0e0';
+    el.style.color = '#757575';
+  }
+}
+
+function refreshPendingKaedamaSubmitBtn() {
+  const list = window._pendingKaedamaList || [];
+  const btn = document.getElementById('kaedamaPendingSubmitBtn');
+  if (!btn) return;
+  // 1件でも「サイズ + 硬さ」両方選択済みなら送信可能
+  // 未選択の権利は今回スキップされ、次回再表示される
+  const anyReady = list.length > 0 && list.some((_, i) => {
+    const s = _pendingKaedamaSelections[i];
+    return s && s.type && s.hardness;
+  });
+  if (anyReady) {
+    btn.disabled = false;
+    btn.style.background = '#e65100';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.background = '#bbb';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
+async function submitPendingKaedamaOrder() {
+  const list = window._pendingKaedamaList || [];
+  if (!list.length) return;
+  if (!sessionActive) { showPaidScreen(); return; }
+  if (!fbReady) { showValidationMsg('⚠️ ' + T[lang].offline); return; }
+  if (!currentUser) {
+    try { await window.FB.signInAnonymously(window.FB.auth); }
+    catch(e) { showValidationMsg('⚠️ 認証エラー'); return; }
+  }
+  const btn = document.getElementById('kaedamaPendingSubmitBtn');
+  if (btn) btn.disabled = true;
+  showLoading(true);
+  try {
+    // 完全に選択された権利だけを今回送信対象とする
+    // （未選択の権利はスキップして次回再表示。1テーブルで複数権利あるとき個別に注文可）
+    const submitTargets = list
+      .map((p, i) => ({ p, i, sel: _pendingKaedamaSelections[i] || {} }))
+      .filter(({ sel }) => sel && sel.type && sel.hardness);
+    if (!submitTargets.length) {
+      // ここには到達しないはず（ボタンが無効化されているため）。念のため早期 return
+      return;
+    }
+    // 1) 新規 order として替え玉アイテムを送信（伝票で先頭表示用に isPendingKaedamaOrder:true）
+    //    料金は本注文時に既に支払済（有料権利）または無料権利のため、新規注文の price は 0
+    const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const items = submitTargets.map(({ p, sel }) => {
+      const isHalf = sel.type === 'half';
+      const itemId = isHalf ? 41 : 40;
+      const isPaid = !!p.paid;
+      // 事前注文済の替え玉は、無料/有料に関わらず統一表記「替え玉（事前注文済）」
+      const name = isHalf ? '半替え玉（事前注文済）' : '替え玉（事前注文済）';
+      return {
+        itemId,
+        name,
+        opts: sel.hardness ? [sel.hardness] : [],
+        qty: p.qty,
+        price: 0,
+        total: 0,
+        served: false,
+        servedIndices: [],
+        groupId,
+        isMain: false,
+        isAddon: true,
+        isKaedama: true,
+        kaedamaPrepaid: isPaid,
+        kaedamaRequestedQty: p.qty,
+        lunchFree: !isPaid,
+        kaedamaWasPaid: isPaid,
+        isPrepaidKaedamaRequest: true,  // ← キッチン伝票表示判定用（事前注文済バッジ→消化）
+        parentItemId: p.parentItemId
+      };
+    });
+    const orderData = {
+      sessionId,
+      userId: currentUser?.uid || null,
+      table: tableNum,
+      tableLabel: tableNum,
+      language: lang,
+      visitType: window._currentVisitType || 'first',
+      items,
+      total: 0,
+      status: 'pending',
+      paymentMethod: null,
+      paymentType: null,
+      isPendingKaedamaOrder: true,
+      isKaedamaOrder: true,
+      testMode: isTestMode || false,
+      createdAt: window.FB.serverTimestamp()
+    };
+    await window.FB.addDoc(window.FB.collection(window.FB.db, 'orders'), orderData);
+    // 2) 既存オーダーの「今回送信した権利」のみ requested:true に更新
+    //    （スキップした権利は次回再表示するため触らない）
+    //    無料権利 → pendingKaedamaRight.requested = true
+    //    有料権利 → pendingKaedamaRightsPaid[idx].requested = true
+    //    オーダー単位でまとめて 1回 updateDoc する
+    const byOrder = {}; // { orderId: { freeIdxs:Set, paidMap:{itemIdx: Set<paidRightIdx>} } }
+    submitTargets.forEach(({ p }) => {
+      if (!byOrder[p.orderId]) byOrder[p.orderId] = { freeIdxs: new Set(), paidMap: {} };
+      const entry = byOrder[p.orderId];
+      if (p.paid) {
+        if (!entry.paidMap[p.orderItemIdx]) entry.paidMap[p.orderItemIdx] = new Set();
+        entry.paidMap[p.orderItemIdx].add(p.paidRightIdx);
+      } else {
+        entry.freeIdxs.add(p.orderItemIdx);
+      }
+    });
+    for (const [orderFbId, entry] of Object.entries(byOrder)) {
+      const orig = orderHistory.find(o => o.fbId === orderFbId);
+      if (!orig) continue;
+      const newItems = (orig.items || []).map((it, j) => {
+        let next = it;
+        // 無料権利の更新
+        if (entry.freeIdxs.has(j) && it.pendingKaedamaRight) {
+          next = { ...next, pendingKaedamaRight: { ...(it.pendingKaedamaRight || {}), requested: true } };
+        }
+        // 有料権利配列の更新（特定 paidRightIdx のみ）
+        if (entry.paidMap[j] && Array.isArray(it.pendingKaedamaRightsPaid)) {
+          const flips = entry.paidMap[j];
+          const newPaid = it.pendingKaedamaRightsPaid.map((r, k) =>
+            flips.has(k) ? { ...r, requested: true } : r
+          );
+          next = { ...next, pendingKaedamaRightsPaid: newPaid };
+        }
+        return next;
+      });
+      await window.FB.updateDoc(
+        window.FB.doc(window.FB.db, 'orders', orderFbId),
+        { items: newItems, updatedAt: window.FB.serverTimestamp() }
+      );
+    }
+    const tk = (T_KPC && T_KPC[lang]) || T_KPC.ja;
+    showValidationMsg('✅ ' + (tk.success || '替え玉を注文しました'));
+    closePendingKaedamaCard();
+  } catch(e) {
+    console.error('submitPendingKaedamaOrder:', e);
+    showValidationMsg('⚠️ ' + (T[lang].sendError || '送信失敗') + ': ' + (e.message || ''));
+  } finally {
+    if (btn) btn.disabled = false;
+    showLoading(false);
+  }
+}
+
 async function submitKaedamaOrder(){
   if (!kaedamaCart.length) return;
   if (!sessionActive){ showPaidScreen(); return; }
@@ -2946,6 +3616,72 @@ function openGhostLock(id){
   $('ghostLockOverlay').classList.add('open');
   document.body.style.overflow='hidden';
 }
+
+// ────── スタッフ専用商品のパスワードロック ──────
+// 商品名に「スタッフ専用」を含むメニューは password='KSC' を入力するまで開けない
+//   ・正解後はセッション中（ページ滞在中）はロック解除状態を維持
+//   ・ページリロードまたは会計済みで再ロック
+const STAFF_PW = 'KSC';
+let _staffTargetId = null;
+
+function isStaffOnlyItem(item) {
+  if (!item) return false;
+  const names = item.name || {};
+  const all = (names.ja || '') + ' ' + (names.en || '') + ' ' + (names.zh || '') + ' ' + (names.ko || '');
+  return /スタッフ専用|Staff\s*Only|员工专用|직원\s*전용/i.test(all);
+}
+
+function openStaffLock(id) {
+  _staffTargetId = id;
+  const overlay = document.getElementById('staffLockOverlay');
+  const input = document.getElementById('staffPwInput');
+  const err = document.getElementById('staffPwErr');
+  if (input) input.value = '';
+  if (err) err.textContent = '';
+  if (overlay) {
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    // 自動フォーカス（短いdelayで仮想キーボードを起動）
+    setTimeout(() => { if (input) input.focus(); }, 50);
+  }
+}
+
+function closeStaffLock() {
+  const overlay = document.getElementById('staffLockOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+  _staffTargetId = null;
+}
+
+function checkStaffPw() {
+  const input = document.getElementById('staffPwInput');
+  const err = document.getElementById('staffPwErr');
+  const val = (input?.value || '').trim().toUpperCase();
+  if (val === STAFF_PW) {
+    // 解除：このセッション中は再入力不要
+    window._staffUnlocked = true;
+    const targetId = _staffTargetId;
+    closeStaffLock();
+    // 認証成功後に対象商品モーダルを開く
+    if (targetId != null) openItem(targetId);
+  } else {
+    if (err) err.textContent = '❌ パスワードが違います';
+    if (input) {
+      input.style.borderColor = '#c0392b';
+      input.style.animation = 'flashRed 0.4s ease 2';
+      setTimeout(() => {
+        input.style.borderColor = '#e0e0e0';
+        input.style.animation = '';
+        input.value = '';
+        input.focus();
+      }, 800);
+    }
+  }
+}
+
+// グローバル公開（HTML onclick から呼ばれる）
+window.closeStaffLock = closeStaffLock;
+window.checkStaffPw = checkStaffPw;
 
 function closeGhostLock(){
   $('ghostLockOverlay').classList.remove('open');
