@@ -1319,17 +1319,39 @@ function countCustomersFromOrders(orders) {
 }
 
 function updateKitchenStatsBar() {
+  // 「料理提供済の段階」の集計をリアルタイム表示
+  //   ・対象：今日の全注文（pending/preparing/served/paid）
+  //   ・カウント単位：item.served === true のアイテムだけ
+  //   ・isPendingKaedamaPaid（厨房で作らない先払い替え玉行）/ _doneByEdit / 取消は除外
   const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
-  const todays = paidOrders.filter(o => {
+  const todays = orders.filter(o => {
+    if (!o) return false;
+    if (o.paymentType === 'cancelled_by_edit') return false;
+    if (o.status === 'cancelled') return false;
     const ts = (o.updatedAt && o.updatedAt.toDate) ? o.updatedAt.toDate() : ((o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null);
     if (!ts) return false;
     const k = `${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')}`;
     return k === today;
   });
-  const salesTax = todays.reduce((s,o) => s + (o.total || 0), 0);
+  let salesTax = 0;
+  let servedRamenCount = 0; // 提供済ラーメン＋定食の杯数 = 客数
+  todays.forEach(o => {
+    (o.items || []).forEach(item => {
+      if (item._doneByEdit) return;
+      if (item.isPendingKaedamaPaid) return;
+      if (!item.served) return;
+      const qty = Number(item.qty) || 0;
+      if (qty <= 0) return;
+      // 提供済みアイテムの金額を加算（税込）
+      const unit = (typeof getItemUnitPrice === 'function') ? getItemUnitPrice(item) : (Number(item.price) || 0);
+      salesTax += unit * qty;
+      // ラーメン/定食なら客数として加算
+      const cat = (typeof getItemLogicalCat === 'function') ? getItemLogicalCat(item) : null;
+      if (cat === 'ramen' || cat === 'teishoku') servedRamenCount += qty;
+    });
+  });
   const salesNoTax = Math.round(salesTax / 1.10);
-  // 客数 = ラーメン杯数 + 定食数（customerCountOverride があれば優先）
-  const customers = countCustomersFromOrders(todays);
+  const customers = servedRamenCount;
   const avg = customers > 0 ? Math.round(salesNoTax / customers) : 0;
   const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   setText('ksbSales', `¥${salesNoTax.toLocaleString()}`);
