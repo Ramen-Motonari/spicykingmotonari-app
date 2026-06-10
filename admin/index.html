@@ -54,6 +54,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .page-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
 .kpi-cols-5{grid-template-columns:repeat(5,1fr)}
+.kpi-cols-4{grid-template-columns:repeat(4,1fr)}
 .kpi-cols-3{grid-template-columns:repeat(3,1fr)}
 .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
 .kpi-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
@@ -64,12 +65,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 }
 @media (max-width:780px){
   .kpi-cols-5{grid-template-columns:repeat(2,1fr)}
+  .kpi-cols-4{grid-template-columns:repeat(2,1fr)}
   .kpi-cols-3{grid-template-columns:repeat(2,1fr)}
 }
 @media (max-width:560px){
   /* スマホ：縦並び1列、各カード横幅いっぱい */
   .kpi-grid{gap:10px;margin-bottom:18px}
-  .kpi-cols-5,.kpi-cols-3{grid-template-columns:1fr}
+  .kpi-cols-5,.kpi-cols-4,.kpi-cols-3{grid-template-columns:1fr}
   .kpi-card{padding:14px 16px}
   .kpi-value{font-size:24px}
   .kpi-label{font-size:10px}
@@ -148,7 +150,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .manual-field input,.weather-select{background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;width:100%}
 .manual-field input:focus,.weather-select:focus{border-color:var(--accent)}
 .form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none}
-@media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid:not(.kpi-cols-5):not(.kpi-cols-3){grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
+@media (max-width:900px){body{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}.sidebar-logo,.sidebar-footer,.fb-status{display:none}.nav{display:flex;flex-direction:row;padding:0;overflow-x:auto;white-space:nowrap}.nav-item{flex-direction:column;gap:4px;padding:10px 14px;font-size:11px;border-left:none;border-bottom:3px solid transparent;flex-shrink:0}.nav-item.active{border-left:none;border-bottom-color:var(--accent)}.nav-icon{font-size:20px}.main{margin-left:0;padding:16px}.kpi-grid:not(.kpi-cols-5):not(.kpi-cols-4):not(.kpi-cols-3){grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.manual-input-grid{grid-template-columns:1fr}}
 /* ────── PDF / 印刷 用デザイン（APP表示と分離・A4横向き1枚に最適化、数値大きめ） ────── */
 /* pdf-export-mode は html2pdf レンダー中、print-target は印刷時にも適用 */
 body.pdf-export-mode .print-target,
@@ -469,7 +471,8 @@ window.adminLogout = adminLogout;
       <div class="kpi-card"><div class="kpi-label" id="kpi-newrate-label">当日新規率</div><div class="kpi-value" style="color:var(--blue)" id="kpi-newrate">0%</div><div class="kpi-diff" id="kpi-newrate-diff"></div></div>
       <div class="kpi-card"><div class="kpi-label" id="kpi-foreignrate-label">当日外国人率</div><div class="kpi-value" style="color:#e2a14b" id="kpi-foreignrate">0%</div><div class="kpi-diff" id="kpi-foreignrate-diff"></div></div>
     </div>
-    <div class="kpi-grid kpi-cols-3" style="margin-top:10px">
+    <div class="kpi-grid kpi-cols-4" style="margin-top:10px">
+      <div class="kpi-card"><div class="kpi-label">当日替え玉率</div><div class="kpi-value" style="color:#e65100" id="kpi-kaedama-rate">0%</div><div class="kpi-diff" id="kpi-kaedama-rate-sub"></div></div>
       <div class="kpi-card"><div class="kpi-label">当日サイド率</div><div class="kpi-value" style="color:#26a69a" id="kpi-side-rate">0%</div><div class="kpi-diff" id="kpi-side-rate-sub"></div></div>
       <div class="kpi-card"><div class="kpi-label">当日トッピング率</div><div class="kpi-value" style="color:#ef6c00" id="kpi-topping-rate">0%</div><div class="kpi-diff" id="kpi-topping-rate-sub"></div></div>
       <div class="kpi-card"><div class="kpi-label">当日ドリンク率</div><div class="kpi-value" style="color:#7b1fa2" id="kpi-drink-rate">0%</div><div class="kpi-diff" id="kpi-drink-rate-sub"></div></div>
@@ -636,7 +639,12 @@ window.adminLogout = adminLogout;
         <div class="an-kpi-prev">前年: <span id="an-foreignrate-prev">—</span> <span class="diff" id="an-foreignrate-diff"></span></div>
       </div>
     </div>
-    <div class="an-kpi-grid" style="margin-top:14px">
+    <div class="an-kpi-grid an-kpi-cols-4" style="margin-top:14px">
+      <div class="an-kpi-card">
+        <div class="an-kpi-label">替え玉率</div>
+        <div class="an-kpi-value" style="color:#e65100" id="an-kaedama-rate">0%</div>
+        <div class="an-kpi-prev">件数 <span id="an-kaedama-count">0</span></div>
+      </div>
       <div class="an-kpi-card">
         <div class="an-kpi-label">サイド率</div>
         <div class="an-kpi-value" style="color:#26a69a" id="an-side-rate">0%</div>
@@ -924,6 +932,13 @@ window.adminLogout = adminLogout;
     <div class="chart-grid">
       <div class="card"><div class="card-title">言語別来店</div><div class="rank-list" id="lang-ranking"></div></div>
       <div class="card"><div class="card-title">時間帯別来店数</div><div class="bar-chart" id="hour-chart"></div></div>
+    </div>
+    <div class="chart-grid" style="margin-top:20px">
+      <div class="card" style="grid-column:1 / -1">
+        <div class="card-title">曜日別売上（税抜）</div>
+        <div class="bar-chart" id="weekday-sales-chart" style="margin-top:8px"></div>
+        <div id="weekday-sales-summary" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px;font-size:11px;color:var(--muted)"></div>
+      </div>
     </div>
   </div>
 
@@ -2706,6 +2721,21 @@ function renderDashboard() {
   setKpiDiff('kpi-newrate-diff', vr.rate, yvr.rate);
   setKpiDiff('kpi-foreignrate-diff', fr.rate, yfr.rate);
 
+  // 替え玉率（替え玉 + 半替え玉の合算 ÷ ラーメン杯数）
+  const todayNoc = calcNoodleOptionCounts(todayOrders);
+  const todayKaedamaTotal = (todayNoc.kaedama || 0) + (todayNoc.halfKaedama || 0);
+  let todayRamenTotal = 0;
+  todayOrders.forEach(o => {
+    (o.items || []).forEach(item => {
+      if (getItemLogicalCat(item) === 'ramen') todayRamenTotal += (item.qty || 0);
+    });
+  });
+  const todayKaedamaRate = todayRamenTotal > 0 ? (todayKaedamaTotal / todayRamenTotal) * 100 : 0;
+  const elKae = document.getElementById('kpi-kaedama-rate');
+  if (elKae) elKae.textContent = todayKaedamaRate.toFixed(1) + '%';
+  const elKaeSub = document.getElementById('kpi-kaedama-rate-sub');
+  if (elKaeSub) elKaeSub.textContent = `替え玉 ${todayNoc.kaedama} / 半替え玉 ${todayNoc.halfKaedama} / ラーメン ${todayRamenTotal}`;
+
   // サイド / トッピング / ドリンク 率
   const todayRates = calcCategoryRates(todayOrders, customers);
   const elSide  = document.getElementById('kpi-side-rate');
@@ -3530,6 +3560,22 @@ function renderAnalytics() {
   document.getElementById('an-avg').textContent = '¥' + avg.toLocaleString();
   document.getElementById('an-newrate').textContent = visitRate.rate + '%';
   document.getElementById('an-foreignrate').textContent = foreignRate.rate + '%';
+
+  // 替え玉率（期間集計）
+  try {
+    const noc = calcNoodleOptionCounts(allFiltered);
+    const kaedamaTotal = (noc.kaedama || 0) + (noc.halfKaedama || 0);
+    let ramenTotal = 0;
+    allFiltered.forEach(o => {
+      (o.items || []).forEach(item => {
+        if (getItemLogicalCat(item) === 'ramen') ramenTotal += (item.qty || 0);
+      });
+    });
+    const kaedamaRate = ramenTotal > 0 ? (kaedamaTotal / ramenTotal) * 100 : 0;
+    const $set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    $set('an-kaedama-rate', kaedamaRate.toFixed(1) + '%');
+    $set('an-kaedama-count', `替 ${noc.kaedama} / 半 ${noc.halfKaedama} / 麺 ${ramenTotal}`);
+  } catch(_) {}
 
   // サイド / トッピング / ドリンク 率（期間集計）
   try {
@@ -5407,6 +5453,57 @@ function renderVisits() {
     return `<div class="bar-wrap">
       <div class="bar" style="height:${pct}%;background:linear-gradient(180deg,var(--blue),#1a4775)" data-val="${v}組"></div>
       <span class="bar-label">${h}時</span>
+    </div>`;
+  }).join('');
+
+  // ────── 曜日別売上（税抜） ──────
+  // 対象期間内の paidOrders を曜日（0=日 .. 6=土）ごとに集計
+  //   ・売上（税抜）: 合計
+  //   ・該当日数: 何日分の合計か（平均算出に使用）
+  //   ・件数: 注文オーダー数
+  //   ・客数: ラーメン+定食杯数
+  const weekdayKeys = ['日','月','火','水','木','金','土'];
+  const wdData = weekdayKeys.map(() => ({ salesTax: 0, orders: 0, dayCount: new Set(), customers: 0 }));
+  targetOrders.forEach(o => {
+    const ts = (o.updatedAt && o.updatedAt.toDate) ? o.updatedAt.toDate() : ((o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null);
+    if (!ts) return;
+    const w = ts.getDay();
+    wdData[w].salesTax += (o.total || 0);
+    wdData[w].orders += 1;
+    wdData[w].dayCount.add(getOrderDateKey(o));
+    (o.items || []).forEach(item => {
+      const cat = getItemLogicalCat(item);
+      if (cat === 'ramen' || cat === 'teishoku') wdData[w].customers += (item.qty || 0);
+    });
+  });
+  // 税抜換算
+  const wdSalesNoTax = wdData.map(d => Math.round(d.salesTax / 1.10));
+  const wdMax = Math.max(1, ...wdSalesNoTax);
+  // バーグラフ：曜日ごとの売上（税抜）を表示
+  document.getElementById('weekday-sales-chart').innerHTML = weekdayKeys.map((label, i) => {
+    const sales = wdSalesNoTax[i];
+    const pct = (sales / wdMax) * 100;
+    // 土日は色変え（土=青、日=赤）
+    let bg = 'linear-gradient(180deg,var(--accent) 0%,#a67204 100%)';
+    if (i === 0) bg = 'linear-gradient(180deg,#e74c3c 0%,#a82e22 100%)';
+    else if (i === 6) bg = 'linear-gradient(180deg,#3b82f6 0%,#1d4ed8 100%)';
+    return `<div class="bar-wrap">
+      <div class="bar" style="height:${pct}%;background:${bg}" data-val="¥${sales.toLocaleString()}"></div>
+      <span class="bar-label" style="color:${i===0?'#e74c3c':(i===6?'#3b82f6':'')}">${label}</span>
+    </div>`;
+  }).join('');
+  // 下部のサマリーグリッド：曜日ごとの売上・件数・客数・1日平均
+  document.getElementById('weekday-sales-summary').innerHTML = weekdayKeys.map((label, i) => {
+    const d = wdData[i];
+    const sales = wdSalesNoTax[i];
+    const dayCnt = d.dayCount.size;
+    const avgPerDay = dayCnt > 0 ? Math.round(sales / dayCnt) : 0;
+    const labelColor = i === 0 ? '#e74c3c' : (i === 6 ? '#3b82f6' : 'var(--accent)');
+    return `<div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center">
+      <div style="font-weight:900;font-size:13px;color:${labelColor};margin-bottom:4px">${label}曜日</div>
+      <div style="font-family:'Oswald',sans-serif;font-size:14px;color:#fff;font-weight:700">¥${sales.toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${dayCnt}日 / 1日平均¥${avgPerDay.toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${d.customers}人</div>
     </div>`;
   }).join('');
 }
