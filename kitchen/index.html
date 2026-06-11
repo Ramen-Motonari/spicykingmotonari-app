@@ -225,6 +225,12 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-chashu-cnt{font-family:'Oswald',sans-serif;font-size:18px;color:#111;margin-left:4px;font-weight:700}
 .rg-curry{font-weight:800;color:#111}
 .rg-sep{color:#bbb;font-size:14px;margin:0 6px}
+/* 追加トッピング下の小型合計金額（ラーメン類のみ） */
+.rg-sec-total-mini{text-align:right;padding:2px 0 0;margin-top:2px;border-top:1px dashed #d4c8a8}
+.rg-total-mini{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:13px;color:#555;font-weight:700;letter-spacing:.5px}
+@media (max-width:640px){.rg-total-mini{font-size:12px}}
+/* 全表示モード（ticket.expanded）では合計金額を非表示 — コンパクト維持のため */
+.ticket.expanded .rg-sec-total-mini{display:none !important}
 .rg-sec-other{font-size:18px;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-sec-addons{padding-top:8px}
 .rg-sec-total{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:22px;font-weight:900;color:#1a1008;text-align:right;padding:8px 4px 4px;border-top:2px solid #e8d9b8;margin-top:4px;letter-spacing:1px}
@@ -1758,7 +1764,7 @@ function renderTableTicket(tt) {
   const tLabel = tt.tableLabel;
   const tIdSafe = tableIdSafe(tLabel);
   const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
-  const visitLabel = first.visitType === 'first' ? '初回' : 'リピーター';
+  const visitLabel = first.visitType === 'first' ? '初' : 'リピ';
   // 替え玉オーダー（isPendingKaedamaOrder）処理:
   //   ・過去注文がすべて提供済 → 替え玉だけ表示（新規伝票として最上段に独立）
   //   ・過去注文に未提供アイテムが残っている → 同じ伝票内に「追加」扱いで合流表示
@@ -2131,7 +2137,8 @@ function parseRamenOpts(opts, mainItem) {
     spice: '',           // '4辛' / '0辛'
     noodleType: '',      // '細麺' / '平打ち麺'
     noodleChanged: false,// デフォルトから変更されたか
-    qty: '',             // '大盛り' / '無料大盛り' / '少'
+    qty: '',             // '大盛り' / '無料大盛り' / '少'  ← 麺の量
+    rice: '',            // '並' / '大盛り' / '無料大盛り'    ← ライスの量（定食用）
     firmness: '',        // 'カタ' / 'フツウ' / 'やわ'
     chashu: '',          // 'ブタ' / 'トリ'
     curryTopping: '',    // 'とんかつ' / 'チキンカツ'
@@ -2149,6 +2156,18 @@ function parseRamenOpts(opts, mainItem) {
     if (!s) return;
     // 並は表示しない（デフォルト量）
     if (/^(並|Regular)$/i.test(s)) return;
+
+    // ライスのオプション（餃子定食など）— 麺と区別するため最優先で検出
+    //   「ライス並」「ライス大盛り」「Rice Regular」「Rice Large」「米饭普通」「米饭大碗」「라이스 보통」「라이스 곱배기」
+    const isRice = /(ライス|Rice|米饭|라이스)/i.test(s);
+    if (isRice) {
+      if (/(大盛り|大盛|Large|大碗|곱배기)/i.test(s)) {
+        result.rice = isFreeMarker ? '無料大盛り' : '大盛り';
+      } else if (/(並|Regular|普通|보통)/i.test(s)) {
+        result.rice = '並';
+      }
+      return;
+    }
 
     // 辛さ
     const spicyMatch = s.match(/^(\d+)\s*(辛|Spicy|辣|매움)\s*$/i);
@@ -2279,27 +2298,55 @@ function renderRamenGroupCard(orderId, grp) {
     }
   }
   // ━━━ Section 1: 名前 + 替え玉バッジ + 辛さ ━━━
-  //   替え玉バッジはラーメン名のすぐ右に配置（値段は廃止したため）
   const headerHtml = `<div class="rg-sec rg-sec-header">
     <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
     ${kaedamaRightBadge}
     ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
   </div>`;
 
-  // ━━━ Section 2: 麺種 / 量 / 硬さ ━━━
+  // 合計金額（ラーメン類のみ）: 「ラーメン本体 + 麺サイズ追加代 + 辛さ代 + 追加トッピング」
+  //   ・main.price = order-app 側で base + 辛さ代 + 麺サイズ追加代 が計算済み
+  //   ・isPendingKaedamaPaid のアドオン（先払い替え玉）は除外
+  //   ・追加トッピング欄の下に1行表示（全表示モードでは CSS で非表示）
+  let groupTotalHtml = '';
+  {
+    const ramenCat = MOTONARI.getMenuById(main.itemId);
+    const isRamenItem = ramenCat && (ramenCat.cat === 'tonkotsu' || ramenCat.cat === 'shouyu');
+    if (isRamenItem) {
+      const mainQty = main.qty || 1;
+      const mainTotal = getItemUnitPrice(main) * mainQty;
+      const addonsTotal = addons.reduce((s, a) => {
+        if (a.isPendingKaedamaPaid) return s;
+        return s + getItemUnitPrice(a) * (a.qty || 1);
+      }, 0);
+      const groupTotal = mainTotal + addonsTotal;
+      if (groupTotal > 0) {
+        groupTotalHtml = `<div class="rg-sec rg-sec-total-mini"><span class="rg-total-mini">¥${groupTotal.toLocaleString()}</span></div>`;
+      }
+    }
+  }
+
+  // ━━━ Section 2: 麺種 / 量 / 硬さ / ライス ━━━
   // 表示ルール:
   //   - 麺タイプが変更されている場合（豚骨→平打ち、醤油→細麺）：「○○変更」と明記し、量も表示
   //   - 麺タイプがデフォルト：量（並含む）は常に表示
+  //   - 餃子定食など定食類：麺量に「麺」プレフィックス、ライス量に「ライス」プレフィックスで区別
+  const mainCanon = MOTONARI.getMenuById(main.itemId);
+  const isTeishokuItem = mainCanon && mainCanon.cat === 'teishoku';
   const noodleParts = [];
   if (p.noodleType && p.noodleChanged) {
-    // 変更ラベルは「平打ち変更」「細麺変更」のように明示
     noodleParts.push(`<span class="rg-noodle-change">${p.noodleType}変更</span>`);
   }
-  // 量は常に表示（並も含めて）
   if (p.qty) {
-    noodleParts.push(`<span class="rg-qty">${p.qty}</span>`);
+    // 定食類は「麺大盛り / 麺並」のように明示。ラーメン類は従来通り「大盛り / 並」だけ。
+    const qtyLabel = isTeishokuItem ? `麺${p.qty}` : p.qty;
+    noodleParts.push(`<span class="rg-qty">${qtyLabel}</span>`);
   }
   if (p.firmness) noodleParts.push(`<span class="rg-firm">${p.firmness}</span>`);
+  // ライスの量（定食類のみ表示される）：「ライス並 / ライス大盛り / ライス無料大盛り」で明示
+  if (p.rice) {
+    noodleParts.push(`<span class="rg-qty" style="color:#5d4037">ライス${p.rice}</span>`);
+  }
   const noodleHtml = noodleParts.length
     ? `<div class="rg-sec rg-sec-noodle">${noodleParts.join('<span class="rg-sep">/</span>')}</div>`
     : '';
@@ -2331,9 +2378,6 @@ function renderRamenGroupCard(orderId, grp) {
     ${addons.map(a => `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}</div>`).join('')}
   </div>` : '';
 
-  // ※ 値段（合計金額）表示は削除（全デバイス共通の方針）
-  //   替え玉バッジは Section 1 のラーメン名右側に移動済み
-
   return `<div class="ramen-group-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="rg-check"></div>
 <div class="rg-content">
@@ -2342,6 +2386,7 @@ ${noodleHtml}
 ${chashuHtml}
 ${otherHtml}
 ${addonsHtml}
+${groupTotalHtml}
 </div>
 </div>`;
 }
@@ -2460,8 +2505,16 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   //     ブロックC: チャーシュー + カレートッピング + その他
   const blockB = [];
   if (p.noodleType && p.noodleChanged) blockB.push(`<span class="rlist-noodle-change">${p.noodleType}変更</span>`);
-  if (p.qty) blockB.push(`<span>${p.qty}</span>`);
+  // 定食類は「麺大盛り」と明示してライス量と区別
+  const mainCanonList = MOTONARI.getMenuById(main.itemId);
+  const isTeishokuListItem = mainCanonList && mainCanonList.cat === 'teishoku';
+  if (p.qty) {
+    const qtyLabel = isTeishokuListItem ? `麺${p.qty}` : p.qty;
+    blockB.push(`<span>${qtyLabel}</span>`);
+  }
   if (p.firmness) blockB.push(`<span>${p.firmness}</span>`);
+  // ライス量（定食用）
+  if (p.rice) blockB.push(`<span style="color:#5d4037">ライス${p.rice}</span>`);
   const blockC = [];
   if (p.chashu) {
     const cnt = (typeof getChashuCount === 'function') ? getChashuCount(main) : 1;
