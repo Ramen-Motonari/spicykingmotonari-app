@@ -2093,7 +2093,7 @@ function getMissingFields(){
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
   // 醤油・餃子定食は硬さセクションを非表示にしているため必須から除外
   if(c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku'
-     && curOpts.noodleSize && curOpts.noodleSize.includes('細麺') && !curOpts.kata)
+     && curOpts.noodleSize && /(細麺|Thin|细面|가는면)/i.test(curOpts.noodleSize) && !curOpts.kata)
     missing.push({key:'kata',label:'麺の硬さ'});
   if(c.kata && !c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku' && !curOpts.kata)
     missing.push({key:'kata',label:t.optNoodle});
@@ -2210,7 +2210,9 @@ function spicyGrid(){
 function pickOpt(k,v){
   if(k==='karasa' && v===null) delete curOpts.karasa;
   else curOpts[k]=v;
-  if(k==='noodleSize' && !v.includes('細麺')) delete curOpts.kata;
+  // 麺サイズが「細麺系」以外（平打ち等）に変わったら kata（硬さ）をクリア
+  //   多言語の細麺ラベルにも対応：細麺 / Thin / 细面 / 가는면
+  if(k==='noodleSize' && !/(細麺|Thin|细面|가는면)/i.test(v)) delete curOpts.kata;
   // 麺サイズを平打ち麺に変更した場合、大盛り無料の選択を自動解除
   if(k==='noodleSize' && /(平打ち麺|Flat|宽面|넓은면)/i.test(v) && curOpts.lunchFreeChoice === 'oomori'){
     delete curOpts.lunchFreeChoice;
