@@ -217,7 +217,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-spice{font-size:24px;font-weight:900;color:#e74c3c;font-family:'Oswald','Noto Sans JP',sans-serif;flex-shrink:0}
 .rg-spice.zero{color:#666}
 .rg-sec-noodle{font-size:20px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
-.rg-sec-rice{font-size:18px;font-weight:700;color:#5d4037;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
+.rg-sec-rice{font-size:18px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-noodle-change{color:#e74c3c;font-weight:900}
 .rg-qty{font-weight:900;color:#111}
 .rg-firm{font-weight:700;color:#222}
@@ -2372,7 +2372,7 @@ function renderRamenGroupCard(orderId, grp) {
   //   餃子定食の「麺大盛り + ライス大盛り」のように、麺とライスの両方を大盛りに
   //   できるケースを区別しやすくするため、ライスは別の行で表示する。
   const riceHtml = p.rice
-    ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty" style="color:#5d4037">ライス${p.rice}</span></div>`
+    ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty">ライス${p.rice}</span></div>`
     : '';
 
   // ━━━ Section 3: チャーシュー / カレートッピング ━━━
@@ -2539,7 +2539,7 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   }
   if (p.firmness) blockB.push(`<span>${p.firmness}</span>`);
   // ライス量（定食用）
-  if (p.rice) blockB.push(`<span style="color:#5d4037">ライス${p.rice}</span>`);
+  if (p.rice) blockB.push(`<span>ライス${p.rice}</span>`);
   const blockC = [];
   if (p.chashu) {
     const cnt = (typeof getChashuCount === 'function') ? getChashuCount(main) : 1;
