@@ -96,7 +96,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .reorder-toggle-btn.active{background:var(--accent);color:#1a1008;animation:reorderPulse 1.4s ease-in-out infinite}
 @keyframes reorderPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,134,10,0.6)}50%{box-shadow:0 0 0 6px rgba(200,134,10,0)}}
 .ticket > div:last-child{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.ticket.completing{opacity:0;transform:scale(0.9)}
+/* 全提供完了の演出状態：薄くなり「完了」感を視覚的に伝えるが、消えない（猶予期間中は表示維持） */
+.ticket.completing{opacity:0.72;filter:grayscale(0.35);position:relative}
+.ticket.completing::after{content:"✓ 全提供完了";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);font-family:'Oswald','Noto Sans JP',sans-serif;font-size:36px;font-weight:900;color:#22c55e;background:rgba(255,255,255,0.85);padding:10px 22px;border-radius:14px;border:3px solid #22c55e;box-shadow:0 4px 14px rgba(0,0,0,0.2);pointer-events:none;z-index:20;letter-spacing:2px}
 /* ─── ラーメン一覧モード ─── */
 #ramenListContent{position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px - 26px);width:100vw;padding:8px 10px 90px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:var(--bg);box-sizing:border-box}
 @media (max-height:760px){#ramenListContent{top:32px;height:calc(100vh - 47px - 32px)}}
@@ -1401,13 +1403,25 @@ allNotPaid.forEach(o => {
 // → 1件目を全提供してもまだ追加注文に未提供があれば伝票は残る
 // → 全注文が served（または全アイテム提供済）になったら伝票は消える（空伝票化を防止）
 // ※ isPendingKaedamaPaid / _doneByEdit のアイテムは厨房作業対象外なので未提供判定から除外
+// ※ 全提供完了から COMPLETION_LINGER_MS 秒間は伝票を「完了状態（グレーアウト）」のまま表示維持
+//   → スタッフが「いきなり消えた」と感じないよう、視覚的なフィードバック猶予を確保
+const COMPLETION_LINGER_MS = 3500; // 全提供完了後にグレー表示を維持する時間（ミリ秒）
 const isKitchenActiveItem = (i) => i && !i.served && !i.isPendingKaedamaPaid && !i._doneByEdit;
+const nowMs = Date.now();
 const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   return list.some(o => {
-    if (o.status !== 'pending' && o.status !== 'preparing') return false;
     const items = Array.isArray(o.items) ? o.items : [];
     if (items.length === 0) return false; // 空注文はスキップ
-    return items.some(isKitchenActiveItem);
+    // 通常: pending/preparing で未提供アイテムあり
+    if ((o.status === 'pending' || o.status === 'preparing') && items.some(isKitchenActiveItem)) {
+      return true;
+    }
+    // 全提供完了直後の演出維持: status='served' で、更新から数秒以内なら表示維持
+    if (o.status === 'served') {
+      const updMs = (o.updatedAt && o.updatedAt.toMillis) ? o.updatedAt.toMillis() : 0;
+      if (updMs > 0 && (nowMs - updMs) < COMPLETION_LINGER_MS) return true;
+    }
+    return false;
   });
 }).map(([tl, list]) => {
   // 表示用：
@@ -1447,6 +1461,32 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
   const sortKey = (first && first.createdAt && first.createdAt.toMillis) ? first.createdAt.toMillis() : 0;
   return { tableLabel: tl, orders: displayOrders, _sortKey: sortKey };
 }).filter(tt => tt.orders.length > 0); // 念のため空伝票ガード
+
+// 「完了状態（served + 更新最近）」の伝票がある場合、猶予経過後に再描画して自動消去するためタイマー設定
+//   ※ Firestore snapshot に頼らずクライアント側で再描画を強制 → ちょうど猶予経過したタイミングでスムーズに消える
+(() => {
+  let earliestExpireMs = Infinity;
+  tableTickets.forEach(tt => {
+    tt.orders.forEach(o => {
+      if (o.status === 'served') {
+        const updMs = (o.updatedAt && o.updatedAt.toMillis) ? o.updatedAt.toMillis() : 0;
+        if (updMs > 0) {
+          const expireAt = updMs + COMPLETION_LINGER_MS;
+          if (expireAt < earliestExpireMs) earliestExpireMs = expireAt;
+        }
+      }
+    });
+  });
+  if (earliestExpireMs !== Infinity) {
+    const remain = earliestExpireMs - Date.now();
+    // 既存タイマー破棄して新規作成（多重起動防止）
+    if (window._completionTimer) clearTimeout(window._completionTimer);
+    window._completionTimer = setTimeout(() => {
+      window._completionTimer = null;
+      if (typeof renderKitchen === 'function') renderKitchen();
+    }, Math.max(100, remain + 50));
+  }
+})();
 
 // 1. 既存の非ゴースト伝票の現在位置を記録 (FLIP用)
 const oldRects = new Map();
@@ -3987,13 +4027,29 @@ const el = document.getElementById('editMenuList');
 if (!el) return;
 const cat = window._editCat;
 if (cat === 'その他') {
+// 辛さ追加（1辛〜10辛）の値段（menu-canonical.js の SPICY_LEVELS と同じ）
+const spicyAdds = [
+  {l:'1辛',p:100},{l:'2辛',p:130},{l:'3辛',p:160},{l:'4辛',p:190},{l:'5辛',p:220},
+  {l:'6辛',p:270},{l:'7辛',p:320},{l:'8辛',p:370},{l:'9辛',p:420},{l:'10辛',p:470}
+];
+const spicyBtnsHtml = spicyAdds.map(s =>
+  `<button onclick="addQuickEditItem('辛さ追加 ${s.l}',${s.p})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid #e74c3c;background:rgba(231,76,60,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
+    <span style="font-size:14px;font-weight:900;color:#e74c3c">${s.l}</span>
+    <span style="font-family:'Oswald',sans-serif;font-size:12px;color:#fff;margin-top:2px">+¥${s.p}</span>
+  </button>`
+).join('');
 el.innerHTML = `<div style="padding:16px 0">
 <!-- 定型追加（メニュー外の麺変更・大盛り） -->
 <div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-bottom:8px">⚡ 定型追加（タップで即追加）</div>
-<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:18px">
+<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:14px">
 <button onclick="addQuickEditItem('大盛り',100)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍜 大盛り</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥100</span></button>
 <button onclick="addQuickEditItem('平打ち麺変更',150)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍝 平打ち麺変更</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥150</span></button>
 <button onclick="addQuickEditItem('平打ち麺変更大盛り',250)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍝 平打ち麺変更（大盛り）</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥250</span></button>
+</div>
+<!-- 辛さ追加（1辛〜10辛） — 5列×2行で表示 -->
+<div style="font-size:11px;color:#e74c3c;font-weight:700;letter-spacing:1px;margin-bottom:8px">🌶 辛さ追加（タップで即追加）</div>
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:18px">
+${spicyBtnsHtml}
 </div>
 <div style="border-top:1px dashed var(--border);padding-top:14px"></div>
 <div style="font-size:12px;color:var(--muted);margin-bottom:14px">または品名と金額を入力して追加</div>
