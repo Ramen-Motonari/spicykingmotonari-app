@@ -2148,18 +2148,32 @@ function parseRamenOpts(opts, mainItem) {
   const arr = Array.isArray(opts) ? opts.slice() : [];
   const canon = mainItem ? MOTONARI.getMenuById(mainItem.itemId) : null;
   const cat = canon ? canon.cat : null;
+  // 定食類の場合、麺の量が既に設定された後に出てくる「大盛り/普通盛り」は
+  // ライスの量として扱う（旧データ互換性のため）
+  const isTeishoku = (cat === 'teishoku');
+  let noodleQtySet = false; // 麺の量が判明したかどうか
 
   arr.forEach(rawOpt => {
     let s = stripOptPrice(String(rawOpt)).trim();
     // 無料🎉が含まれていたかを記憶（剥がす前に検出）
     const isFreeMarker = /(無料🎉|FREE🎉|免费🎉|무료🎉|無料|FREE)/i.test(s);
-    s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉|\s*無料\s*|\s*FREE\s*)\s*/g, '').trim();
+    // 「無料」「FREE」表記を剥がす + 空になった括弧「（）」も除去（旧「大盛り（無料）」対策）
+    s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉|\s*無料\s*|\s*FREE\s*)\s*/g, '')
+         .replace(/[（(][\s]*[）)]/g, '')
+         .trim();
     if (!s) return;
-    // 並は表示しない（デフォルト量）
-    if (/^(並|Regular)$/i.test(s)) return;
+    // 並は表示しない（デフォルト量）— 旧データ単体「並」もスキップ
+    //   ただし「ライス並」「Rice Regular」のような複合語は次のブロックで拾う
+    if (/^(並|Regular)$/i.test(s)) {
+      // 定食の場合：単独「並」は ライス並 とみなす（互換性）
+      if (isTeishoku && noodleQtySet && !result.rice) {
+        result.rice = '並';
+      }
+      return;
+    }
 
     // ライスのオプション（餃子定食など）— 麺と区別するため最優先で検出
-    //   「ライス並」「ライス大盛り」「Rice Regular」「Rice Large」「米饭普通」「米饭大碗」「라이스 보통」「라이스 곱배기」
+    //   新ラベル: 「ライス並」「ライス大盛り」「Rice Regular」「Rice Large」「米饭...」「라이스...」
     const isRice = /(ライス|Rice|米饭|라이스)/i.test(s);
     if (isRice) {
       if (/(大盛り|大盛|Large|大碗|곱배기)/i.test(s)) {
@@ -2168,6 +2182,16 @@ function parseRamenOpts(opts, mainItem) {
         result.rice = '並';
       }
       return;
+    }
+    // 旧データ互換性：定食類で「普通盛り」「大盛り（無料）」が来た場合はライスとして扱う
+    //   (新版では「ライス並」「ライス大盛り」として保存されるが、過去の注文データの救済)
+    if (isTeishoku) {
+      if (/^普通盛り$/.test(s)) { result.rice = '並'; return; }
+      if (/^大盛り$/.test(s) && noodleQtySet) {
+        // 麺の量が既に設定済 → 次の大盛りはライスとみなす
+        result.rice = isFreeMarker ? '無料大盛り' : '大盛り';
+        return;
+      }
     }
 
     // 辛さ
@@ -2191,23 +2215,22 @@ function parseRamenOpts(opts, mainItem) {
     if (hasThin || hasFlat) {
       if (hasThin) {
         result.noodleType = '細麺';
-        // 醤油デフォは平打ち → 細麺は変更扱い
         result.noodleChanged = (cat === 'shouyu');
       } else {
         result.noodleType = '平打ち';
-        // 豚骨デフォは細麺 → 平打ちは変更扱い
         result.noodleChanged = (cat === 'tonkotsu');
       }
       // 量を抽出（大盛り / 少 / 並）。無料🎉付きの大盛りは「無料大盛り」表記
       if (hasLarge) result.qty = isFreeMarker ? '無料大盛り' : '大盛り';
       else if (hasLess) result.qty = '少';
       else if (hasRegular) result.qty = '並';
+      noodleQtySet = true; // 麺の量が判明したフラグ
       return;
     }
 
     // 量だけのオプション（旧データ・大盛り単独等）
-    if (hasLarge) { result.qty = isFreeMarker ? '無料大盛り' : '大盛り'; return; }
-    if (hasLess) { result.qty = '少'; return; }
+    if (hasLarge) { result.qty = isFreeMarker ? '無料大盛り' : '大盛り'; noodleQtySet = true; return; }
+    if (hasLess) { result.qty = '少'; noodleQtySet = true; return; }
 
     // チャーシュー選択
     if (/^(豚|Pork|猪|돼지)$/i.test(s)) { result.chashu = 'ブタ'; return; }
