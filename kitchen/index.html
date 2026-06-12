@@ -217,6 +217,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-spice{font-size:24px;font-weight:900;color:#e74c3c;font-family:'Oswald','Noto Sans JP',sans-serif;flex-shrink:0}
 .rg-spice.zero{color:#666}
 .rg-sec-noodle{font-size:20px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
+.rg-sec-rice{font-size:18px;font-weight:700;color:#5d4037;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-noodle-change{color:#e74c3c;font-weight:900}
 .rg-qty{font-weight:900;color:#111}
 .rg-firm{font-weight:700;color:#222}
@@ -2326,11 +2327,9 @@ function renderRamenGroupCard(orderId, grp) {
     }
   }
 
-  // ━━━ Section 2: 麺種 / 量 / 硬さ / ライス ━━━
-  // 表示ルール:
-  //   - 麺タイプが変更されている場合（豚骨→平打ち、醤油→細麺）：「○○変更」と明記し、量も表示
-  //   - 麺タイプがデフォルト：量（並含む）は常に表示
-  //   - 餃子定食など定食類：麺量に「麺」プレフィックス、ライス量に「ライス」プレフィックスで区別
+  // ━━━ Section 2a: 麺種 / 量 / 硬さ ━━━
+  //   - 麺タイプが変更されている場合（豚骨→平打ち、醤油→細麺）：「○○変更」と明記
+  //   - 餃子定食など定食類：麺量に「麺」プレフィックスを付けてライスと区別
   const mainCanon = MOTONARI.getMenuById(main.itemId);
   const isTeishokuItem = mainCanon && mainCanon.cat === 'teishoku';
   const noodleParts = [];
@@ -2338,17 +2337,19 @@ function renderRamenGroupCard(orderId, grp) {
     noodleParts.push(`<span class="rg-noodle-change">${p.noodleType}変更</span>`);
   }
   if (p.qty) {
-    // 定食類は「麺大盛り / 麺並」のように明示。ラーメン類は従来通り「大盛り / 並」だけ。
     const qtyLabel = isTeishokuItem ? `麺${p.qty}` : p.qty;
     noodleParts.push(`<span class="rg-qty">${qtyLabel}</span>`);
   }
   if (p.firmness) noodleParts.push(`<span class="rg-firm">${p.firmness}</span>`);
-  // ライスの量（定食類のみ表示される）：「ライス並 / ライス大盛り / ライス無料大盛り」で明示
-  if (p.rice) {
-    noodleParts.push(`<span class="rg-qty" style="color:#5d4037">ライス${p.rice}</span>`);
-  }
   const noodleHtml = noodleParts.length
     ? `<div class="rg-sec rg-sec-noodle">${noodleParts.join('<span class="rg-sep">/</span>')}</div>`
+    : '';
+
+  // ━━━ Section 2b: ライスの量（定食類のみ・別行で表示） ━━━
+  //   餃子定食の「麺大盛り + ライス大盛り」のように、麺とライスの両方を大盛りに
+  //   できるケースを区別しやすくするため、ライスは別の行で表示する。
+  const riceHtml = p.rice
+    ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty" style="color:#5d4037">ライス${p.rice}</span></div>`
     : '';
 
   // ━━━ Section 3: チャーシュー / カレートッピング ━━━
@@ -2383,6 +2384,7 @@ function renderRamenGroupCard(orderId, grp) {
 <div class="rg-content">
 ${headerHtml}
 ${noodleHtml}
+${riceHtml}
 ${chashuHtml}
 ${otherHtml}
 ${addonsHtml}
