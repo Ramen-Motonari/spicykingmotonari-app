@@ -715,19 +715,19 @@ const T_KPC = {
 };
 
 let catLabels = {
-  ja:{tonkotsu:'豚骨 Tonkotsu',shouyu:'醤油 Shouyu',teishoku:'定食',side:'サイドメニュー',topping:'追加トッピング',drink:'ドリンク'},
-  en:{tonkotsu:'Tonkotsu',shouyu:'Shouyu',teishoku:'Set Meal',side:'Side Menu',topping:'Extra Toppings',drink:'Drinks'},
-  zh:{tonkotsu:'猪骨汤面',shouyu:'酱油拉面',teishoku:'套餐',side:'小菜',topping:'追加配料',drink:'饮料'},
-  ko:{tonkotsu:'돈코츠',shouyu:'쇼유',teishoku:'정식',side:'사이드 메뉴',topping:'추가 토핑',drink:'음료'}
+  ja:{recommended:'⭐ おすすめ',tonkotsu:'豚骨 Tonkotsu',shouyu:'醤油 Shouyu',teishoku:'定食',side:'サイドメニュー',topping:'追加トッピング',drink:'ドリンク'},
+  en:{recommended:'⭐ Pick',tonkotsu:'Tonkotsu',shouyu:'Shouyu',teishoku:'Set Meal',side:'Side Menu',topping:'Extra Toppings',drink:'Drinks'},
+  zh:{recommended:'⭐ 推荐',tonkotsu:'猪骨汤面',shouyu:'酱油拉面',teishoku:'套餐',side:'小菜',topping:'追加配料',drink:'饮料'},
+  ko:{recommended:'⭐ 추천',tonkotsu:'돈코츠',shouyu:'쇼유',teishoku:'정식',side:'사이드 메뉴',topping:'추가 토핑',drink:'음료'}
 };
-// 基本カテゴリ順序（カスタムカテゴリは後ろに追加）
-const BASE_CAT_ORDER = ['tonkotsu','shouyu','teishoku','topping','side','drink'];
+// 基本カテゴリ順序（recommended が先頭、その後にカスタムカテゴリ）
+const BASE_CAT_ORDER = ['recommended','tonkotsu','shouyu','teishoku','topping','side','drink'];
 let allCatKeys = [...BASE_CAT_ORDER]; // rebuildMenuで動的更新
 
 const chashuOpts = {ja:['豚','鶏'],en:['Pork','Chicken'],zh:['猪肉','鸡肉'],ko:['돼지','닭']};
 const kataOpts   = {ja:['かため','ふつう','やわ'],en:['Firm','Medium','Soft'],zh:['硬','普通','软'],ko:['단단히','보통','부드럽게']};
 const topOpts    = {ja:['とんかつ','チキンカツ'],en:['Tonkatsu','Chicken Katsu'],zh:['炸猪排','炸鸡排'],ko:['돈카츠','치킨카츠']};
-const riceOpts   = {ja:['普通盛り','大盛り（無料）'],en:['Regular','Large (Free)'],zh:['普通量','大碗（免费）'],ko:['보통','곱배기（무료）']};
+const riceOpts   = {ja:['ライス並','ライス大盛り'],en:['Rice Regular','Rice Large'],zh:['米饭普通','米饭大碗'],ko:['라이스 보통','라이스 곱배기']};
 // 麺サイズ選択（とんこつ）：細麺(並・大盛り) / 平打ち麺(少・並・大盛り)
 const noodleSizeOptsWeekday = {
   ja:['細麺 並','細麺 大盛り 無料🎉','平打ち麺 少 +150円','平打ち麺 並 +150円','平打ち麺 大盛り +250円'],
@@ -944,6 +944,9 @@ const GHOST_PW='SKG';
 /* Firebase state */
 let fbReady=false, fbError=null;
 let soldoutSet=new Set();
+// おすすめ商品 ID 配列（永続。キッチンAPPで管理）
+let recommendedIds = [];
+let unsubRecommended = null;
 let unsubOrders=null, unsubSoldout=null;
 let sessionId=null;
 
@@ -1089,6 +1092,8 @@ window.addEventListener('fb-ready', () => {
   setFbStatus('online', T[lang].connected);
   // Subscribe to soldout changes globally
   subscribeSoldout();
+  // Subscribe to recommended items (おすすめ)
+  subscribeRecommended();
   // メニューオーバーライド・カスタムメニュー・カスタムカテゴリ・カテゴリ並び順の監視
   subscribeMenuOverrides();
   subscribeCustomMenuItems();
@@ -1265,6 +1270,17 @@ function subscribeSoldout(){
   }, (err) => {
     console.error('Soldout subscribe error:', err);
   });
+}
+
+// ⭐ おすすめ商品リスナー（recommended/current — 永続）
+function subscribeRecommended(){
+  if(!fbReady) return;
+  if(unsubRecommended) unsubRecommended();
+  const ref = window.FB.doc(window.FB.db, 'recommended', 'current');
+  unsubRecommended = window.FB.onSnapshot(ref, (snap) => {
+    recommendedIds = (snap.exists() && snap.data().ids) ? snap.data().ids : [];
+    if($('menuScreen').classList.contains('active')) renderMenu();
+  }, (err) => { console.error('Recommended subscribe error:', err); });
 }
 
 let _lastSubscribeError = null;
@@ -1815,13 +1831,34 @@ function renderMenu(){
   };
 
   cats.forEach(cat=>{
-    const items=menu.filter(m=>m.cat===cat);
+    // ⭐ おすすめカテゴリ：recommendedIds に対応する商品（最大3件、登録順）
+    let items;
+    if (cat === 'recommended') {
+      items = recommendedIds
+        .map(id => menu.find(m => m.id === id))
+        .filter(Boolean);
+      // おすすめが0件ならカテゴリ自体非表示
+      if (!items.length) return;
+    } else {
+      items = menu.filter(m=>m.cat===cat);
+    }
     if(!items.length) return;
     const sec=document.createElement('div');
     sec.innerHTML=`<div class="section-title">${cl[cat] || cat}</div>`;
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
       sec.innerHTML+=`<div class="night-notice">${t.nightNote}</div>`;
+    // おすすめ専用のリード文（任意）
+    if (cat === 'recommended') {
+      const leadMsg = ({ja:'スタッフのおすすめ商品です',en:'Recommended by our staff',zh:'店员推荐商品',ko:'직원 추천 메뉴'}[lang] || '');
+      sec.innerHTML += `<div style="font-size:12px;color:#888;margin:4px 0 8px;padding-left:4px">${leadMsg}</div>`;
+    }
 
+    // ⭐ おすすめカテゴリはサブカテゴリ機能を使わずフラット表示
+    if (cat === 'recommended') {
+      items.forEach(item => sec.appendChild(buildItemEl(item)));
+      el.appendChild(sec);
+      return;
+    }
     // サブカテゴリでグループ化（管理APP「カテゴリ管理」の order に従う）
     const registeredSubs = (_subCategories || []).filter(s => s.cat === cat).sort((a,b) => (a.order||0) - (b.order||0));
     // 子カテゴリの表示名を多言語対応で取得
@@ -2021,6 +2058,17 @@ function renderModal(){
     reqHtml += optGrpReq(kataLabel,'kata',kataOpts[lang],missing,{disabled:kataDisabled, disabledNote:kataNote});
   }
   if(c.rice)       reqHtml+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing);
+  // SKつけ麺：麺の量（小140g / 並180g / 大240g）の選択必須
+  if(isTsukemenItem(item)) {
+    const tsukemenLabel = ({
+      ja:'麺の量をお選びください（必須選択）',
+      en:'Please choose noodle amount (Required)',
+      zh:'请选择面条份量（必选）',
+      ko:'면 양을 선택해 주세요（필수 선택）'
+    }[lang] || '麺の量をお選びください（必須選択）');
+    const tsukemenOpts = ['小 140g','並 180g','大 240g'];
+    reqHtml += optGrpReq(tsukemenLabel,'tsukemenSize',tsukemenOpts,missing);
+  }
   if(c.karasaAdd){
     // 0辛〜10辛を常時表示。0辛 = 辛さなし（追加料金なし）
     const currentLv = curOpts.spicyLv || '0辛';
@@ -2084,6 +2132,14 @@ function hasRequiredFields(){
   return !!(c.chashu||c.top||c.noodleSize||c.kata||c.rice);
 }
 
+// SKつけ麺判定：商品名に「つけ麺」を含む or id=10012（カスタム商品）
+function isTsukemenItem(item){
+  if (!item) return false;
+  if (item.id === 10012) return true;
+  const nm = (item.name && (item.name.ja || item.name.en || item.name.zh || item.name.ko)) || '';
+  return /つけ麺/i.test(nm);
+}
+
 function getMissingFields(){
   const c=curItem.custom, t=T[lang];
   const cat=curItem.cat;
@@ -2098,9 +2154,9 @@ function getMissingFields(){
   if(c.kata && !c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku' && !curOpts.kata)
     missing.push({key:'kata',label:t.optNoodle});
   if(c.rice && !curOpts.rice) missing.push({key:'rice',label:t.optRice});
-  // 初回注文（ラーメンと一緒に頼む）の替え玉は硬さ選択不要（口頭オペ・キッチン待機タブで個別に対応）
-  // → 替え玉アドオン（id=40）の硬さ必須チェックは削除
-  // → ランチ替え玉無料の硬さ必須チェックも削除
+  // SKつけ麺の麺の量（必須選択）
+  if(isTsukemenItem(curItem) && !curOpts.tsukemenSize)
+    missing.push({key:'tsukemenSize',label:'麺の量'});
   return missing;
 }
 
@@ -2335,6 +2391,7 @@ function addCart(){
   if(curOpts.kata)       opts.push(curOpts.kata);
   if(curOpts.noodleSize) opts.push(curOpts.noodleSize);
   if(curOpts.rice)       opts.push(curOpts.rice);
+  if(curOpts.tsukemenSize) opts.push(curOpts.tsukemenSize); // SKつけ麺の麺の量
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
   // 平日ランチ「大盛り無料」は noodleSize に反映済みなのでここでは追加しない（重複防止）
   // 平日ランチ「替え玉無料」は下でカートに別商品として追加（キッチン伝票で独立カード表示・待機タブ対応）
