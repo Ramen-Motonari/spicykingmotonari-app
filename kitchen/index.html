@@ -301,6 +301,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .reorder-toggle-btn .lbl{display:none}
   #soldoutBtn{padding:5px 8px !important;font-size:14px !important}
   #soldoutBtn .lbl{display:none !important}
+  #recommendedBtn{padding:5px 8px !important;font-size:14px !important}
+  #recommendedBtn .lbl{display:none !important}
   #ramenListBtn{padding:5px 8px !important;font-size:14px !important}
   #ramenListBtn .lbl{display:none !important}
   /* 件数バー */
@@ -431,6 +433,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <button class="switch-btn to-register" id="switchBtn" onclick="switchMode()"><span class="ico">💰</span><span class="lbl">レジに切り替え ▶</span></button>
 <button onclick="toggleReorderMode()" class="reorder-toggle-btn" id="reorderToggleBtn"><span class="ico">↕</span><span class="lbl"> 並び替え</span></button>
 <button onclick="openSoldoutScreen()" style="padding:6px 12px;border-radius:20px;border:1px solid var(--accent2);background:rgba(192,57,43,0.2);color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif" id="soldoutBtn"><span class="ico">🚫</span><span class="lbl"> 売り切れ</span></button>
+<button onclick="openRecommendedFullPage()" style="padding:6px 12px;border-radius:20px;border:1px solid #22c55e;background:rgba(34,197,94,0.18);color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif" id="recommendedBtn"><span class="ico">⭐</span><span class="lbl" id="recommendedBtnLabel"> Recommended</span></button>
 <button onclick="toggleRamenListView()" id="ramenListBtn" style="padding:6px 12px;border-radius:20px;border:1px solid #ff9800;background:rgba(255,152,0,0.18);color:#ff9800;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span class="ico">🍜</span><span class="lbl" id="ramenListBtnLbl"> ラーメン一覧</span></button>
 <span class="order-count-badge" id="activeCount" style="display:none">0件</span>
 <button id="bellBtn" onclick="toggleBellPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px 6px;line-height:1;font-size:22px">🔔<span id="bellDot" style="display:none;position:absolute;top:2px;right:4px;width:9px;height:9px;background:#e74c3c;border-radius:50%;border:1.5px solid #111;animation:bellPulse 1s infinite"></span></button>
@@ -501,6 +504,19 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div style="padding:16px">
 <div style="font-size:12px;color:var(--muted);margin-bottom:16px">商品をタップして販売中・停止を切り替えられます。翌日自動リセット。全端末同期。</div>
 <div id="soldoutFullList"></div>
+</div>
+</div>
+
+<!-- ⭐ Recommended（おすすめ）管理ページ -->
+<div id="recommendedFullPage" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:300;overflow-y:auto">
+<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10">
+<button onclick="closeRecommendedFullPage()" style="background:none;border:none;color:var(--muted);font-size:28px;cursor:pointer;line-height:1;padding:0">‹</button>
+<div style="font-family:'Oswald',sans-serif;font-size:18px;letter-spacing:2px;color:#22c55e">⭐ RECOMMENDED 管理</div>
+<div id="recommendedCountInfo" style="margin-left:auto;font-size:12px;color:#22c55e;font-weight:700">0/3</div>
+</div>
+<div style="padding:16px">
+<div style="font-size:12px;color:var(--muted);margin-bottom:16px">最大 3 商品まで選択可。お客様のオーダーAPPに「⭐ おすすめ / Pick」カテゴリで先頭表示されます。変更まで永続。</div>
+<div id="recommendedFullList"></div>
 </div>
 </div>
 
@@ -742,6 +758,8 @@ const catOrder = ['ramen','teishoku','side','drink'];
 const catLabel = {ramen:'🍜 ラーメン', teishoku:'🥟 定食', side:'🥟 サイド', drink:'🍺 ドリンク'};
 
 let orders = [], tables = {}, soldoutIds = [];
+// おすすめ商品 ID 配列（最大3件・全端末同期・スタッフが変更するまで永続）
+let recommendedIds = [];
 // 「全表示」モード対象の伝票ラベル（メモリ保持・ページリロードで初期化）
 let _expandedTickets = new Set();
 // 「ラーメン一覧」モードかどうか
@@ -894,6 +912,26 @@ if (document.getElementById('soldoutScreen').classList.contains('active')) rende
 });
 }
 
+// おすすめ商品リスナー（recommended/current — 日付リセットなし、永続）
+function startRecommendedListener() {
+  const { doc, onSnapshot } = window.fbApi;
+  const ref = doc(window.fb.db, 'recommended', 'current');
+  onSnapshot(ref, (snap) => {
+    recommendedIds = snap.exists() ? (snap.data().ids || []) : [];
+    updateRecommendedBadge();
+    const page = document.getElementById('recommendedFullPage');
+    if (page && page.style.display === 'block') renderRecommendedFullList();
+  }, err => console.error('recommended listener:', err));
+}
+async function setRecommendedIdsRemote(ids) {
+  const { doc, setDoc, serverTimestamp } = window.fbApi;
+  const ref = doc(window.fb.db, 'recommended', 'current');
+  // 最大3件まで制限
+  const clipped = (ids || []).slice(0, 3);
+  await setDoc(ref, { ids: clipped, updatedAt: serverTimestamp() }, { merge: true });
+}
+function getRecommendedIds() { return recommendedIds; }
+
 // カスタムメニュー監視（管理アプリで追加された商品をキッチン側でも認識）
 function startCustomMenuListener() {
   const { collection, onSnapshot } = window.fbApi;
@@ -1038,6 +1076,76 @@ const sold = ids.includes(itemId);
 const newIds = sold ? ids.filter(id=>id!==itemId) : [...new Set([...ids, itemId])];
 try { await setSoldoutIdsRemote(newIds); showToast(sold?'販売再開しました ✅':'売り切れに設定しました 🚫'); }
 catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
+}
+
+// ────── ⭐ Recommended（おすすめ）管理 ──────
+function openRecommendedFullPage() {
+  renderRecommendedFullList();
+  document.getElementById('recommendedFullPage').style.display = 'block';
+}
+function closeRecommendedFullPage() {
+  document.getElementById('recommendedFullPage').style.display = 'none';
+  updateRecommendedBadge();
+}
+function updateRecommendedBadge() {
+  const btn = document.getElementById('recommendedBtnLabel');
+  const count = getRecommendedIds().length;
+  if (btn) btn.textContent = count > 0 ? ` Recommended (${count})` : ' Recommended';
+  const info = document.getElementById('recommendedCountInfo');
+  if (info) info.textContent = `${count}/3`;
+}
+function renderRecommendedFullList() {
+  const ids = getRecommendedIds();
+  const catOrderArr = ['豚骨','醤油','定食','トッピング','サイド','夜限定','ドリンク','テイクアウト'];
+  let html = '';
+  // 現在のおすすめ商品を上部に固定表示（並び順保持）
+  if (ids.length > 0) {
+    html += `<div style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:1px;padding:10px 0 6px;border-bottom:1px solid #22c55e;margin-bottom:8px">⭐ 現在のおすすめ（タップで解除）</div>`;
+    ids.forEach((id, idx) => {
+      const item = allMenuItems.find(m => m.id === id);
+      const name = item ? item.name : `(ID:${id})`;
+      html += `<div onclick="quickToggleRecommended(${id})" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(34,197,94,0.15);border-radius:12px;margin-bottom:6px;border:1.5px solid #22c55e;cursor:pointer">
+        <div style="font-size:14px;font-weight:700;color:#22c55e">⭐ ${idx+1}. ${name}</div>
+        <button onclick="event.stopPropagation();quickToggleRecommended(${id})" style="padding:8px 16px;border-radius:10px;border:none;background:var(--accent2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">解除</button>
+      </div>`;
+    });
+  }
+  // 全商品一覧（カテゴリ別）
+  catOrderArr.forEach(cat => {
+    const items = allMenuItems
+      .filter(m => m.cat === cat && !m._hidden)
+      .slice()
+      .sort((a, b) => {
+        const pa = (a._itemOrderPos !== undefined) ? a._itemOrderPos : Number.MAX_SAFE_INTEGER;
+        const pb = (b._itemOrderPos !== undefined) ? b._itemOrderPos : Number.MAX_SAFE_INTEGER;
+        if (pa !== pb) return pa - pb;
+        return (a._sortOrder || 0) - (b._sortOrder || 0);
+      });
+    if (!items.length) return;
+    html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;padding:14px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">${cat}</div>`;
+    items.forEach(item => {
+      const isRec = ids.includes(item.id);
+      const disabled = !isRec && ids.length >= 3;
+      html += `<div ${disabled?'':`onclick="quickToggleRecommended(${item.id})"`} style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${isRec?'rgba(34,197,94,0.12)':'var(--surface)'};border-radius:12px;margin-bottom:6px;border:1px solid ${isRec?'#22c55e':'var(--border)'};${disabled?'opacity:0.45;cursor:not-allowed':'cursor:pointer'}">
+        <div style="font-size:14px;font-weight:700;color:${isRec?'#22c55e':'var(--text)'}">${isRec?'⭐ ':''}${item.name}</div>
+        <button ${disabled?'disabled':''} onclick="event.stopPropagation();quickToggleRecommended(${item.id})" style="padding:8px 16px;border-radius:10px;border:none;background:${isRec?'var(--accent2)':'#22c55e'};color:#fff;font-size:12px;font-weight:700;cursor:${disabled?'not-allowed':'pointer'};font-family:'Noto Sans JP',sans-serif;${disabled?'opacity:0.4':''}">${isRec?'解除':'おすすめ'}</button>
+      </div>`;
+    });
+  });
+  document.getElementById('recommendedFullList').innerHTML = html;
+}
+async function quickToggleRecommended(itemId) {
+  const ids = getRecommendedIds();
+  const isRec = ids.includes(itemId);
+  if (!isRec && ids.length >= 3) {
+    showToast('おすすめは最大3商品までです', true);
+    return;
+  }
+  const newIds = isRec ? ids.filter(id=>id!==itemId) : [...ids, itemId];
+  try {
+    await setRecommendedIdsRemote(newIds);
+    showToast(isRec?'おすすめから解除しました':'⭐ おすすめに追加しました');
+  } catch(e) { console.error(e); showToast('エラー: 同期失敗', true); }
 }
 
 function maybeCloseSoldout(e) { if(e.target === document.getElementById('soldoutOverlay')) closeSoldoutModal(); }
@@ -2183,6 +2291,7 @@ function parseRamenOpts(opts, mainItem) {
     firmness: '',        // 'カタ' / 'フツウ' / 'やわ'
     chashu: '',          // 'ブタ' / 'トリ'
     curryTopping: '',    // 'とんかつ' / 'チキンカツ'
+    tsukemenSize: '',    // '小 140g' / '並 180g' / '大 240g' ← SKつけ麺の麺の量
     other: []
   };
   const arr = Array.isArray(opts) ? opts.slice() : [];
@@ -2209,6 +2318,12 @@ function parseRamenOpts(opts, mainItem) {
       if (isTeishoku && noodleQtySet && !result.rice) {
         result.rice = '並';
       }
+      return;
+    }
+
+    // SKつけ麺の麺の量（「小 140g」「並 180g」「大 240g」のように g 単位を含む）
+    if (/^(小|並|大|Small|Regular|Large)\s*\d+\s*g$/i.test(s)) {
+      result.tsukemenSize = s;
       return;
     }
 
@@ -2415,6 +2530,12 @@ function renderRamenGroupCard(orderId, grp) {
     ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty">ライス${p.rice}</span></div>`
     : '';
 
+  // ━━━ Section 2c: SKつけ麺の麺の量（独立行で大きく表示） ━━━
+  //   「小 140g」「並 180g」「大 240g」を分かりやすく
+  const tsukemenHtml = p.tsukemenSize
+    ? `<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.tsukemenSize}</span></div>`
+    : '';
+
   // ━━━ Section 3: チャーシュー / カレートッピング ━━━
   const chashuParts = [];
   if (p.chashu) {
@@ -2448,6 +2569,7 @@ function renderRamenGroupCard(orderId, grp) {
 ${headerHtml}
 ${noodleHtml}
 ${riceHtml}
+${tsukemenHtml}
 ${chashuHtml}
 ${otherHtml}
 ${addonsHtml}
@@ -2580,6 +2702,8 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   if (p.firmness) blockB.push(`<span>${p.firmness}</span>`);
   // ライス量（定食用）
   if (p.rice) blockB.push(`<span>ライス${p.rice}</span>`);
+  // SKつけ麺の麺の量
+  if (p.tsukemenSize) blockB.push(`<span>${p.tsukemenSize}</span>`);
   const blockC = [];
   if (p.chashu) {
     const cnt = (typeof getChashuCount === 'function') ? getChashuCount(main) : 1;
@@ -4593,6 +4717,8 @@ window.addEventListener('resize', autoSizeTickets);
 window.startMode = startMode; window.goBack = goBack; window.switchMode = switchMode;
 window.toggleRegLang = toggleRegLang;
 window.openSoldoutScreen = openSoldoutScreen; window.openSoldoutFullPage = openSoldoutFullPage;
+window.openRecommendedFullPage = openRecommendedFullPage; window.closeRecommendedFullPage = closeRecommendedFullPage;
+window.quickToggleRecommended = quickToggleRecommended;
 window.closeSoldoutFullPage = closeSoldoutFullPage; window.toggleSoldout = toggleSoldout;
 window.confirmSoldout = confirmSoldout; window.closeSoldoutModal = closeSoldoutModal;
 window.maybeCloseSoldout = maybeCloseSoldout; window.quickToggleSoldout = quickToggleSoldout;
@@ -4643,6 +4769,7 @@ if (user) {
 setConnStatus('online', 'ONLINE');
 startOrdersListener();
 startSoldoutListener();
+startRecommendedListener();
 startCustomMenuListener();
 startMenuOverridesListener();
 startItemOrderListener();
