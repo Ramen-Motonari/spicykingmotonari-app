@@ -1464,6 +1464,7 @@ function updateKitchenStatsBar() {
     if (!o) return false;
     if (o.paymentType === 'cancelled_by_edit') return false;
     if (o.status === 'cancelled') return false;
+    if (o.deleted) return false; // 履歴で削除された注文は売上集計から除外
     const ts = (o.updatedAt && o.updatedAt.toDate) ? o.updatedAt.toDate() : ((o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null);
     if (!ts) return false;
     const k = `${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')}`;
