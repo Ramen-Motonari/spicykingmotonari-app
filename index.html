@@ -715,10 +715,10 @@ const T_KPC = {
 };
 
 let catLabels = {
-  ja:{recommended:'⭐ おすすめ',tonkotsu:'豚骨 Tonkotsu',shouyu:'醤油 Shouyu',teishoku:'定食',side:'サイドメニュー',topping:'追加トッピング',drink:'ドリンク'},
-  en:{recommended:'⭐ Pick',tonkotsu:'Tonkotsu',shouyu:'Shouyu',teishoku:'Set Meal',side:'Side Menu',topping:'Extra Toppings',drink:'Drinks'},
-  zh:{recommended:'⭐ 推荐',tonkotsu:'猪骨汤面',shouyu:'酱油拉面',teishoku:'套餐',side:'小菜',topping:'追加配料',drink:'饮料'},
-  ko:{recommended:'⭐ 추천',tonkotsu:'돈코츠',shouyu:'쇼유',teishoku:'정식',side:'사이드 메뉴',topping:'추가 토핑',drink:'음료'}
+  ja:{recommended:'おすすめ Pick',tonkotsu:'豚骨 Tonkotsu',shouyu:'醤油 Shouyu',teishoku:'定食',side:'サイドメニュー',topping:'追加トッピング',drink:'ドリンク'},
+  en:{recommended:'Pick',tonkotsu:'Tonkotsu',shouyu:'Shouyu',teishoku:'Set Meal',side:'Side Menu',topping:'Extra Toppings',drink:'Drinks'},
+  zh:{recommended:'推荐',tonkotsu:'猪骨汤面',shouyu:'酱油拉面',teishoku:'套餐',side:'小菜',topping:'追加配料',drink:'饮料'},
+  ko:{recommended:'추천',tonkotsu:'돈코츠',shouyu:'쇼유',teishoku:'정식',side:'사이드 메뉴',topping:'추가 토핑',drink:'음료'}
 };
 // 基本カテゴリ順序（カスタムカテゴリは後ろに追加）
 const BASE_CAT_ORDER = ['recommended','tonkotsu','shouyu','teishoku','topping','side','drink'];
@@ -1769,8 +1769,8 @@ function buildTabs(){
   const t=T[lang];
   const recLabel = (catLabels[lang] && catLabels[lang].recommended) || '⭐ おすすめ';
   const baseTabs = [
-    {k:'recommended',l:recLabel},
     {k:'all',l:t.tabAll},
+    {k:'recommended',l:recLabel},
     {k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
     {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink},{k:'takeout',l:t.tabTakeout}
   ];
@@ -1856,8 +1856,6 @@ function renderMenu(){
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
       sec.innerHTML+=`<div class="night-notice">${t.nightNote}</div>`;
     if (cat === 'recommended') {
-      const leadMsg = ({ja:'スタッフのおすすめ商品です',en:'Recommended by our staff',zh:'店员推荐商品',ko:'직원 추천 메뉴'}[lang] || '');
-      sec.innerHTML += `<div style="font-size:12px;color:#888;margin:4px 0 8px;padding-left:4px">${leadMsg}</div>`;
       items.forEach(item => sec.appendChild(buildItemEl(item)));
       el.appendChild(sec);
       return;
