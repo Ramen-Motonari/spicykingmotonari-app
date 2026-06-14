@@ -1768,8 +1768,11 @@ function leaveMenu(){
 /* ========== MENU RENDERING ========== */
 function buildTabs(){
   const t=T[lang];
+  const recLabel = (catLabels[lang] && catLabels[lang].recommended) || '⭐ おすすめ';
   const baseTabs = [
-    {k:'all',l:t.tabAll},{k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
+    {k:'all',l:t.tabAll},
+    {k:'recommended',l:recLabel},
+    {k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
     {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink},{k:'takeout',l:t.tabTakeout}
   ];
   // カスタムカテゴリをタブに追加（基本カテゴリ以外）
@@ -1837,8 +1840,16 @@ function renderMenu(){
       items = recommendedIds
         .map(id => menu.find(m => m.id === id))
         .filter(Boolean);
-      // おすすめが0件ならカテゴリ自体非表示
-      if (!items.length) return;
+      // 'all'表示の時は0件ならスキップ。'recommended'単独表示なら空状態を出す
+      if (!items.length) {
+        if (currentCat === 'recommended') {
+          const sec=document.createElement('div');
+          const emptyMsg = ({ja:'おすすめ商品はまだ登録されていません',en:'No recommended items yet',zh:'暂无推荐商品',ko:'추천 메뉴가 없습니다'}[lang] || '');
+          sec.innerHTML = `<div class="section-title">${cl[cat] || cat}</div><div style="text-align:center;color:#888;padding:24px 12px;font-size:13px">${emptyMsg}</div>`;
+          el.appendChild(sec);
+        }
+        return;
+      }
     } else {
       items = menu.filter(m=>m.cat===cat);
     }
