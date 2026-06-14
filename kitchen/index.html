@@ -301,8 +301,6 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .reorder-toggle-btn .lbl{display:none}
   #soldoutBtn{padding:5px 8px !important;font-size:14px !important}
   #soldoutBtn .lbl{display:none !important}
-  #recommendedBtn{padding:5px 8px !important;font-size:14px !important}
-  #recommendedBtn .lbl{display:none !important}
   #ramenListBtn{padding:5px 8px !important;font-size:14px !important}
   #ramenListBtn .lbl{display:none !important}
   /* 件数バー */
@@ -417,7 +415,11 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div class="mode-btn register" onclick="startMode('register')"><div class="mode-icon">💰</div><div class="mode-label" style="color:var(--blue)">REGISTER</div><div class="mode-sub">会計・テーブル管理</div></div>
 </div>
 <div style="width:100%;max-width:320px;margin-top:12px;display:flex;flex-direction:column;gap:12px">
-<div class="mode-btn" onclick="startMode('soldout')" style="width:100%;text-align:center"><div class="mode-icon">🚫</div><div class="mode-label" style="color:var(--accent2)">SOLD OUT</div><div class="mode-sub" id="soldoutModeSubLabel">売り切れ管理</div></div>
+<!-- SOLD OUT と RECOMMENDED の 2 列 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+<div class="mode-btn" onclick="startMode('soldout')" style="text-align:center"><div class="mode-icon">🚫</div><div class="mode-label" style="color:var(--accent2)">SOLD OUT</div><div class="mode-sub" id="soldoutModeSubLabel">売り切れ管理</div></div>
+<div class="mode-btn" onclick="startMode('recommended')" style="text-align:center"><div class="mode-icon">⭐</div><div class="mode-label" style="color:#22c55e">PICK</div><div class="mode-sub" id="recommendedModeSubLabel">おすすめ管理</div></div>
+</div>
 <div class="mode-btn" onclick="openHistoryPage()" style="width:100%;text-align:center"><div class="mode-icon">📋</div><div class="mode-label" style="color:var(--green)">HISTORY</div><div class="mode-sub" id="historyModeSubLabel">注文履歴</div></div>
 </div>
 </div>
@@ -433,7 +435,6 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <button class="switch-btn to-register" id="switchBtn" onclick="switchMode()"><span class="ico">💰</span><span class="lbl">レジに切り替え ▶</span></button>
 <button onclick="toggleReorderMode()" class="reorder-toggle-btn" id="reorderToggleBtn"><span class="ico">↕</span><span class="lbl"> 並び替え</span></button>
 <button onclick="openSoldoutScreen()" style="padding:6px 12px;border-radius:20px;border:1px solid var(--accent2);background:rgba(192,57,43,0.2);color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif" id="soldoutBtn"><span class="ico">🚫</span><span class="lbl"> 売り切れ</span></button>
-<button onclick="openRecommendedFullPage()" style="padding:6px 12px;border-radius:20px;border:1px solid #22c55e;background:rgba(34,197,94,0.18);color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif" id="recommendedBtn"><span class="ico">⭐</span><span class="lbl" id="recommendedBtnLabel"> Recommended</span></button>
 <button onclick="toggleRamenListView()" id="ramenListBtn" style="padding:6px 12px;border-radius:20px;border:1px solid #ff9800;background:rgba(255,152,0,0.18);color:#ff9800;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span class="ico">🍜</span><span class="lbl" id="ramenListBtnLbl"> ラーメン一覧</span></button>
 <span class="order-count-badge" id="activeCount" style="display:none">0件</span>
 <button id="bellBtn" onclick="toggleBellPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px 6px;line-height:1;font-size:22px">🔔<span id="bellDot" style="display:none;position:absolute;top:2px;right:4px;width:9px;height:9px;background:#e74c3c;border-radius:50%;border:1.5px solid #111;animation:bellPulse 1s infinite"></span></button>
@@ -1080,30 +1081,45 @@ catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
 
 // ────── ⭐ Recommended（おすすめ）管理 ──────
 function openRecommendedFullPage() {
-  renderRecommendedFullList();
-  document.getElementById('recommendedFullPage').style.display = 'block';
+  try {
+    renderRecommendedFullList();
+  } catch (e) {
+    console.error('renderRecommendedFullList error:', e);
+    const list = document.getElementById('recommendedFullList');
+    if (list) list.innerHTML = `<div style="color:#e74c3c;padding:12px;font-size:13px">読み込みエラー: ${e && e.message ? e.message : e}</div>`;
+  }
+  const page = document.getElementById('recommendedFullPage');
+  if (page) page.style.display = 'block';
 }
 function closeRecommendedFullPage() {
-  document.getElementById('recommendedFullPage').style.display = 'none';
+  const page = document.getElementById('recommendedFullPage');
+  if (page) page.style.display = 'none';
   updateRecommendedBadge();
 }
 function updateRecommendedBadge() {
-  const btn = document.getElementById('recommendedBtnLabel');
+  // ヘッダーから削除済み。サブラベルとカウント情報のみ更新。
   const count = getRecommendedIds().length;
-  if (btn) btn.textContent = count > 0 ? ` Recommended (${count})` : ' Recommended';
+  const sub = document.getElementById('recommendedModeSubLabel');
+  if (sub) sub.textContent = count > 0 ? `おすすめ管理（${count}品）` : 'おすすめ管理';
   const info = document.getElementById('recommendedCountInfo');
   if (info) info.textContent = `${count}/3`;
+  // 旧ヘッダーラベルが残っていれば後方互換で更新
+  const btn = document.getElementById('recommendedBtnLabel');
+  if (btn) btn.textContent = count > 0 ? ` Recommended (${count})` : ' Recommended';
 }
 function renderRecommendedFullList() {
-  const ids = getRecommendedIds();
+  const listEl = document.getElementById('recommendedFullList');
+  if (!listEl) return;
+  const ids = Array.isArray(recommendedIds) ? recommendedIds : [];
+  const items = Array.isArray(allMenuItems) ? allMenuItems : [];
   const catOrderArr = ['豚骨','醤油','定食','トッピング','サイド','夜限定','ドリンク','テイクアウト'];
   let html = '';
   // 現在のおすすめ商品を上部に固定表示（並び順保持）
   if (ids.length > 0) {
     html += `<div style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:1px;padding:10px 0 6px;border-bottom:1px solid #22c55e;margin-bottom:8px">⭐ 現在のおすすめ（タップで解除）</div>`;
     ids.forEach((id, idx) => {
-      const item = allMenuItems.find(m => m.id === id);
-      const name = item ? item.name : `(ID:${id})`;
+      const item = items.find(m => m && m.id === id);
+      const name = (item && item.name) ? item.name : `(ID:${id})`;
       html += `<div onclick="quickToggleRecommended(${id})" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(34,197,94,0.15);border-radius:12px;margin-bottom:6px;border:1.5px solid #22c55e;cursor:pointer">
         <div style="font-size:14px;font-weight:700;color:#22c55e">⭐ ${idx+1}. ${name}</div>
         <button onclick="event.stopPropagation();quickToggleRecommended(${id})" style="padding:8px 16px;border-radius:10px;border:none;background:var(--accent2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">解除</button>
@@ -1112,8 +1128,8 @@ function renderRecommendedFullList() {
   }
   // 全商品一覧（カテゴリ別）
   catOrderArr.forEach(cat => {
-    const items = allMenuItems
-      .filter(m => m.cat === cat && !m._hidden)
+    const catItems = items
+      .filter(m => m && m.cat === cat && !m._hidden)
       .slice()
       .sort((a, b) => {
         const pa = (a._itemOrderPos !== undefined) ? a._itemOrderPos : Number.MAX_SAFE_INTEGER;
@@ -1121,18 +1137,20 @@ function renderRecommendedFullList() {
         if (pa !== pb) return pa - pb;
         return (a._sortOrder || 0) - (b._sortOrder || 0);
       });
-    if (!items.length) return;
+    if (!catItems.length) return;
     html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;padding:14px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">${cat}</div>`;
-    items.forEach(item => {
+    catItems.forEach(item => {
       const isRec = ids.includes(item.id);
       const disabled = !isRec && ids.length >= 3;
+      const safeName = String(item.name || '');
       html += `<div ${disabled?'':`onclick="quickToggleRecommended(${item.id})"`} style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${isRec?'rgba(34,197,94,0.12)':'var(--surface)'};border-radius:12px;margin-bottom:6px;border:1px solid ${isRec?'#22c55e':'var(--border)'};${disabled?'opacity:0.45;cursor:not-allowed':'cursor:pointer'}">
-        <div style="font-size:14px;font-weight:700;color:${isRec?'#22c55e':'var(--text)'}">${isRec?'⭐ ':''}${item.name}</div>
+        <div style="font-size:14px;font-weight:700;color:${isRec?'#22c55e':'var(--text)'}">${isRec?'⭐ ':''}${safeName}</div>
         <button ${disabled?'disabled':''} onclick="event.stopPropagation();quickToggleRecommended(${item.id})" style="padding:8px 16px;border-radius:10px;border:none;background:${isRec?'var(--accent2)':'#22c55e'};color:#fff;font-size:12px;font-weight:700;cursor:${disabled?'not-allowed':'pointer'};font-family:'Noto Sans JP',sans-serif;${disabled?'opacity:0.4':''}">${isRec?'解除':'おすすめ'}</button>
       </div>`;
     });
   });
-  document.getElementById('recommendedFullList').innerHTML = html;
+  if (!html) html = `<div style="color:#888;padding:24px;text-align:center;font-size:13px">商品データを読み込み中...</div>`;
+  listEl.innerHTML = html;
 }
 async function quickToggleRecommended(itemId) {
   const ids = getRecommendedIds();
@@ -1196,6 +1214,7 @@ if (sub) sub.textContent = count > 0 ? `売り切れ管理（${count}品）` : '
 
 function startMode(mode) {
 if (mode === 'soldout') { openSoldoutFullPage(); return; }
+if (mode === 'recommended') { openRecommendedFullPage(); return; }
 currentMode = mode;
 document.getElementById('modeScreen').style.display = 'none';
 document.getElementById('staffApp').style.display = 'block';
