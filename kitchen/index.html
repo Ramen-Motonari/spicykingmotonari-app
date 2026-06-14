@@ -2429,10 +2429,14 @@ function renderRamenGroupCard(orderId, grp) {
   }
 
   // 辛さデフォルト：SK系・カレー系で辛さ指定なしなら 0辛 を補完
+  //   ただし「つけ麺」は辛さ概念がないので対象外
   let opts = Array.isArray(main.opts) ? main.opts.slice() : [];
-  const hasSpicyMenu = mainNameJa.includes('SK') || mainNameJa.includes('カレー');
+  const isTsukemen = mainNameJa.includes('つけ麺');
+  const hasSpicyMenu = !isTsukemen && (mainNameJa.includes('SK') || mainNameJa.includes('カレー'));
   const hasSpicyOpt = opts.some(o => /(\d+)\s*(辛|Spicy|辣|매움)/i.test(String(o)));
   if (hasSpicyMenu && !hasSpicyOpt) opts = ['0辛', ...opts];
+  // つけ麺で誤って「0辛」オプションが付いている場合は除去
+  if (isTsukemen) opts = opts.filter(o => !/^0\s*(辛|Spicy|辣|매움)/i.test(String(o)) && !/^Mild\s*\(?0\)?$/i.test(String(o)));
 
   const p = parseRamenOpts(opts, main);
 
