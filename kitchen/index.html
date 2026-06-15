@@ -1533,7 +1533,7 @@ allNotPaid.forEach(o => {
 // ※ isPendingKaedamaPaid / _doneByEdit のアイテムは厨房作業対象外なので未提供判定から除外
 // ※ 全提供完了から COMPLETION_LINGER_MS 秒間は伝票を「完了状態（グレーアウト）」のまま表示維持
 //   → スタッフが「いきなり消えた」と感じないよう、視覚的なフィードバック猶予を確保
-const COMPLETION_LINGER_MS = 3500; // 全提供完了後にグレー表示を維持する時間（ミリ秒）
+const COMPLETION_LINGER_MS = 1200; // 全提供完了後にグレー表示を維持する時間（ミリ秒）
 const isKitchenActiveItem = (i) => i && !i.served && !i.isPendingKaedamaPaid && !i._doneByEdit;
 const nowMs = Date.now();
 const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
