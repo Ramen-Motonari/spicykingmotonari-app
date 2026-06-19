@@ -1969,7 +1969,22 @@ function setDetailLang(lang) {
   refreshDetailModal();
 }
 
+// 冷やし！SKつけ麺（id:10012）で「スパイシーつけ麺に変更」が選択された注文 = 独立商品「スパイシーつけ麺」として扱う
+//   ・伝票/会計/履歴の商品名は「スパイシーつけ麺」と表示
+//   ・「スパイシーつけ麺に変更」マーカーはオプションとして表示しない
+//   ※ item.opts 内のマーカー文字列自体は保存データとして維持（管理APPの集計が参照するため）
+const SPICY_TSUKEMEN_RE = /スパイシーつけ麺に変更/;
+function isSpicyTsukemenSelected(item) {
+  return !!(item && item.itemId === 10012 && Array.isArray(item.opts)
+    && item.opts.some(o => SPICY_TSUKEMEN_RE.test(String(o))));
+}
+function stripSpicyMarkerOpts(opts) {
+  return (Array.isArray(opts) ? opts : []).filter(o => !SPICY_TSUKEMEN_RE.test(String(o)));
+}
+
 function getDetailItemName(item) {
+  // スパイシーつけ麺は独立商品として商品名を表示
+  if (isSpicyTsukemenSelected(item)) return 'スパイシーつけ麺';
   // item.itemId からオーバーライド適用済みの lang ごとの name を返す
   // 取れない場合は元の item.name をそのまま使う
   if (item && item.itemId !== undefined) {
@@ -2384,6 +2399,7 @@ function ticketNoodleOpt(opt, mainItem) {
 function transformOptForTicket(opt, mainItem) {
   if (!opt) return '';
   let s = String(opt).trim();
+  if (SPICY_TSUKEMEN_RE.test(s)) return '';
   s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉)\s*/g, '').trim();
   // 単独の「並」（デフォルト量）は伝票非表示
   if (/^(並|Regular)$/i.test(s)) return '';
@@ -3268,7 +3284,7 @@ const unitPrice = getItemUnitPrice(item);
 const lineTotal = item.qty * unitPrice;
 return `<div class="order-line">
 <div class="order-line-name">${displayName} × ${item.qty}
-${(Array.isArray(item.opts)&&item.opts.length)?`<div class="order-line-sub">${item.opts.map(o=>translateOptToLang(o)).join(' / ')}</div>`:''}
+${(()=>{const dopts=stripSpicyMarkerOpts(item.opts);return dopts.length?`<div class="order-line-sub">${dopts.map(o=>translateOptToLang(o)).join(' / ')}</div>`:'';})()}
 </div>
 <div class="order-line-price" style="display:flex;align-items:center;gap:6px">
 <span>¥${lineTotal.toLocaleString()}</span>
@@ -3719,7 +3735,7 @@ ${actionBtns}
 </div>
 <div style="display:flex;flex-direction:column;gap:3px">
 ${mergedItems.map(item => `<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;padding:3px 0;border-bottom:1px solid var(--border)">
-<span>${item.name} × ${item.qty}</span>
+<span>${isSpicyTsukemenSelected(item) ? 'スパイシーつけ麺' : item.name} × ${item.qty}</span>
 <span style="color:var(--muted)">¥${(getItemUnitPrice(item) * item.qty).toLocaleString()}</span>
 </div>`).join('')}
 </div>
@@ -4432,15 +4448,16 @@ const isRamenEntry = (it) => {
 };
 el.innerHTML = items.map(item => {
   const ramen = isRamenEntry(item);
+  const dispName = isSpicyTsukemenSelected(item) ? 'スパイシーつけ麺' : item.name;
   if (ramen) {
     // ラーメン：qty 固定表示・+/- は非表示・削除のみ
     return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
-      <span style="font-size:14px;color:#fff;font-weight:700">🍜 ${item.name}</span>
+      <span style="font-size:14px;color:#fff;font-weight:700">🍜 ${dispName}</span>
       <button onclick="removeEditItem(${item._eid})" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
     </div>`;
   }
   return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
-    <span style="font-size:14px;color:#fff;font-weight:700">${item.name}</span>
+    <span style="font-size:14px;color:#fff;font-weight:700">${dispName}</span>
     <div style="display:flex;align-items:center;gap:4px">
       <button onclick="changeEditQty(${item._eid},-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
       <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);min-width:16px;text-align:center">${item.qty}</span>
@@ -4512,13 +4529,25 @@ const items = allMenuItems
   });
 el.innerHTML = items.map(item => {
 const price = getKitchenItemPrice(item.id);
-return `<div onclick="addEditItem(${item.id})" style="display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+let row = `<div onclick="addEditItem(${item.id})" style="display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid var(--border);cursor:pointer">
 <span style="font-size:14px;color:var(--text)">${item.name}</span>
 <div style="display:flex;align-items:center;gap:10px">
 <span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent)">¥${price.toLocaleString()}</span>
 <span style="font-size:20px;color:var(--accent);font-weight:900">＋</span>
 </div>
 </div>`;
+// SKつけ麺（#10012）の直後にスパイシーつけ麺（独立商品・+¥100）を追加導線として表示
+if (item.id === 10012) {
+  const spicyPrice = price + 100;
+  row += `<div onclick="addSpicyTsukemenEditItem()" style="display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+<span style="font-size:14px;color:#e74c3c;font-weight:700">🌶 スパイシーつけ麺</span>
+<div style="display:flex;align-items:center;gap:10px">
+<span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent)">¥${spicyPrice.toLocaleString()}</span>
+<span style="font-size:20px;color:var(--accent);font-weight:900">＋</span>
+</div>
+</div>`;
+}
+return row;
 }).join('');
 }
 
@@ -4569,6 +4598,27 @@ updateOtherPreview();
 renderEditCurrentList();
 showToast(`${name} ¥${(price*qty).toLocaleString()} を追加しました`);
 }
+// スパイシーつけ麺（#10012 + マーカー）を独立商品として追加。SKつけ麺とは別エントリで集約
+function addSpicyTsukemenEditItem() {
+  if (!window._editItems) window._editItems = [];
+  const base = allMenuItems.find(x => x.id === 10012);
+  const baseName = base ? base.name : '【夏限定】冷やし！SKつけ麺';
+  const price = getKitchenItemPrice(10012) + 100;
+  const existing = window._editItems.find(i =>
+    i.itemId === 10012 && !i._isExisting && isSpicyTsukemenSelected(i));
+  if (existing) {
+    existing.qty++;
+  } else {
+    const eid = window._editItems.length > 0 ? Math.max(...window._editItems.map(i=>i._eid))+1 : 0;
+    window._editItems.push({
+      name: baseName, price, qty:1, opts:['スパイシーつけ麺に変更'],
+      cat: base ? base.cat : '定食', _origCat: base ? (base._origCat || base.cat) : 'teishoku',
+      itemId: 10012, _eid: eid
+    });
+  }
+  renderEditCurrentList();
+  showToast(`スパイシーつけ麺 +¥${price.toLocaleString()} を追加`);
+}
 function addEditItem(menuId) {
 const m = allMenuItems.find(x => x.id === menuId);
 if (!m) return;
@@ -4578,8 +4628,8 @@ const price = getKitchenItemPrice(menuId);
 const origCat = m._origCat || m.cat;
 const isRamen = (origCat === 'tonkotsu' || origCat === 'shouyu');
 if (!isRamen) {
-  // ラーメン以外は同じ商品なら数量+1で集約
-  const existing = window._editItems.find(i => i.name === m.name && !i._isExisting);
+  // ラーメン以外は同じ商品なら数量+1で集約（スパイシーつけ麺は別商品なので除外）
+  const existing = window._editItems.find(i => i.name === m.name && !i._isExisting && !isSpicyTsukemenSelected(i));
   if (existing) {
     existing.qty++;
     renderEditCurrentList();
