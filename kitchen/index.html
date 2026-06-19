@@ -62,7 +62,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 #kitchenCountBar .kcb-group{display:flex;align-items:center;gap:6px}
 #kitchenCountBar #kitchenCountNum{font-size:28px;color:#fff;margin:0 4px;font-weight:900;line-height:1}
 #kitchenCountBar .kcb-icon{font-size:20px;margin-right:2px}
-#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 16px;margin:0;position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px - 26px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
+/* 伝票の前後位置インジケーター（横長の細い棒） */
+#kitchenNavBar{position:absolute;top:46px;left:0;right:0;height:8px;z-index:16;display:flex;gap:3px;padding:2px 8px;background:#1a1008;border-bottom:1px solid #3a2810;align-items:center}
+#kitchenNavBar .knb-seg{flex:1 1 0;min-width:6px;height:4px;border-radius:2px;background:#4a3418;transition:background 0.25s ease}
+#kitchenNavBar .knb-seg.knb-visible{background:var(--accent);box-shadow:0 0 4px rgba(200,134,10,0.6)}
+/* 伝票内アイテムの縦スクロール位置インジケーター（画面左の青い縦棒）。位置・高さはJSで対象コンテナに合わせる */
+#kitchenVNavBar{position:absolute;left:0;width:9px;z-index:17;display:none;flex-direction:column;gap:3px;padding:4px 2px;background:rgba(13,30,58,0.55);border-right:1px solid #1d3a5f;align-items:stretch;pointer-events:none}
+#kitchenVNavBar .kvnb-seg{flex:1 1 0;min-height:3px;width:4px;margin:0 auto;border-radius:2px;background:#1d3a5f;transition:background 0.2s ease}
+#kitchenVNavBar .kvnb-seg.kvnb-visible{background:var(--blue);box-shadow:0 0 4px rgba(59,130,246,0.75)}
+#kitchenContent{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:0 0 16px;margin:0;position:absolute;left:0;top:54px;height:calc(100vh - 53px - 54px - 26px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;width:100vw;box-sizing:border-box;scroll-snap-type:x mandatory}
 #kitchenStatsBar{position:absolute;bottom:0;left:0;right:0;height:26px;background:linear-gradient(180deg,#1a1008 0%,#231708 100%);border-top:1px solid #3a2810;display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:0 14px;z-index:14;font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:0.5px}
 #kitchenStatsBar .ksb-item{display:flex;align-items:center;gap:4px;color:#9a8366}
 #kitchenStatsBar .ksb-label{font-size:9px;color:#7a6850;letter-spacing:0.5px}
@@ -220,6 +228,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-spice.zero{color:#666}
 .rg-sec-noodle{font-size:20px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-sec-rice{font-size:18px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
+.rg-rice-change{color:#e74c3c;font-weight:900;font-size:20px}
 .rg-noodle-change{color:#e74c3c;font-weight:900}
 .rg-qty{font-weight:900;color:#111}
 .rg-firm{font-weight:700;color:#222}
@@ -275,7 +284,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .rg-main-name{font-size:20px;letter-spacing:0.5px}
   .rg-main-qty{font-size:18px}
   .rg-spice{font-size:18px}
-  .rg-sec-noodle,.rg-sec-chashu{font-size:14px}
+  .rg-sec-noodle,.rg-sec-chashu,.rg-rice-change{font-size:14px}
   .rg-chashu-cnt{font-size:13px}
   .rg-sec-other{font-size:13px}
   .rg-attached-item{font-size:14px;line-height:1.35}
@@ -307,7 +316,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   #kitchenCountBar{height:32px;font-size:12px;gap:10px;letter-spacing:1px}
   #kitchenCountBar #kitchenCountNum{font-size:20px}
   #kitchenCountBar .kcb-icon{font-size:16px}
-  #kitchenContent{top:32px;height:calc(100vh - 47px - 32px)}
+  #kitchenNavBar{top:32px;height:7px}
+  #kitchenContent{top:39px;height:calc(100vh - 47px - 39px)}
   /* スマホ用：レジタブも縮小 */
   .reg-tab{padding:5px 10px;font-size:11px}
   /* スマホ用：伝票内の余白を最適化 */
@@ -328,6 +338,32 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .tc-opts{font-size:11px}
   .tc-qty{font-size:16px}
   .tc-check{width:24px;height:24px}
+}
+/* === スマホ表示の文字サイズを1.2倍に拡大（上の640px定義を後勝ちで上書き）。最大表示件数は1件程度減ってOK === */
+@media (max-width: 640px){
+  /* 伝票（ラーメングループカード・ミニカード等） */
+  .item-name-k{font-size:24px}
+  .item-detail{font-size:19px}
+  .item-qty-k{font-size:26px}
+  .rg-main-name{font-size:20px}
+  .rg-main-qty{font-size:18px}
+  .rg-spice{font-size:22px}
+  .rg-opts{font-size:16px}
+  .rg-sec-noodle,.rg-sec-chashu,.rg-rice-change{font-size:17px}
+  .rg-chashu-cnt{font-size:16px}
+  .rg-sec-other{font-size:16px}
+  .rg-attached-item{font-size:13px}
+  .ra-bullet{font-size:17px}
+  .ra-qty{font-size:14px}
+  .tc-name{font-size:17px}
+  .tc-opts{font-size:13px}
+  .tc-qty{font-size:19px}
+  /* ラーメン一覧モードのカード */
+  .rlist-table{font-size:26px}
+  .rlist-name{font-size:24px}
+  .rlist-spice{font-size:24px}
+  .rlist-info{font-size:17px}
+  .rlist-line2{font-size:16px}
 }
 .lang-btn{padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.15s;flex-shrink:0}
 .lang-btn:active{transform:scale(0.94)}
@@ -458,6 +494,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   <span class="kcb-group" id="kaedamaWaitingGroup" style="margin-left:16px;display:none"><span class="kcb-icon">🍝</span>替え玉待機 <span id="kaedamaWaitingNum">0</span> 件<span id="kaedamaAlertBadge" style="display:none;margin-left:8px;background:#e74c3c;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:900;letter-spacing:0.5px;animation:flashRed 1.4s ease infinite">注文あり</span></span>
   <button id="pastTicketBtn" onclick="openPastTicketPanel()" style="margin-left:auto;background:rgba(200,134,10,0.18);border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.5px">📜 過去の伝票</button>
 </div>
+<div id="kitchenNavBar"></div>
+<div id="kitchenVNavBar"></div>
 <div id="kitchenContent"></div>
 <!-- ラーメン一覧表示（縦スクロール・グリッドレイアウト） -->
 <div id="ramenListContent" style="display:none"></div>
@@ -778,12 +816,15 @@ window.toggleRamenListView = function() {
     if (contentEl) contentEl.style.display = 'none';
     if (listEl) listEl.style.display = 'block';
     if (btnLbl) btnLbl.textContent = ' 全体表示';
+    if (typeof updateKitchenNavBar === 'function') updateKitchenNavBar();
     renderRamenList();
+    if (typeof updateKitchenVNavBar === 'function') updateKitchenVNavBar();
   } else {
     if (contentEl) contentEl.style.display = '';
     if (listEl) listEl.style.display = 'none';
     if (btnLbl) btnLbl.textContent = ' ラーメン一覧';
     if (typeof renderKitchen === 'function') renderKitchen();
+    if (typeof updateKitchenVNavBar === 'function') updateKitchenVNavBar();
   }
 };
 window.toggleExpandTicket = function(tableLabel) {
@@ -1641,6 +1682,7 @@ empty.style.transition = 'opacity 0.3s ease 0.2s';
 content.appendChild(empty);
 requestAnimationFrame(() => { empty.style.opacity = '1'; });
 }
+updateKitchenNavBar();
 return;
 }
 
@@ -1753,12 +1795,162 @@ const restoreScroll = () => {
 restoreScroll();
 requestAnimationFrame(restoreScroll);
 setTimeout(restoreScroll, 60);
+
+// 前後位置インジケーター更新（レイアウト確定後に複数回）
+updateKitchenNavBar();
+requestAnimationFrame(updateKitchenNavBar);
+setTimeout(updateKitchenNavBar, 60);
+updateKitchenVNavBar();
+requestAnimationFrame(updateKitchenVNavBar);
+setTimeout(updateKitchenVNavBar, 60);
 }
 
 // DOM ID 用に tableLabel を安全な文字列に変換
 function tableIdSafe(tl) {
   return String(tl || '').replace(/[^A-Za-z0-9_-]/g, '_');
 }
+
+// 伝票の前後位置インジケーター更新
+//   伝票1件 = セグメント1つ。現在画面に映っている伝票を明色、それ以外を暗色で表示し、
+//   前後にまだ伝票があるか／現在表示中の伝票がどの位置かを一目で分かるようにする。
+function updateKitchenNavBar() {
+  const content = document.getElementById('kitchenContent');
+  const bar = document.getElementById('kitchenNavBar');
+  if (!content || !bar) return;
+  const tickets = Array.from(content.querySelectorAll('.ticket:not([data-removing])'));
+  const n = tickets.length;
+  // 伝票0件 or ラーメン一覧モードでは非表示
+  if (n === 0 || document.body.classList.contains('ramen-list-mode')) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    bar._segCount = 0;
+    return;
+  }
+  bar.style.display = 'flex';
+  // セグメント数（=伝票数）が変わったら作り直す
+  if (bar._segCount !== n) {
+    bar.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'knb-seg';
+      bar.appendChild(seg);
+    }
+    bar._segCount = n;
+  }
+  // 現在の可視範囲を算出（横スクロール位置とビュー幅から）
+  const viewLeft = content.scrollLeft;
+  const viewRight = viewLeft + content.clientWidth;
+  for (let i = 0; i < n; i++) {
+    const t = tickets[i];
+    const center = t.offsetLeft + t.offsetWidth / 2;
+    const visible = center >= viewLeft && center <= viewRight;
+    bar.children[i].classList.toggle('knb-visible', visible);
+  }
+}
+// 横スクロールに追従して位置インジケーターを更新
+(function() {
+  const content = document.getElementById('kitchenContent');
+  if (content && !content._navBarBound) {
+    content._navBarBound = true;
+    content.addEventListener('scroll', () => {
+      if (content._navRaf) return;
+      content._navRaf = requestAnimationFrame(() => {
+        content._navRaf = null;
+        updateKitchenNavBar();
+      });
+    }, { passive: true });
+    window.addEventListener('resize', updateKitchenNavBar);
+  }
+})();
+
+// 伝票内アイテムの縦スクロール位置インジケーター（画面左の青い縦棒）。
+//   通常モード：画面に映っている伝票の .ticket-body のうち、内容がはみ出している（スクロール可能な）
+//     ものを対象に、最も上に隠れている割合〜最も下に隠れている割合を集約して表示する。
+//     これにより「画面が伝票の一番上を映しているのか、下にスクロールして上に商品が隠れているのか」が分かる。
+//   ラーメン一覧モード：#ramenListContent 自体の縦スクロール位置を表示する。
+//   はみ出し（隠れている商品）が無い場合は棒を非表示にする。
+function updateKitchenVNavBar() {
+  const bar = document.getElementById('kitchenVNavBar');
+  if (!bar) return;
+  const N = 24; // セグメント数（縦解像度）
+  const isRamenList = document.body.classList.contains('ramen-list-mode');
+  let anchorEl = null, topFrac = 0, botFrac = 1, hasOverflow = false;
+
+  if (isRamenList) {
+    const rl = document.getElementById('ramenListContent');
+    if (rl && rl.scrollHeight > rl.clientHeight + 2) {
+      anchorEl = rl;
+      topFrac = rl.scrollTop / rl.scrollHeight;
+      botFrac = (rl.scrollTop + rl.clientHeight) / rl.scrollHeight;
+      hasOverflow = true;
+    }
+  } else {
+    const content = document.getElementById('kitchenContent');
+    if (content) {
+      anchorEl = content;
+      const tickets = Array.from(content.querySelectorAll('.ticket:not([data-removing])'));
+      const viewLeft = content.scrollLeft;
+      const viewRight = viewLeft + content.clientWidth;
+      let minTop = 1, maxBot = 0;
+      tickets.forEach(t => {
+        const center = t.offsetLeft + t.offsetWidth / 2;
+        if (center < viewLeft || center > viewRight) return; // 画面外の伝票は無視
+        const body = t.querySelector('.ticket-body');
+        if (!body || body.scrollHeight <= body.clientHeight + 2) return; // はみ出し無し
+        hasOverflow = true;
+        const tf = body.scrollTop / body.scrollHeight;
+        const bf = (body.scrollTop + body.clientHeight) / body.scrollHeight;
+        if (tf < minTop) minTop = tf;
+        if (bf > maxBot) maxBot = bf;
+      });
+      if (hasOverflow) { topFrac = minTop; botFrac = maxBot; }
+    }
+  }
+
+  if (!hasOverflow || !anchorEl) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    bar._segCount = 0;
+    return;
+  }
+  // 対象コンテナの縦位置・高さに棒を合わせる
+  bar.style.display = 'flex';
+  bar.style.top = anchorEl.offsetTop + 'px';
+  bar.style.height = anchorEl.clientHeight + 'px';
+  if (bar._segCount !== N) {
+    bar.innerHTML = '';
+    for (let i = 0; i < N; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'kvnb-seg';
+      bar.appendChild(seg);
+    }
+    bar._segCount = N;
+  }
+  for (let i = 0; i < N; i++) {
+    const segTop = i / N, segBot = (i + 1) / N;
+    const visible = segBot > topFrac && segTop < botFrac; // 表示範囲と重なるセグメントを明色に
+    bar.children[i].classList.toggle('kvnb-visible', visible);
+  }
+}
+// 縦スクロール（伝票内・ラーメン一覧）に追従して縦位置インジケーターを更新
+(function() {
+  const schedule = (host) => {
+    if (host._vnavRaf) return;
+    host._vnavRaf = requestAnimationFrame(() => { host._vnavRaf = null; updateKitchenVNavBar(); });
+  };
+  const content = document.getElementById('kitchenContent');
+  if (content && !content._vnavBound) {
+    content._vnavBound = true;
+    // capture:true で内側の .ticket-body のスクロールも拾う。横スクロールでも対象伝票が変わるため更新。
+    content.addEventListener('scroll', () => schedule(content), { passive: true, capture: true });
+  }
+  const rl = document.getElementById('ramenListContent');
+  if (rl && !rl._vnavBound) {
+    rl._vnavBound = true;
+    rl.addEventListener('scroll', () => schedule(rl), { passive: true });
+  }
+  window.addEventListener('resize', updateKitchenVNavBar);
+})();
 
 function formatOrderTime(o) {
 if (o.createdAt && o.createdAt.toDate) return o.createdAt.toDate().toTimeString().slice(0,5);
@@ -2247,6 +2439,10 @@ function getAbbrevJa(item) {
     if (item.lunchFree === true) return '無料替え玉';
     if (item.isKaedama && (item.price === 0 || item.total === 0)) return '無料替え玉';
   }
+  // 冷やし！SKつけ麺（id:10012）でスパイシー変更が選択された場合は伝票名を「スパイシーつけ麺」に
+  if (id === 10012 && Array.isArray(item.opts) && item.opts.some(o => /スパイシーつけ麺に変更/.test(String(o)))) {
+    return 'スパイシーつけ麺';
+  }
   // チャーシュー3枚（id:62）は opts の 豚/鶏 を読み取り表示
   if (id === 62 && Array.isArray(item.opts)) {
     for (const opt of item.opts) {
@@ -2308,6 +2504,7 @@ function parseRamenOpts(opts, mainItem) {
     noodleChanged: false,// デフォルトから変更されたか
     qty: '',             // '大盛り' / '無料大盛り' / '少'  ← 麺の量
     rice: '',            // '並' / '大盛り' / '無料大盛り'    ← ライスの量（定食用）
+    riceChange: '',      // 'チャーエッグ丼変更'              ← ライスをミニチャーシューエッグ丼に変更
     firmness: '',        // 'カタ' / 'フツウ' / 'やわ'
     chashu: '',          // 'ブタ' / 'トリ'
     curryTopping: '',    // 'とんかつ' / 'チキンカツ'
@@ -2331,6 +2528,8 @@ function parseRamenOpts(opts, mainItem) {
          .replace(/[（(][\s]*[）)]/g, '')
          .trim();
     if (!s) return;
+    // 「スパイシーつけ麺に変更」マーカーは伝票名（getAbbrevJa）で処理済み → オプションとしては非表示
+    if (/スパイシーつけ麺に変更/.test(s)) return;
     // 並は表示しない（デフォルト量）— 旧データ単体「並」もスキップ
     //   ただし「ライス並」「Rice Regular」のような複合語は次のブロックで拾う
     if (/^(並|Regular)$/i.test(s)) {
@@ -2347,6 +2546,11 @@ function parseRamenOpts(opts, mainItem) {
       return;
     }
 
+    // ライスを「ミニチャーシューエッグ丼」に変更（餃子定食）— 赤文字で強調表示
+    if (/(エッグ丼|チャーシューエッグ|Egg Bowl|鸡蛋盖饭|에그\s*동)/i.test(s)) {
+      result.riceChange = 'チャーエッグ丼変更';
+      return;
+    }
     // ライスのオプション（餃子定食など）— 麺と区別するため最優先で検出
     //   新ラベル: 「ライス並」「ライス大盛り」「Rice Regular」「Rice Large」「米饭...」「라이스...」
     const isRice = /(ライス|Rice|米饭|라이스)/i.test(s);
@@ -2550,9 +2754,11 @@ function renderRamenGroupCard(orderId, grp) {
   // ━━━ Section 2b: ライスの量（定食類のみ・別行で表示） ━━━
   //   餃子定食の「麺大盛り + ライス大盛り」のように、麺とライスの両方を大盛りに
   //   できるケースを区別しやすくするため、ライスは別の行で表示する。
-  const riceHtml = p.rice
-    ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty">ライス${p.rice}</span></div>`
-    : '';
+  const riceHtml = p.riceChange
+    ? `<div class="rg-sec rg-sec-rice"><span class="rg-rice-change">${p.riceChange}</span></div>`
+    : p.rice
+      ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty">ライス${p.rice}</span></div>`
+      : '';
 
   // ━━━ Section 2c: SKつけ麺の麺の量（独立行で大きく表示） ━━━
   //   「小 140g」「並 180g」「大 240g」を分かりやすく
@@ -2562,16 +2768,21 @@ function renderRamenGroupCard(orderId, grp) {
 
   // ━━━ Section 3: チャーシュー / カレートッピング ━━━
   const chashuParts = [];
-  if (p.chashu) {
+  if (p.curryTopping) {
+    // カレー：トッピング（とんかつ/チキンカツ）→ その横にチャーシュー（ブタ/トリ ２枚）
+    if (p.curryTopping === 'とんかつ') {
+      chashuParts.push(`<span class="rg-curry">とんかつ（一枚）</span>`);
+    } else if (p.curryTopping === 'チキンカツ') {
+      chashuParts.push(`<span class="rg-curry">チキンカツ（２枚）</span>`);
+    } else {
+      chashuParts.push(`<span class="rg-curry">${p.curryTopping}</span>`);
+    }
+    if (p.chashu) {
+      chashuParts.push(`<span class="rg-chashu">${p.chashu}（２枚）</span>`);
+    }
+  } else if (p.chashu) {
     const cnt = getChashuCount(main);
     chashuParts.push(`<span class="rg-chashu">${p.chashu}<span class="rg-chashu-cnt">${cnt}枚</span></span>`);
-  }
-  if (p.curryTopping === 'とんかつ') {
-    chashuParts.push(`<span class="rg-curry">とんかつ（一枚）</span>`);
-  } else if (p.curryTopping === 'チキンカツ') {
-    chashuParts.push(`<span class="rg-curry">チキンカツ（２枚）</span>`);
-  } else if (p.curryTopping) {
-    chashuParts.push(`<span class="rg-curry">${p.curryTopping}</span>`);
   }
   const chashuHtml = chashuParts.length
     ? `<div class="rg-sec rg-sec-chashu">${chashuParts.join('<span class="rg-sep">、</span>')}</div>`
@@ -2684,6 +2895,7 @@ function renderRamenList() {
   });
   if (allRamen.length === 0) {
     el.innerHTML = `<div class="rlist-empty"><div class="rlist-empty-icon">🍜</div><div class="rlist-empty-text">現在ラーメンの注文はありません</div></div>`;
+    if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
     return;
   }
   // 各ラーメンをカードに展開（qty>1 ならその数だけ複製して別エントリ）
@@ -2695,6 +2907,7 @@ function renderRamenList() {
     }
   });
   el.innerHTML = `<div class="rlist-grid">${cards.join('')}</div>`;
+  if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
 }
 
 function renderRamenListCard(order, main, addons, unitIdx) {
@@ -2724,18 +2937,21 @@ function renderRamenListCard(order, main, addons, unitIdx) {
     blockB.push(`<span>${qtyLabel}</span>`);
   }
   if (p.firmness) blockB.push(`<span>${p.firmness}</span>`);
-  // ライス量（定食用）
-  if (p.rice) blockB.push(`<span>ライス${p.rice}</span>`);
+  // ライス量（定食用）／ミニチャーシューエッグ丼変更（赤文字）
+  if (p.riceChange) blockB.push(`<span class="rg-rice-change">${p.riceChange}</span>`);
+  else if (p.rice) blockB.push(`<span>ライス${p.rice}</span>`);
   // SKつけ麺の麺の量
   if (p.tsukemenSize) blockB.push(`<span>${p.tsukemenSize}</span>`);
   const blockC = [];
-  if (p.chashu) {
+  if (p.curryTopping) {
+    if (p.curryTopping === 'とんかつ') blockC.push(`<span>とんかつ（一枚）</span>`);
+    else if (p.curryTopping === 'チキンカツ') blockC.push(`<span>チキンカツ（２枚）</span>`);
+    else blockC.push(`<span>${p.curryTopping}</span>`);
+    if (p.chashu) blockC.push(`<span>${p.chashu}（２枚）</span>`);
+  } else if (p.chashu) {
     const cnt = (typeof getChashuCount === 'function') ? getChashuCount(main) : 1;
     blockC.push(`<span>${p.chashu} ${cnt}枚</span>`);
   }
-  if (p.curryTopping === 'とんかつ') blockC.push(`<span>とんかつ（一枚）</span>`);
-  else if (p.curryTopping === 'チキンカツ') blockC.push(`<span>チキンカツ（２枚）</span>`);
-  else if (p.curryTopping) blockC.push(`<span>${p.curryTopping}</span>`);
   p.other.forEach(o => blockC.push(`<span>${o}</span>`));
   // 1行目 HTML
   const infoBlocks = [];
@@ -3348,6 +3564,66 @@ function mergeItems(items) {
   return Array.from(map.values());
 }
 
+// 履歴グループ（お会計単位）の客数を算出
+//   override（customerCountOverride）があれば優先、なければ ラーメン+定食 杯数
+function historyGroupCustomerCount(g) {
+  let auto = 0, override = null;
+  (g.orders || []).forEach(o => {
+    if (typeof o.customerCountOverride === 'number') override = o.customerCountOverride;
+    (o.items || []).forEach(item => {
+      const logical = getItemLogicalCat(item);
+      if (logical === 'ramen' || logical === 'teishoku') auto += (item.qty || 0);
+    });
+  });
+  return { auto, override, display: (override !== null ? override : auto) };
+}
+
+// 履歴（会計済み）の客数を手動変更。お会計グループ内の全 order に同じ override を保存
+async function editHistoryCustomerCount(orderIdsCsv, label) {
+  const ids = String(orderIdsCsv || '').split(',').filter(x => x);
+  if (!ids.length) return;
+  const groupOrders = ids
+    .map(id => paidOrders.find(o => o.id === id) || orders.find(o => o.id === id))
+    .filter(Boolean);
+  if (!groupOrders.length) { showToast('注文が見つかりません', true); return; }
+  let auto = 0, override = null;
+  groupOrders.forEach(o => {
+    if (typeof o.customerCountOverride === 'number') override = o.customerCountOverride;
+    (o.items || []).forEach(item => {
+      const logical = getItemLogicalCat(item);
+      if (logical === 'ramen' || logical === 'teishoku') auto += (item.qty || 0);
+    });
+  });
+  const currentVal = (override !== null) ? override : auto;
+  const msg = `${label} の客数を入力してください\n\nラーメン+定食 杯数: ${auto}名\n現在の客数: ${currentVal}名\n\n空欄にすると自動計算（ラーメン+定食杯数）に戻ります`;
+  const input = prompt(msg, String(currentVal));
+  if (input === null) return; // キャンセル
+  const trimmed = String(input).trim();
+  try {
+    const { doc, updateDoc, deleteField } = window.fbApi;
+    if (trimmed === '') {
+      if (!confirm('客数の手動設定を解除して、ラーメン+定食杯数の自動計算に戻しますか？')) return;
+      await Promise.all(groupOrders.map(o => updateDoc(doc(window.fb.db, 'orders', o.id), {
+        customerCountOverride: (typeof deleteField === 'function') ? deleteField() : null
+      })));
+      groupOrders.forEach(o => { delete o.customerCountOverride; });
+      showToast(`✅ ${label} 客数を自動計算に戻しました`);
+    } else {
+      const n = parseInt(trimmed, 10);
+      if (isNaN(n) || n < 0) { showToast('0以上の整数を入力してください', true); return; }
+      await Promise.all(groupOrders.map(o => updateDoc(doc(window.fb.db, 'orders', o.id), {
+        customerCountOverride: n
+      })));
+      groupOrders.forEach(o => { o.customerCountOverride = n; });
+      showToast(`✅ ${label} 客数を ${n}名 に設定`);
+    }
+    if (document.getElementById('historyFullPage').style.display === 'block') renderHistoryList();
+  } catch (e) {
+    console.error('editHistoryCustomerCount:', e);
+    showToast('保存失敗: ' + (e.message || ''), true);
+  }
+}
+
 function renderHistoryList() {
 const list = document.getElementById('historyPageList');
 const totalEl = document.getElementById('historyTotalDisplay');
@@ -3421,6 +3697,10 @@ const deletedBadge = _showDeletedHistory ? '<span style="font-size:10px;font-wei
 const subBadge = g.orderIds.length > 1
   ? `<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(200,134,10,0.15);color:var(--accent);border:1px solid var(--accent)">${g.orderIds.length}件まとめ</span>`
   : '';
+// 客数バッジ（クリックで変更）。削除済みモードでは非表示
+const cc = historyGroupCustomerCount(g);
+const custBadge = _showDeletedHistory ? '' :
+  `<button onclick="editHistoryCustomerCount('${orderIdsCsv}','${(dispLabel||'').replace(/'/g,"\\'")}')" style="background:${cc.override!==null?'rgba(34,197,94,0.22)':'rgba(34,197,94,0.10)'};border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif" title="客数を変更">👥 ${cc.display}名${cc.override!==null?'（手動）':''} ✏️</button>`;
 return `<div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:8px;${cardBorder};position:relative">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0">
@@ -3429,6 +3709,7 @@ return `<div style="background:var(--surface2);border-radius:12px;padding:12px 1
 <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${methodColor[m]||'var(--green)'};color:${methodColor[m]||'var(--green)'}">${methodLabel[m]||'通常'}</span>
 ${pmHtml}
 ${subBadge}
+${custBadge}
 ${deletedBadge}
 </div>
 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -4757,6 +5038,7 @@ window.toggleShowDeleted = toggleShowDeleted;
 window.renderHistoryList = renderHistoryList; window.toggleServed = toggleServed;
 window.openTable = openTable; window.filterReg = filterReg;
 window.editCustomerCount = editCustomerCount;
+window.editHistoryCustomerCount = editHistoryCustomerCount;
 window.completePayment = completePayment; window.finalizePayment = finalizePayment;
 window.openSquareInputConfirm = openSquareInputConfirm;
 window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
