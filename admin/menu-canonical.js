@@ -65,7 +65,7 @@
   const CATEGORIES = {
     tonkotsu: { ja:'豚骨',       en:'Tonkotsu',  zh:'猪骨',     ko:'돈코츠',     icon:'🍜' },
     shouyu:   { ja:'醤油',       en:'Shouyu',    zh:'酱油',     ko:'쇼유',       icon:'🍜' },
-    teishoku: { ja:'定食',       en:'Set Meal',  zh:'套餐',     ko:'정식',       icon:'🥟' },
+    teishoku: { ja:'つけ麺・定食', en:'Set Meal',  zh:'套餐',     ko:'정식',       icon:'🥟' },
     topping:  { ja:'トッピング', en:'Toppings',  zh:'追加配料', ko:'토핑',       icon:'⭐' },
     side:     { ja:'サイド',     en:'Sides',     zh:'小菜',     ko:'사이드',     icon:'🥟' },
     drink:    { ja:'ドリンク',   en:'Drinks',    zh:'饮料',     ko:'음료',       icon:'🍺' },
@@ -106,7 +106,7 @@
      price:2000, spicy:true, night:false, ghost:true, custom:{chashu:1, noodleSize:1}},
     {id:16, cat:'tonkotsu', img:'🍛',
      name:{ja:'カレースペシャル', en:'Curry Special', zh:'咖喱特别版', ko:'카레 스페셜'},
-     price:1750, spicy:true, night:false, custom:{top:1, noodleSize:1, karasaAdd:1}},
+     price:1750, spicy:true, night:false, custom:{top:1, chashu:1, noodleSize:1, karasaAdd:1}},
     {id:5, cat:'tonkotsu', img:'🍛',
      name:{ja:'CC チーズカレー', en:'CC Cheese Curry', zh:'CC 奶酪咖喱', ko:'CC 치즈 카레'},
      price:1650, spicy:true, night:true, custom:{top:1, noodleSize:1, karasaAdd:1}},

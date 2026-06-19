@@ -722,7 +722,7 @@ window.adminLogout = adminLogout;
       <div id="negitama-count-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🥟 餃子定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="gyoza-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title">🥢 つけ麺・定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="gyoza-total" class="num">0</span><span class="unit">杯</span></span></div></div>
       <div id="gyoza-count-chart"></div>
     </div>
   </div>
@@ -2804,7 +2804,7 @@ function renderTodayRanking(todayOrders) {
   const counts = {};
   todayOrders.forEach(o => {
     (o.items||[]).forEach(item => {
-      const name = getCurrentItemName(item) || item.name || '?';
+      const name = isSpicyTsukemen(item) ? 'スパイシーつけ麺' : (getCurrentItemName(item) || item.name || '?');
       counts[name] = (counts[name] || 0) + (item.qty || 0);
     });
   });
@@ -2838,7 +2838,7 @@ function renderTodayRanking(todayOrders) {
 const LUNCH_SECTIONS = [
   { label: '🍜 ラーメン', ids: [1,2,3,99,16,5,4,12,6,7,8,9,10,11,13,14,15] },
   { label: '🥟 サイド・トッピング', ids: [40,43,44,45,46,47,48,49,62,63,89,65,29,24,25,26,27,28,66,67,64,22,21,20] },
-  { label: '🥢 定食', ids: [70] },
+  { label: '🥢 つけ麺・定食', ids: [70] },
   { label: '🍺 ドリンク', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
 ];
 // 夜営業報告の表示順序：
@@ -2847,7 +2847,7 @@ const DINNER_SECTIONS = [
   { label: '🍜 ラーメン - 豚骨', key: 'tonkotsu', ids: [1,2,3,12,99] },
   { label: '🍛 ラーメン - カレー', key: 'curry', ids: [16,5,4] },
   { label: '🍜 ラーメン - 醤油', key: 'shouyu', ids: [6,7,8,9,10,11,13,14,15] },
-  { label: '🥢 定食', key: 'teishoku', ids: [70] },
+  { label: '🥢 つけ麺・定食', key: 'teishoku', ids: [70] },
   { label: '🥄 追加トッピング', key: 'topping', ids: [40,43,44,45,46,47,48,49,62,63] },
   { label: '🥟 サイド', key: 'side', ids: [89,29,24,25,26,27,28,66,67,65,64,22,21,20,80,81,82,83,84,85,86,87,88] },
   { label: '🍺 ドリンク', key: 'drink', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
@@ -3027,6 +3027,11 @@ function calcVisitRate(orders) {
   return { first: first.size, repeat: repeat.size, total, rate };
 }
 
+// 冷やし！SKつけ麺（id:10012）で「スパイシーつけ麺に変更」が選択された注文かを判定
+function isSpicyTsukemen(item) {
+  return !!(item && item.itemId === 10012 && Array.isArray(item.opts)
+    && item.opts.some(o => /スパイシーつけ麺に変更/.test(String(o))));
+}
 function calcReportFor(session) {
   const today = todayKey();
   const orders = paidOrders.filter(o => {
@@ -3044,7 +3049,8 @@ function calcReportFor(session) {
   const counts = {};
   orders.forEach(o => {
     (o.items||[]).forEach(item => {
-      const id = item.itemId;
+      // スパイシーつけ麺は別商品として集計（疑似ID '10012s'）
+      const id = isSpicyTsukemen(item) ? '10012s' : item.itemId;
       counts[id] = (counts[id] || 0) + (item.qty || 0);
     });
   });
@@ -3104,8 +3110,13 @@ function renderMenuCountHTML(counts, sections) {
         if (shownIds.has(c.id)) return;
         const key = getDinnerSectionKey({ cat: c.cat, name: c.name });
         if (key === sec.key) {
-          items.push({ id: c.id, name: (c.name && c.name.ja) || '(無名)', count: counts[c.id] || 0, _sort: c.sortOrder || 9999, _isCustom: true });
+          const baseSort = c.sortOrder || 9999;
+          items.push({ id: c.id, name: (c.name && c.name.ja) || '(無名)', count: counts[c.id] || 0, _sort: baseSort, _isCustom: true });
           shownIds.add(c.id);
+          // 冷やし！SKつけ麺（id:10012）の直後にスパイシーつけ麺を別商品として表示
+          if (c.id === 10012) {
+            items.push({ id: '10012s', name: 'スパイシーつけ麺', count: counts['10012s'] || 0, _sort: baseSort + 0.5, _isCustom: true });
+          }
         }
       });
     }
@@ -3768,8 +3779,44 @@ const SOUP_GROUPS = {
   shouyu:    { ids: [7, 6],               chart: 'shouyu-count-chart',       total: 'shouyu-total' },
   spicySh:   { ids: [8, 9],               chart: 'spicy-shouyu-count-chart', total: 'spicySh-total' },
   negitama:  { ids: [10, 11, 13, 14, 15], chart: 'negitama-count-chart',     total: 'negitama-total' },
-  gyoza:     { ids: [70],                 chart: 'gyoza-count-chart',        total: 'gyoza-total' }
+  // つけ麺・定食：ぎょうざ定食 / SKつけ麺 / スパイシーつけ麺（明示的な行定義）
+  gyoza:     { rows: countTsukemenTeishokuRows, chart: 'gyoza-count-chart',  total: 'gyoza-total' }
 };
+
+// つけ麺・定食グループの内訳行（ぎょうざ定食 #70 / SKつけ麺 #10012 / スパイシーつけ麺）
+//   SKつけ麺はこれまでの全注文を集計。スパイシー変更分（isSpicyTsukemen）は別行にカウント。
+function countTsukemenTeishokuRows(filtered, includeBaseline) {
+  let gyoza = 0, sk = 0, skSpicy = 0;
+  (filtered || []).forEach(o => (o.items || []).forEach(item => {
+    const q = item.qty || 0;
+    if (item.itemId === 70) gyoza += q;
+    else if (item.itemId === 10012) { if (isSpicyTsukemen(item)) skSpicy += q; else sk += q; }
+  }));
+  if (includeBaseline && SOUP_BASELINE.items && typeof SOUP_BASELINE.items[70] === 'number') {
+    gyoza += SOUP_BASELINE.items[70];
+  }
+  return [
+    { id: 70,       label: 'ぎょうざ定食',     count: gyoza },
+    { id: 10012,    label: 'SKつけ麺',        count: sk },
+    { id: '10012s', label: 'スパイシーつけ麺', count: skSpicy }
+  ];
+}
+
+// グループの商品別カウント行 [{id,label,count}] を返す（rows関数があれば使用、無ければ ids 集計）
+function soupGroupRows(groupKey, filtered, includeBaseline) {
+  const grp = SOUP_GROUPS[groupKey];
+  if (typeof grp.rows === 'function') return grp.rows(filtered, includeBaseline);
+  const ids = grp.ids || [];
+  const counts = {};
+  ids.forEach(id => counts[id] = 0);
+  (filtered || []).forEach(o => (o.items || []).forEach(item => {
+    if (counts.hasOwnProperty(item.itemId)) counts[item.itemId] += (item.qty || 0);
+  }));
+  if (includeBaseline && SOUP_BASELINE.items) {
+    ids.forEach(id => { const v = SOUP_BASELINE.items[id]; if (typeof v === 'number') counts[id] = (counts[id] || 0) + v; });
+  }
+  return ids.map(id => { const m = MOTONARI.getMenuById(id); return { id, label: m ? m.name.ja : ('#' + id), count: counts[id] || 0 }; });
+}
 
 // 2026年5月分のベースラインデータ（APP運用前の手集計）
 //   検索日付範囲が 2026-05-01 を含むとき、各カウントに加算する
@@ -3858,26 +3905,6 @@ function exportSoupRankingCSV() {
     }
     return counts;
   };
-  // 商品別カウントを計算するヘルパー
-  const countItems = (groupKey) => {
-    const grp = SOUP_GROUPS[groupKey];
-    const ids = grp.ids;
-    const counts = {};
-    ids.forEach(id => counts[id] = 0);
-    s.filtered.forEach(o => {
-      (o.items || []).forEach(item => {
-        if (counts.hasOwnProperty(item.itemId)) counts[item.itemId] += (item.qty || 0);
-      });
-    });
-    if (s.includeBaseline && SOUP_BASELINE.items) {
-      ids.forEach(id => {
-        const v = SOUP_BASELINE.items[id];
-        if (typeof v === 'number') counts[id] = (counts[id] || 0) + v;
-      });
-    }
-    return counts;
-  };
-
   // ① スパイシーキングシリーズ（辛さ別）
   csv += '"■ スパイシーキングシリーズ（SK・SKSP・SKC 合算）"\n';
   csv += '"辛さ","0辛","1辛","2辛","3辛","4辛","5辛","6辛","7辛","8辛","9辛","10辛","合計"\n';
@@ -3900,17 +3927,15 @@ function exportSoupRankingCSV() {
     { key: 'shouyu',   label: '■ 醤油ラーメン' },
     { key: 'spicySh',  label: '■ スパイシー醤油' },
     { key: 'negitama', label: '■ ネギ玉シリーズ' },
-    { key: 'gyoza',    label: '■ 餃子定食' }
+    { key: 'gyoza',    label: '■ つけ麺・定食' }
   ];
   itemGroups.forEach(g => {
-    const counts = countItems(g.key);
-    const total = Object.values(counts).reduce((a,b)=>a+b,0);
+    const rows = soupGroupRows(g.key, s.filtered, s.includeBaseline);
+    const total = rows.reduce((a,r)=>a+r.count,0);
     csv += '"' + g.label + '","合計: ' + total + '杯"\n';
     csv += '"商品ID","商品名","杯数"\n';
-    SOUP_GROUPS[g.key].ids.forEach(id => {
-      const m = MOTONARI.getMenuById(id);
-      const name = m ? m.name.ja : '#' + id;
-      csv += id + ',"' + name.replace(/"/g, '""') + '",' + (counts[id] || 0) + '\n';
+    rows.forEach(r => {
+      csv += r.id + ',"' + String(r.label).replace(/"/g, '""') + '",' + r.count + '\n';
     });
     csv += '\n';
   });
@@ -3973,23 +3998,9 @@ function renderSpicyChart(groupKey, filtered, includeBaseline) {
 
 function renderItemCountChart(groupKey, filtered, includeBaseline) {
   const grp = SOUP_GROUPS[groupKey];
-  const ids = grp.ids;
-  const counts = {};
-  ids.forEach(id => counts[id] = 0);
-  filtered.forEach(o => {
-    (o.items||[]).forEach(item => {
-      if (counts.hasOwnProperty(item.itemId)) counts[item.itemId] += (item.qty || 0);
-    });
-  });
-  // 5月ベースラインを加算（商品ID別）
-  if (includeBaseline && SOUP_BASELINE.items) {
-    ids.forEach(id => {
-      const v = SOUP_BASELINE.items[id];
-      if (typeof v === 'number') counts[id] = (counts[id] || 0) + v;
-    });
-  }
-  const total = Object.values(counts).reduce((s,v) => s+v, 0);
-  const max = Math.max(1, ...Object.values(counts));
+  const rows = soupGroupRows(groupKey, filtered, includeBaseline);
+  const total = rows.reduce((s,r) => s + r.count, 0);
+  const max = Math.max(1, ...rows.map(r => r.count));
   const chart = document.getElementById(grp.chart);
   if (!chart) return;
   // total 要素にも反映
@@ -3997,14 +4008,11 @@ function renderItemCountChart(groupKey, filtered, includeBaseline) {
     const totalEl = document.getElementById(grp.total);
     if (totalEl) totalEl.textContent = total;
   }
-  chart.innerHTML = ids.map(id => {
-    const m = MOTONARI.getMenuById(id);
-    if (!m) return '';
-    const v = counts[id];
+  chart.innerHTML = rows.map(r => {
     return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="flex:1;font-size:12px">${m.name.ja}</span>
-      <div style="width:120px;height:8px;background:var(--surface3);border-radius:4px"><div style="height:100%;background:var(--accent);border-radius:4px;width:${(v/max)*100}%"></div></div>
-      <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);width:40px;text-align:right">${v}</span>
+      <span style="flex:1;font-size:12px">${r.label}</span>
+      <div style="width:120px;height:8px;background:var(--surface3);border-radius:4px"><div style="height:100%;background:var(--accent);border-radius:4px;width:${(r.count/max)*100}%"></div></div>
+      <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);width:40px;text-align:right">${r.count}</span>
     </div>`;
   }).join('');
 }
@@ -5702,12 +5710,8 @@ function buildSoupRankingPrintHTML() {
 
   // 商品別の縦並び（最低限の表示）
   const itemList = (groupKey) => {
-    const counts = countItems(groupKey);
-    return SOUP_GROUPS[groupKey].ids.map(id => {
-      const m = MOTONARI.getMenuById(id);
-      const name = m ? m.name.ja : ('#' + id);
-      return `<div style="font-size:11pt;line-height:1.5">${name}　${counts[id] || 0}</div>`;
-    }).join('');
+    return soupGroupRows(groupKey, s.filtered, s.includeBaseline).map(r =>
+      `<div style="font-size:11pt;line-height:1.5">${r.label}　${r.count}</div>`).join('');
   };
 
   // SK 合計・カレー合計
@@ -5763,7 +5767,7 @@ function buildSoupRankingPrintHTML() {
   </div>
 
   <div>
-    <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 餃子定食　合計：${Object.values(countItems('gyoza')).reduce((a,b)=>a+b,0)}</div>
+    <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ つけ麺・定食　合計：${soupGroupRows('gyoza', s.filtered, s.includeBaseline).reduce((a,r)=>a+r.count,0)}</div>
     ${itemList('gyoza')}
   </div>
 </div>`;
