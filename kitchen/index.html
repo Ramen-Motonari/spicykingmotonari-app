@@ -2971,8 +2971,11 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   // ライス量（定食用）／ミニチャーシューエッグ丼変更（赤文字）
   if (p.riceChange) blockB.push(`<span class="rg-rice-change">${p.riceChange}</span>`);
   else if (p.rice) blockB.push(`<span>ライス${p.rice}</span>`);
-  // SKつけ麺の麺の量
-  if (p.tsukemenSize) blockB.push(`<span>${p.tsukemenSize}</span>`);
+  // SKつけ麺の麺の量（＋納豆IN表記を麺量の右に太字で）
+  if (p.tsukemenSize || p.natto) {
+    const nattoBold = p.natto ? ` <span style="font-weight:900">/ ${p.natto}</span>` : '';
+    blockB.push(`<span>${p.tsukemenSize}${nattoBold}</span>`);
+  }
   const blockC = [];
   if (p.curryTopping) {
     if (p.curryTopping === 'とんかつ') blockC.push(`<span>とんかつ（一枚）</span>`);
