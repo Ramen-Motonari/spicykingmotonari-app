@@ -951,6 +951,8 @@ rebuildMenu();
 
 /* ========== STATE ========== */
 let lang='ja', currentCat='all', cart=[], curItem=null, curOpts={}, curQty=1;
+// 学生替え玉セクションの展開状態（商品モーダルを開くたびに閉じた状態にリセット）
+let studentSectionExpanded=false;
 let orderHistory=[], sessionActive=true;
 const stats={first:0,repeat:0};
 let ghostTargetId=null, ghostInput='';
@@ -1947,6 +1949,7 @@ function openItem(id){
     return;
   }
   curItem=item; curOpts={}; curQty=1;
+  studentSectionExpanded=false; // モーダルを開くたびに学生替え玉セクションは閉じた状態から
   renderModal();
   $('itemModal').classList.add('open');
   document.body.style.overflow='hidden';
@@ -2066,7 +2069,7 @@ function renderModal(){
     }
     const flatNoteHtml = (isTonkotsu && isFlat) ? `<div style="font-size:10px;color:#c0392b;text-align:center;margin-top:4px">${lblFlatNote}</div>` : '';
     reqHtml+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:10px">
-      <div style="font-size:11px;font-weight:700;color:#e65100;text-align:center;letter-spacing:0.5px">${lblTitle}</div>
+      <div style="font-size:14px;font-weight:700;color:#e65100;text-align:center;letter-spacing:0.5px">${lblTitle}</div>
       <div style="display:flex;gap:8px">${buttonsHtml}</div>
       ${flatNoteHtml}
     </div>`;
@@ -2111,12 +2114,26 @@ function renderModal(){
         <button ${oomoriOnclick} ${oomoriDisabled?'disabled':''} style="${sBtnBase};${oomoriStyle}">${sLblOomori}</button>`;
       if(sIsTonkotsu && sIsFlat) sFlatNoteHtml = `<div style="font-size:10px;color:#c0392b;text-align:center;margin-top:4px">${sLblFlatNote}</div>`;
     }
-    reqHtml+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#e3f2fd;border:1.5px solid #90caf9;border-radius:10px">
-      <div style="font-size:11px;font-weight:700;color:#1565c0;text-align:center;letter-spacing:0.5px">${sTitle}</div>
-      <div style="font-size:10px;color:#1565c0;text-align:center;opacity:0.9">${sNote}</div>
-      <div style="display:flex;gap:8px">${sButtonsHtml}</div>
-      ${sFlatNoteHtml}
-    </div>`;
+    // 学生替え玉は「ボタンタップで展開」。未展開時はトグルボタンのみ表示。
+    const sToggleLabel = {
+      ja:'🎓 学生替え玉特典を表示する',
+      en:'🎓 Show Student Extra Noodles Perk',
+      zh:'🎓 显示学生加面优惠',
+      ko:'🎓 학생 면 추가 혜택 표시'
+    }[lang] || '🎓 学生替え玉特典を表示する';
+    if(!studentSectionExpanded){
+      // 横幅は選択画面と同じ（セクション幅いっぱい）のボタン1つ
+      reqHtml+=`<div style="margin:8px 0 16px">
+        <button onclick="toggleStudentSection()" style="width:100%;padding:12px 6px;border-radius:10px;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;background:#fff;color:#1565c0;border:2px solid #90caf9;transition:all 0.15s">${sToggleLabel}</button>
+      </div>`;
+    } else {
+      reqHtml+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#e3f2fd;border:1.5px solid #90caf9;border-radius:10px">
+        <div style="font-size:11px;font-weight:700;color:#1565c0;text-align:center;letter-spacing:0.5px">${sTitle}</div>
+        <div style="font-size:10px;color:#1565c0;text-align:center;opacity:0.9">${sNote}</div>
+        <div style="display:flex;gap:8px">${sButtonsHtml}</div>
+        ${sFlatNoteHtml}
+      </div>`;
+    }
   }
   // 麺の硬さ表示ルール：
   //   ・豚骨（tonkotsu）：常時表示。平打ち選択時はグレーアウト
@@ -2411,6 +2428,11 @@ function pickLunchFree(choice){
       if(regularOpt) curOpts.noodleSize = regularOpt;
     }
   }
+  renderModal();
+}
+// 学生替え玉セクションの開閉トグル（「学生替え玉特典を表示する」ボタン）
+function toggleStudentSection(){
+  studentSectionExpanded = !studentSectionExpanded;
   renderModal();
 }
 // 学生替え玉（無料）の希望ボタン。平日ランチ特典(lunchFreeChoice)とは独立した権利。
