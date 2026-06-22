@@ -2525,6 +2525,7 @@ function parseRamenOpts(opts, mainItem) {
     chashu: '',          // 'ブタ' / 'トリ'
     curryTopping: '',    // 'とんかつ' / 'チキンカツ'
     tsukemenSize: '',    // '小 140g' / '並 180g' / '大 240g' ← SKつけ麺の麺の量
+    natto: '',           // '納豆あり' / '納豆なし' ← つけ麺の納豆IN
     other: []
   };
   const arr = Array.isArray(opts) ? opts.slice() : [];
@@ -2635,6 +2636,9 @@ function parseRamenOpts(opts, mainItem) {
     if (/^(とんかつ|Tonkatsu|炸猪排|돈가스)(?:\s*[（(].*[)）])?$/i.test(s)) { result.curryTopping = 'とんかつ'; return; }
     if (/^(チキンカツ|Chicken\s*Katsu|炸鸡排|치킨가스)(?:\s*[（(].*[)）])?$/i.test(s)) { result.curryTopping = 'チキンカツ'; return; }
 
+    // つけ麺の納豆IN（「納豆あり」「納豆なし」）→ 麺の量の右に太字表示するため専用フィールドへ
+    if (/^納豆(あり|なし)$/.test(s)) { result.natto = s; return; }
+
     // その他（想定外オプション）
     result.other.push(s);
   });
@@ -2690,17 +2694,22 @@ function renderRamenGroupCard(orderId, grp) {
     const freeR = main.pendingKaedamaRight;
     const freePending = !!(freeR && !freeR.requested);
     const freeDone    = !!(freeR && freeR.requested);
+    // 学生替え玉（無料）権利も合算
+    const studentR = main.pendingStudentKaedamaRight;
+    const studentPending = !!(studentR && !studentR.requested);
+    const studentDone    = !!(studentR && studentR.requested);
     const paidArr = Array.isArray(main.pendingKaedamaRightsPaid) ? main.pendingKaedamaRightsPaid : [];
     const paidPending = paidArr.filter(r => r && !r.requested).length;
     const paidDone    = paidArr.filter(r => r && r.requested).length;
-    const totalPending = (freePending ? 1 : 0) + paidPending;
-    const totalDone    = (freeDone    ? 1 : 0) + paidDone;
+    const totalPending = (freePending ? 1 : 0) + (studentPending ? 1 : 0) + paidPending;
+    const totalDone    = (freeDone    ? 1 : 0) + (studentDone    ? 1 : 0) + paidDone;
     const total = totalPending + totalDone;
+    const hasStudent = !!studentR;
     // デバッグログ（バッジが出ない時の原因切り分け用）
-    if (freeR || paidArr.length) {
+    if (freeR || studentR || paidArr.length) {
       console.log('[kitchen kaedama badge]',
         'itemId=', main.itemId, 'name=', main.name,
-        'freeR=', freeR, 'paid=', paidArr,
+        'freeR=', freeR, 'studentR=', studentR, 'paid=', paidArr,
         'totalPending=', totalPending, 'totalDone=', totalDone);
     }
     if (total > 0) {
@@ -2710,14 +2719,16 @@ function renderRamenGroupCard(orderId, grp) {
       const order = orders.find(o => o.id === orderId);
       const custLang = (order && order.language) || 'ja';
       const kaedamaTr = { ja:'替え玉', en:'Extra Noodles', zh:'加面', ko:'면 추가' };
-      const labelJa = total > 1 ? `替え玉 ×${total}` : '替え玉';
-      const labelCust = total > 1 ? `${kaedamaTr[custLang] || kaedamaTr.ja} ×${total}` : (kaedamaTr[custLang] || kaedamaTr.ja);
+      // 学生替え玉が含まれる場合は 🎓 を付けてキッチンに明示
+      const stuMark = hasStudent ? '🎓' : '';
+      const labelJa = (total > 1 ? `替え玉 ×${total}` : '替え玉') + (hasStudent ? '(学生)' : '');
+      const labelCust = (total > 1 ? `${kaedamaTr[custLang] || kaedamaTr.ja} ×${total}` : (kaedamaTr[custLang] || kaedamaTr.ja)) + (hasStudent ? (custLang==='en'?'(Student)':custLang==='zh'?'(学生)':custLang==='ko'?'(학생)':'(学生)') : '');
       // 顧客が日本語ならそのまま、それ以外なら「JP / 顧客言語」併記
       const label = (custLang === 'ja') ? labelJa : `${labelJa} / ${labelCust}`;
       // 小さい版（金額左側用）
-      kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">${label}</span>`;
+      kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">${stuMark}${label}</span>`;
       // 大きい版（ヘッダー名右側用 — 確実に視認できるように）
-      kaedamaRightBadgeBig = `<span style="background:${bg};color:#fff;border-radius:8px;padding:4px 12px;font-size:14px;font-weight:900;letter-spacing:.5px;box-shadow:0 1px 4px rgba(0,0,0,0.15)">🍝 ${label}</span>`;
+      kaedamaRightBadgeBig = `<span style="background:${bg};color:#fff;border-radius:8px;padding:4px 12px;font-size:14px;font-weight:900;letter-spacing:.5px;box-shadow:0 1px 4px rgba(0,0,0,0.15)">${stuMark}🍝 ${label}</span>`;
     }
   }
   // ━━━ Section 1: 名前 + 替え玉バッジ + 辛さ ━━━
@@ -2778,8 +2789,12 @@ function renderRamenGroupCard(orderId, grp) {
 
   // ━━━ Section 2c: SKつけ麺の麺の量（独立行で大きく表示） ━━━
   //   「小 140g」「並 180g」「大 240g」を分かりやすく
-  const tsukemenHtml = p.tsukemenSize
-    ? `<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.tsukemenSize}</span></div>`
+  //   納豆IN（納豆あり／納豆なし）は麺の量の右に太字で表示「/ 納豆あり」
+  const nattoSpan = p.natto
+    ? `<span class="rg-natto" style="font-weight:900"> / ${p.natto}</span>`
+    : '';
+  const tsukemenHtml = (p.tsukemenSize || p.natto)
+    ? `<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.tsukemenSize}${nattoSpan}</span></div>`
     : '';
 
   // ━━━ Section 3: チャーシュー / カレートッピング ━━━
@@ -4418,6 +4433,7 @@ kaedamaWasPaid: !!item.kaedamaWasPaid,
 kaedamaRequestedQty: item.kaedamaRequestedQty || 0,
 // 替え玉「権利」も保持（編集後も requested 状態を維持）
 pendingKaedamaRight: item.pendingKaedamaRight || null,
+pendingStudentKaedamaRight: item.pendingStudentKaedamaRight || null,
 pendingKaedamaRightsPaid: Array.isArray(item.pendingKaedamaRightsPaid) ? item.pendingKaedamaRightsPaid.map(r=>({...r})) : null
 })));
 // 編集前のスナップショット：保存時に削除アイテムを検出するため
@@ -4692,6 +4708,7 @@ const itemsForFs = newItems.map((item, i) => {
     if (item.kaedamaWasPaid) base.kaedamaWasPaid = true;
     if (item.kaedamaRequestedQty) base.kaedamaRequestedQty = item.kaedamaRequestedQty;
     if (item.pendingKaedamaRight) base.pendingKaedamaRight = item.pendingKaedamaRight;
+    if (item.pendingStudentKaedamaRight) base.pendingStudentKaedamaRight = item.pendingStudentKaedamaRight;
     if (Array.isArray(item.pendingKaedamaRightsPaid) && item.pendingKaedamaRightsPaid.length > 0) {
       base.pendingKaedamaRightsPaid = item.pendingKaedamaRightsPaid.map(r => ({...r}));
     }
@@ -4870,6 +4887,7 @@ orders.forEach(o => {
   if (o.paymentType === 'cancelled_by_edit') return;
   (o.items || []).forEach(it => {
     if (it.pendingKaedamaRight && !it.pendingKaedamaRight.requested) waitingCount++;
+    if (it.pendingStudentKaedamaRight && !it.pendingStudentKaedamaRight.requested) waitingCount++;
     if (Array.isArray(it.pendingKaedamaRightsPaid)) {
       it.pendingKaedamaRightsPaid.forEach(r => { if (r && !r.requested) waitingCount++; });
     }
