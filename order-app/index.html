@@ -776,6 +776,13 @@ function getNoodleSizeOpts(l, cat){
   if (cat === 'teishoku') return isLunchWeekday() ? noodleSizeOptsTeishokuWeekday[l] : noodleSizeOptsTeishokuWeekend[l];
   return isLunchWeekday() ? noodleSizeOptsWeekday[l] : noodleSizeOptsWeekend[l];
 }
+// 学生大盛り無料／平日ランチ大盛り無料 用の「無料大盛り」表記を返す（曜日に依存せず無料版を返す）
+//   ・醤油は大盛り無料の対象外（''）
+function getFreeLargeNoodleOpt(cat, l){
+  if (cat === 'shouyu') return '';
+  if (cat === 'teishoku') return (noodleSizeOptsTeishokuWeekday[l] || []).find(o => /無料|FREE|免费|무료/i.test(o)) || '';
+  return (noodleSizeOptsWeekday[l] || []).find(o => /無料|FREE|免费|무료/i.test(o)) || '';
+}
 
 const spicyLevels = [
   {l:'0辛',p:0},
@@ -2006,8 +2013,14 @@ function renderModal(){
   if(c.noodleSize) {
     // 平日ランチのとんこつ・定食では「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
     let noodleOpts = getNoodleSizeOpts(lang, curItem&&curItem.cat);
-    if (isLunchWeekday() && curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')) {
-      noodleOpts = noodleOpts.filter(o => !/無料|FREE|免费|무료/i.test(o));
+    if (curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')) {
+      if (isLunchWeekday()) {
+        // 平日ランチ「大盛り無料」は専用ボタンで選択 → picker から無料大盛りを除外
+        noodleOpts = noodleOpts.filter(o => !/無料|FREE|免费|무료/i.test(o));
+      } else if (curOpts.studentFreeChoice === 'oomori') {
+        // 学生「大盛り無料」選択中 → picker の大盛りを除外（専用ボタンで無料選択済みのため重複防止）
+        noodleOpts = noodleOpts.filter(o => !/(大盛り|Large|大碗|곱배기)/i.test(o));
+      }
     }
     reqHtml+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
   }
@@ -2056,6 +2069,53 @@ function renderModal(){
       <div style="font-size:11px;font-weight:700;color:#e65100;text-align:center;letter-spacing:0.5px">${lblTitle}</div>
       <div style="display:flex;gap:8px">${buttonsHtml}</div>
       ${flatNoteHtml}
+    </div>`;
+  }
+  // 学生替え玉（無料）：平日ランチ特典の下に常時表示。表示内容は曜日で切替
+  //   ・平日ランチ時　：替え玉 / 半替え玉（平日ランチ特典とは別に1つ選択可能）
+  //   ・土日祝・その他：替え玉 / 半替え玉 / 大盛り　どれか1つ無料
+  if(c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu' || item.cat === 'teishoku')){
+    const sChoice = curOpts.studentFreeChoice || '';
+    const sIsTonkotsu = (item.cat === 'tonkotsu');
+    const sIsTeishoku = (item.cat === 'teishoku');
+    const sNoodleSize = curOpts.noodleSize || '';
+    const sIsFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(sNoodleSize);
+    const lunchMode = isLunchWeekday(); // true:平日ランチ（替え玉/半替え玉のみ） false:土日祝等（大盛りも選択可）
+    const sTitle = ({
+      ja:'🎓 学生替え玉（無料・学生証提示）',
+      en:'🎓 Student Extra Noodles (Free, show student ID)',
+      zh:'🎓 学生加面（免费・出示学生证）',
+      ko:'🎓 학생 면 추가（무료・학생증 제시）'
+    }[lang] || '🎓 学生替え玉（無料）');
+    const sNote = lunchMode
+      ? ({ja:'平日ランチ特典とは別に、もう1つお選びいただけます',en:'You may pick one MORE in addition to the weekday lunch perk',zh:'除工作日午餐特惠外，可再选1份',ko:'평일 런치 혜택과 별도로 1개 더 선택 가능'}[lang] || '')
+      : ({ja:'替え玉・半替え玉・大盛りから1つ無料',en:'Pick ONE free: Extra / Half / Large',zh:'加面・半份加面・大碗 任选1份免费',ko:'면 추가・반 면 추가・곱배기 중 1개 무료'}[lang] || '');
+    const sLblKaedama     = {ja:'替え玉無料 (細麺)',en:'Extra Noodles FREE (Thin)',zh:'加面免费 (细面)',ko:'면 추가 무료 (가는면)'}[lang] || '替え玉無料 (細麺)';
+    const sLblKaedamaHalf = {ja:'半替え玉無料 (細麺)',en:'Half Noodles FREE (Thin)',zh:'半份加面免费 (细面)',ko:'반 면 추가 무료 (가는면)'}[lang] || '半替え玉無料 (細麺)';
+    const sLblOomori      = {ja:'大盛り無料 (細麺)',en:'Large FREE (Thin)',zh:'大碗免费 (细面)',ko:'곱배기 무료 (가는면)'}[lang] || '大盛り無料 (細麺)';
+    const sLblFlatNote    = {ja:'※平打ち麺選択中は大盛り無料は対象外です',en:'※ Free Large not available with Flat noodles',zh:'※ 选择宽面时大碗免费不适用',ko:'※ 넓은면 선택 시 곱배기 무료 대상 외'}[lang] || '';
+    const sBtnBase = 'flex:1;padding:12px 6px;border-radius:10px;font-size:12px;font-weight:900;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;transition:all 0.15s;line-height:1.3';
+    const sBtnOn = 'background:#1565c0;color:#fff;border:2px solid #1565c0;box-shadow:0 2px 8px rgba(21,101,192,0.35)';
+    const sBtnOff = 'background:#fff;color:#1565c0;border:2px solid #90caf9';
+    const sBtnDisabled = 'background:#f5f5f5;color:#bbb;border:2px solid #e0e0e0;cursor:not-allowed;box-shadow:none';
+    let sButtonsHtml = `
+        <button onclick="pickStudentFree('kaedama')" style="${sBtnBase};${sChoice==='kaedama'?sBtnOn:sBtnOff}">${sLblKaedama}</button>
+        <button onclick="pickStudentFree('kaedamaHalf')" style="${sBtnBase};${sChoice==='kaedamaHalf'?sBtnOn:sBtnOff}">${sLblKaedamaHalf}</button>`;
+    // 土日祝等（lunchMode=false）かつ とんこつ/定食 では「大盛り無料」も選択可（醤油は対象外）
+    let sFlatNoteHtml = '';
+    if(!lunchMode && (sIsTonkotsu || sIsTeishoku)){
+      const oomoriDisabled = sIsTonkotsu ? sIsFlat : false; // とんこつ平打ち麺は大盛り無料対象外
+      const oomoriStyle = oomoriDisabled ? sBtnDisabled : (sChoice==='oomori' ? sBtnOn : sBtnOff);
+      const oomoriOnclick = oomoriDisabled ? '' : `onclick="pickStudentFree('oomori')"`;
+      sButtonsHtml += `
+        <button ${oomoriOnclick} ${oomoriDisabled?'disabled':''} style="${sBtnBase};${oomoriStyle}">${sLblOomori}</button>`;
+      if(sIsTonkotsu && sIsFlat) sFlatNoteHtml = `<div style="font-size:10px;color:#c0392b;text-align:center;margin-top:4px">${sLblFlatNote}</div>`;
+    }
+    reqHtml+=`<div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;padding:10px 12px;background:#e3f2fd;border:1.5px solid #90caf9;border-radius:10px">
+      <div style="font-size:11px;font-weight:700;color:#1565c0;text-align:center;letter-spacing:0.5px">${sTitle}</div>
+      <div style="font-size:10px;color:#1565c0;text-align:center;opacity:0.9">${sNote}</div>
+      <div style="display:flex;gap:8px">${sButtonsHtml}</div>
+      ${sFlatNoteHtml}
     </div>`;
   }
   // 麺の硬さ表示ルール：
@@ -2353,6 +2413,36 @@ function pickLunchFree(choice){
   }
   renderModal();
 }
+// 学生替え玉（無料）の希望ボタン。平日ランチ特典(lunchFreeChoice)とは独立した権利。
+// ・替え玉/半替え玉 → pendingStudentKaedamaRight 権利として紐付け（後で注文）
+// ・大盛り（土日祝等のみ）→ 麺サイズを「無料大盛り」に反映
+function pickStudentFree(choice){
+  const prev = curOpts.studentFreeChoice;
+  if(prev === choice){
+    delete curOpts.studentFreeChoice;
+    if(prev === 'oomori') restoreNoodleFromStudentOomori();
+  } else {
+    curOpts.studentFreeChoice = choice;
+    if(choice === 'oomori'){
+      if(curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')){
+        const freeOpt = getFreeLargeNoodleOpt(curItem.cat, lang);
+        if(freeOpt) curOpts.noodleSize = freeOpt;
+      }
+    } else if(prev === 'oomori'){
+      // 大盛り→替え玉/半替え玉 に切替：学生が無料大盛りにしていた麺を並へ戻す
+      restoreNoodleFromStudentOomori();
+    }
+  }
+  renderModal();
+}
+// 学生大盛り無料で設定した「無料大盛り」を細麺 並へ戻す
+function restoreNoodleFromStudentOomori(){
+  if(curOpts.noodleSize && /無料|FREE|免费|무료/i.test(curOpts.noodleSize)){
+    const noodleOpts = getNoodleSizeOpts(lang, curItem && curItem.cat);
+    const regularOpt = noodleOpts.find(o => /細麺.*並|Thin.*Regular|细面普通|가는면.*보통/i.test(o));
+    if(regularOpt) curOpts.noodleSize = regularOpt;
+  }
+}
 function toggleTsukemenSpicy(){ curOpts.tsukemenSpicy = !curOpts.tsukemenSpicy; renderModal(); }
 function calcTsukemenSpicyExtra(){ return curOpts.tsukemenSpicy ? 100 : 0; }
 function pickNatto(v){ curOpts.natto = v; renderModal(); }
@@ -2483,6 +2573,15 @@ function addCart(){
       type: curOpts.lunchFreeChoice === 'kaedamaHalf' ? 'half' : 'full',
       requested: false,
       qty: qtySafe
+    };
+  }
+  // 学生替え玉（無料）の権利。替え玉/半替え玉のみ権利化（大盛りは麺サイズに反映済み）
+  if (curOpts.studentFreeChoice === 'kaedama' || curOpts.studentFreeChoice === 'kaedamaHalf') {
+    mainCartItem.pendingStudentKaedamaRight = {
+      type: curOpts.studentFreeChoice === 'kaedamaHalf' ? 'half' : 'full',
+      requested: false,
+      qty: qtySafe,
+      student: true
     };
   }
   // 有料替え玉も同じく「権利」として紐付ける（初回伝票には出さない）
@@ -2617,6 +2716,16 @@ function renderCart(){
       const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
       kaedamaBadgeHtml += `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#fff3e0;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍝 ${label}</div>`;
     }
+    // 学生替え玉（無料・後でご注文）権利のバッジ
+    if (i.pendingStudentKaedamaRight) {
+      const isHalf = i.pendingStudentKaedamaRight.type === 'half';
+      const sLabelJa = isHalf ? '学生 半替え玉（無料・後でご注文）' : '学生 替え玉（無料・後でご注文）';
+      const sLabelEn = isHalf ? 'Student Half Kaedama (Free, order later)' : 'Student Kaedama (Free, order later)';
+      const sLabelZh = isHalf ? '学生 半份加面（免费・餐后下单）' : '学生 加面（免费・餐后下单）';
+      const sLabelKo = isHalf ? '학생 반 면 추가（무료・식후 주문）' : '학생 면 추가（무료・식후 주문）';
+      const sLabel = lang==='en'?sLabelEn:(lang==='zh'?sLabelZh:(lang==='ko'?sLabelKo:sLabelJa));
+      kaedamaBadgeHtml += `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#e3f2fd;border:1.5px solid #1565c0;color:#1565c0;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🎓 ${sLabel}</div>`;
+    }
     // 有料替え玉はカート行として独立表示するためバッジ不要
     // （カート行側で「後でご注文」フラグを別途表示）
     // 有料替え玉カート行は「先払い・後でご注文」を明示
@@ -2746,6 +2855,15 @@ async function placeOrder(){
             type: i.pendingKaedamaRight.type || 'full',
             requested: !!i.pendingKaedamaRight.requested,
             qty: Number(i.pendingKaedamaRight.qty) || Number(i.qty) || 1
+          };
+        }
+        // 学生替え玉（無料）の権利を Firestore に保存
+        if (i.pendingStudentKaedamaRight) {
+          out.pendingStudentKaedamaRight = {
+            type: i.pendingStudentKaedamaRight.type || 'full',
+            requested: !!i.pendingStudentKaedamaRight.requested,
+            qty: Number(i.pendingStudentKaedamaRight.qty) || Number(i.qty) || 1,
+            student: true
           };
         }
         // 有料替え玉の「権利」配列を保存
@@ -3312,6 +3430,22 @@ function getPendingKaedamaRights() {
           paidRightIdx: null
         });
       }
+      // 学生替え玉（無料）権利（単一）
+      const sRight = it.pendingStudentKaedamaRight;
+      if (sRight && !sRight.requested) {
+        pending.push({
+          orderId: o.fbId,
+          orderItemIdx: idx,
+          parentItemId: it.itemId,
+          parentName: it.name,
+          type: sRight.type || 'full',
+          qty: sRight.qty || 1,
+          paid: false,
+          student: true,
+          price: 0,
+          paidRightIdx: null
+        });
+      }
       // 有料権利（配列、各要素ごと1件）
       const paidArr = Array.isArray(it.pendingKaedamaRightsPaid) ? it.pendingKaedamaRightsPaid : [];
       paidArr.forEach((r, pIdx) => {
@@ -3395,6 +3529,7 @@ function openPendingKaedamaCard() {
     const cardBg = isPaid ? '#e3f2fd' : '#fff8e1';
     const cardBd = isPaid ? '#90caf9' : '#ffd54f';
     const priceTag = isPaid && p.price ? `<span style="margin-left:6px;background:#1976d2;color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:900">+¥${Number(p.price).toLocaleString()}（${(lang==='en'?'paid':lang==='zh'?'已付款':lang==='ko'?'결제완료':'お支払い済')}）</span>` : '';
+    const studentTag = p.student ? `<span style="margin-left:6px;background:#1565c0;color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:900">🎓 ${lang==='en'?'Student':lang==='zh'?'学生':lang==='ko'?'학생':'学生'}</span>` : '';
     // 有料は size 選択肢を非表示（id=40 のみ。常に full）
     const sizeBlock = isPaid ? '' : `
       <div style="font-size:11px;color:#666;margin-bottom:4px">${tk.size}</div>
@@ -3404,7 +3539,7 @@ function openPendingKaedamaCard() {
       </div>`;
     return `<div style="border:1.5px solid ${cardBd};background:${cardBg};border-radius:12px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <div style="font-size:11px;color:#666">${tk.target}${priceTag}</div>
+        <div style="font-size:11px;color:#666">${tk.target}${priceTag}${studentTag}</div>
         <div id="pkn-status-${i}" style="font-size:10px;font-weight:900;letter-spacing:.3px;padding:2px 8px;border-radius:8px;background:#e0e0e0;color:#757575">${tk.statusSkip}</div>
       </div>
       <div style="font-size:13px;color:#333;font-weight:700;margin-bottom:10px">${localizeParent(p)}</div>
@@ -3592,11 +3727,13 @@ async function submitPendingKaedamaOrder() {
     //    オーダー単位でまとめて 1回 updateDoc する
     const byOrder = {}; // { orderId: { freeIdxs:Set, paidMap:{itemIdx: Set<paidRightIdx>} } }
     submitTargets.forEach(({ p }) => {
-      if (!byOrder[p.orderId]) byOrder[p.orderId] = { freeIdxs: new Set(), paidMap: {} };
+      if (!byOrder[p.orderId]) byOrder[p.orderId] = { freeIdxs: new Set(), studentIdxs: new Set(), paidMap: {} };
       const entry = byOrder[p.orderId];
       if (p.paid) {
         if (!entry.paidMap[p.orderItemIdx]) entry.paidMap[p.orderItemIdx] = new Set();
         entry.paidMap[p.orderItemIdx].add(p.paidRightIdx);
+      } else if (p.student) {
+        entry.studentIdxs.add(p.orderItemIdx);
       } else {
         entry.freeIdxs.add(p.orderItemIdx);
       }
@@ -3609,6 +3746,10 @@ async function submitPendingKaedamaOrder() {
         // 無料権利の更新
         if (entry.freeIdxs.has(j) && it.pendingKaedamaRight) {
           next = { ...next, pendingKaedamaRight: { ...(it.pendingKaedamaRight || {}), requested: true } };
+        }
+        // 学生替え玉（無料）権利の更新
+        if (entry.studentIdxs.has(j) && it.pendingStudentKaedamaRight) {
+          next = { ...next, pendingStudentKaedamaRight: { ...(it.pendingStudentKaedamaRight || {}), requested: true } };
         }
         // 有料権利配列の更新（特定 paidRightIdx のみ）
         if (entry.paidMap[j] && Array.isArray(it.pendingKaedamaRightsPaid)) {
