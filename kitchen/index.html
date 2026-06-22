@@ -1609,22 +1609,32 @@ const tableTickets = Array.from(tableMap.entries()).filter(([tl, list]) => {
     const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
     return ta - tb;
   });
-  // 「最初に未提供アイテムを持つ注文」の手前にある "全提供済" 注文をすべて隠す
-  // 例) Order A(全提供済) → Order B(全提供済) → Order C(追加・未提供あり) のとき
-  //     A・B を非表示にし、C のみ表示する
+  // 「最初に未提供アイテムを持つ注文」の手前にある "全提供済" 注文の扱い:
+  //   要望「全商品提供まで消えないようにして欲しい」に対応するため、
+  //   同じ伝票セッション内（前の注文がまだ調理中のうちに追加された注文）の場合は、
+  //   提供済になってもグレーアウトのまま残す（タップで消えないようにする）。
+  //   一度すべて提供し終えて伝票が消えた "後" に入った別ラウンドの追加注文の場合だけ、
+  //   過去の提供済注文を隠す（要望：伝票が一度消えた後の追加注文だけ表示）。
+  //   判定: 提供済注文の完了時刻(updatedAt) + 猶予 より後に未提供注文が作成されていれば
+  //         「別ラウンド」とみなして隠す。
   //   ※ isPendingKaedamaPaid / _doneByEdit のアイテムは厨房作業対象外なので未提供判定から除外
   const firstUnservedIdx = sorted.findIndex(o => (o.items || []).some(isKitchenActiveItem));
   let displayOrders = sorted;
   if (firstUnservedIdx > 0) {
-    const allEarlierServed = sorted.slice(0, firstUnservedIdx).every(o => {
+    const anchor = sorted[firstUnservedIdx];
+    const anchorCreatedMs = (anchor && anchor.createdAt && anchor.createdAt.toMillis) ? anchor.createdAt.toMillis() : 0;
+    displayOrders = sorted.filter((o, idx) => {
+      if (idx >= firstUnservedIdx) return true; // 未提供注文以降は常に表示
       const items = Array.isArray(o.items) ? o.items : [];
-      // 「厨房対象アイテム」が1つもないか、もしくは全て served なら "earlier served" 扱い
       const kitchenItems = items.filter(i => !i.isPendingKaedamaPaid && !i._doneByEdit);
-      return items.length > 0 && (kitchenItems.length === 0 || kitchenItems.every(i => i.served));
+      const fullyServed = items.length > 0 && (kitchenItems.length === 0 || kitchenItems.every(i => i.served));
+      if (!fullyServed) return true; // まだ未提供が残るなら当然表示
+      // 完全提供済の過去注文：別ラウンド（既に伝票が消えた後の追加）なら隠す
+      const oUpdMs = (o.updatedAt && o.updatedAt.toMillis) ? o.updatedAt.toMillis() : 0;
+      const isPreviousRound = oUpdMs > 0 && anchorCreatedMs > 0 &&
+        (anchorCreatedMs - oUpdMs) > COMPLETION_LINGER_MS;
+      return !isPreviousRound; // 別ラウンドでなければグレーアウトのまま残す
     });
-    if (allEarlierServed) {
-      displayOrders = sorted.slice(firstUnservedIdx);
-    }
   }
   const first = displayOrders[0];
   const sortKey = (first && first.createdAt && first.createdAt.toMillis) ? first.createdAt.toMillis() : 0;
@@ -2809,7 +2819,7 @@ function renderRamenGroupCard(orderId, grp) {
       chashuParts.push(`<span class="rg-curry">${p.curryTopping}</span>`);
     }
     if (p.chashu) {
-      chashuParts.push(`<span class="rg-chashu">${p.chashu}（２枚）</span>`);
+      chashuParts.push(`<span class="rg-chashu">${p.chashu}２枚</span>`);
     }
   } else if (p.chashu) {
     const cnt = getChashuCount(main);
@@ -2981,7 +2991,7 @@ function renderRamenListCard(order, main, addons, unitIdx) {
     if (p.curryTopping === 'とんかつ') blockC.push(`<span>とんかつ（一枚）</span>`);
     else if (p.curryTopping === 'チキンカツ') blockC.push(`<span>チキンカツ（２枚）</span>`);
     else blockC.push(`<span>${p.curryTopping}</span>`);
-    if (p.chashu) blockC.push(`<span>${p.chashu}（２枚）</span>`);
+    if (p.chashu) blockC.push(`<span>${p.chashu}２枚</span>`);
   } else if (p.chashu) {
     const cnt = (typeof getChashuCount === 'function') ? getChashuCount(main) : 1;
     blockC.push(`<span>${p.chashu} ${cnt}枚</span>`);
