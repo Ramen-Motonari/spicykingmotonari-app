@@ -3252,31 +3252,17 @@ function getCarryoverForCurrentMonth() {
 
 // 表示中（非表示でない）の全メニュー（canonical + custom）を sortOrder で取得
 function getVisibleMenuItems() {
-  const items = [];
-  if (typeof MOTONARI !== 'undefined' && MOTONARI.MENU_ITEMS) {
-    MOTONARI.MENU_ITEMS.forEach((m, idx) => {
-      const ov = menuOverrides[String(m.id)] || {};
-      if (ov.hidden || ov.deleted) return;
-      const nameJa = (ov.nameOverride && ov.nameOverride.ja) || m.name.ja;
-      items.push({
-        id: m.id,
-        name: nameJa,
-        cat: m.cat,
-        _sortOrder: (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1)
-      });
-    });
-  }
-  customMenuItems.forEach((c, idx) => {
-    if (c.hidden) return;
-    items.push({
-      id: c.id,
-      name: (c.name && c.name.ja) || '(無名)',
-      cat: c.cat,
-      _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
-    });
-  });
-  items.sort((a, b) => (a._sortOrder || 0) - (b._sortOrder || 0));
-  return items;
+  // 「表示順序」ページ（appConfig/itemOrder.byCategory）で設定した商品順を反映するため、
+  // getMergedMenu()（オーダーAPP・表示順序ページと同じ並び順ロジック）を基準にする。
+  // getMergedMenu() は既に itemOrder ベースで並んでいるので再ソートしない。
+  return getMergedMenu()
+    .filter(m => !m._hidden)
+    .map(m => ({
+      id: m.id,
+      name: (m.name && m.name.ja) || '(無名)',
+      cat: m.cat,
+      _sortOrder: m._sortOrder
+    }));
 }
 
 // 日付フォーマット YYYY/M/D（曜）
@@ -3564,11 +3550,15 @@ function renderAnalytics() {
     return d >= range.start && d <= endIncl;
   });
 
-  // 売上合計（税抜）
+  // 5月ベースライン（APP運用前手集計分）を含む期間か
+  const includeBaseline = (range.start <= SOUP_BASELINE_DATE && endIncl >= SOUP_BASELINE_DATE);
+  const anBase = includeBaseline ? ANALYTICS_BASELINE
+    : { side: 0, drink: 0, kaedama: 0, noodleLarge: 0, salesNoTax: 0, customers: 0 };
+  // 売上合計（税抜）＝実APP注文 + 5月ベースライン
   const totalSalesTax = allFiltered.reduce((s,o) => s + (o.total||0), 0);
-  const totalSalesNoTax = Math.round(totalSalesTax / 1.10);
-  // 客数合計（customerCountOverride があれば優先、無ければラーメン+定食数）
-  const customers = countCustomersFromOrders(allFiltered);
+  const totalSalesNoTax = Math.round(totalSalesTax / 1.10) + (anBase.salesNoTax || 0);
+  // 客数合計（customerCountOverride があれば優先、無ければラーメン+定食数）＋ 5月ベースライン
+  const customers = countCustomersFromOrders(allFiltered) + (anBase.customers || 0);
   // 客単価
   const avg = customers > 0 ? Math.round(totalSalesNoTax / customers) : 0;
   // 新規率 / 外国人率
@@ -3581,32 +3571,37 @@ function renderAnalytics() {
   document.getElementById('an-newrate').textContent = visitRate.rate + '%';
   document.getElementById('an-foreignrate').textContent = foreignRate.rate + '%';
 
-  // 替え玉率（期間集計）
+  // 替え玉率 / サイド率 / ドリンク率（期間集計）
+  //   分母「ラーメン杯数」＝スープランキングのグランド合計（calcSoupGrandTotal）。
+  //   日付範囲が 2026-05-01 を含むときは ANALYTICS_BASELINE（5月手集計分）を各カウントに加算する。
   try {
-    const noc = calcNoodleOptionCounts(allFiltered);
-    const kaedamaTotal = (noc.kaedama || 0) + (noc.halfKaedama || 0);
-    let ramenTotal = 0;
-    allFiltered.forEach(o => {
-      (o.items || []).forEach(item => {
-        if (getItemLogicalCat(item) === 'ramen') ramenTotal += (item.qty || 0);
-      });
-    });
-    const kaedamaRate = ramenTotal > 0 ? (kaedamaTotal / ramenTotal) * 100 : 0;
+    // includeBaseline / anBase は上部で算出済み（売上・客数と共通）
+    // 率の分母：ラーメン杯数＝スープランキング合計（ベースライン込み）
+    const ramenCups = calcSoupGrandTotal(allFiltered, includeBaseline);
     const $set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-    $set('an-kaedama-rate', kaedamaRate.toFixed(1) + '%');
-    $set('an-kaedama-count', `替 ${noc.kaedama} / 半 ${noc.halfKaedama} / 麺 ${ramenTotal}`);
-  } catch(_) {}
 
-  // サイド / トッピング / ドリンク 率（期間集計）
-  try {
+    // 替え玉率
+    const noc = calcNoodleOptionCounts(allFiltered);
+    const kaedamaCnt = (noc.kaedama || 0) + (anBase.kaedama || 0);
+    const kaedamaTotal = kaedamaCnt + (noc.halfKaedama || 0);
+    const kaedamaRate = ramenCups > 0 ? (kaedamaTotal / ramenCups) * 100 : 0;
+    $set('an-kaedama-rate', kaedamaRate.toFixed(1) + '%');
+    $set('an-kaedama-count', `替 ${kaedamaCnt} / 半 ${noc.halfKaedama} / 麺 ${ramenCups}`);
+
+    // サイド率 / ドリンク率（分母をラーメン杯数に統一）
     const rates = calcCategoryRates(allFiltered, customers);
-    const $set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-    $set('an-side-rate',    rates.sideRate.toFixed(1)    + '%');
-    $set('an-topping-rate', rates.toppingRate.toFixed(1) + '%');
-    $set('an-drink-rate',   rates.drinkRate.toFixed(1)   + '%');
-    $set('an-side-count',    rates.sideCount.toLocaleString());
+    const sideCnt = rates.sideCount + (anBase.side || 0);
+    const drinkCnt = rates.drinkCount + (anBase.drink || 0);
+    const sideRate = ramenCups > 0 ? (sideCnt / ramenCups) * 100 : 0;
+    const drinkRate = ramenCups > 0 ? (drinkCnt / ramenCups) * 100 : 0;
+    $set('an-side-rate',  sideRate.toFixed(1)  + '%');
+    $set('an-drink-rate', drinkRate.toFixed(1) + '%');
+    $set('an-side-count',  sideCnt.toLocaleString());
+    $set('an-drink-count', drinkCnt.toLocaleString());
+
+    // トッピング率：従来通り（客数ベース・ベースライン無し）
+    $set('an-topping-rate',  rates.toppingRate.toFixed(1) + '%');
     $set('an-topping-count', rates.toppingCount.toLocaleString());
-    $set('an-drink-count',   rates.drinkCount.toLocaleString());
   } catch(_) {}
 
   // 前年対比：dailyReports の prevYearSalesToday を集計して使用
@@ -3845,6 +3840,42 @@ const SOUP_BASELINE = {
     70: 48   // 餃子定食
   }
 };
+
+// 2026年5月分の追加ベースライン（サイド/ドリンク/替え玉/麺大盛り｜APP運用前の手集計）
+//   分析ページの率KPIで、日付範囲が 2026-05-01（SOUP_BASELINE_DATE）を含むとき各カウントに加算する。
+//   率の分母「ラーメン杯数」はスープランキングのグランド合計（calcSoupGrandTotal）を使用。
+//   ※ noodleLarge（麺大盛り）は分析ページに専用KPIが無いため記録のみ（表示はされない）。
+const ANALYTICS_BASELINE = {
+  side: 207,
+  drink: 52,
+  kaedama: 29,
+  noodleLarge: 1,
+  // 売上・客数（APP運用前手集計分）。実APP注文と合算で 5月計 売上¥1,037,092（税抜）/ 客数802名 になる。
+  //   実5月（APP注文）: 税抜¥223,882 / 客数161 → 差分をベースラインとして加算。
+  salesNoTax: 813210, // 1,037,092 − 223,882
+  customers: 641      // 802 − 161
+};
+
+// スープランキングの全グループ合計（率の分母＝ラーメン杯数に使用）
+//   スープランキングページと完全に同じ集計ロジック＋5月ベースライン加算で算出する。
+function calcSoupGrandTotal(filtered, includeBaseline) {
+  let total = 0;
+  // 辛さ別グループ（sk / curry）: ベースラインは SOUP_BASELINE[groupKey]
+  ['sk', 'curry'].forEach(groupKey => {
+    const ids = SOUP_GROUPS[groupKey].ids || [];
+    (filtered || []).forEach(o => (o.items || []).forEach(it => {
+      if (ids.includes(it.itemId)) total += (it.qty || 0);
+    }));
+    if (includeBaseline && SOUP_BASELINE[groupKey]) {
+      Object.values(SOUP_BASELINE[groupKey]).forEach(v => total += v);
+    }
+  });
+  // 商品別グループ（ikasumi / shouyu / spicySh / negitama / gyoza・つけ麺定食）
+  ['ikasumi', 'shouyu', 'spicySh', 'negitama', 'gyoza'].forEach(groupKey => {
+    total += soupGroupRows(groupKey, filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
+  });
+  return total;
+}
 
 function renderSoupRanking() {
   const fromEl = document.getElementById('soupDateFrom');
