@@ -1815,7 +1815,11 @@ function renderMenu(){
   const el=$('menuContainer');
   el.innerHTML='';
   const t=T[lang], cl=catLabels[lang] || {};
-  const cats = currentCat==='all' ? allCatKeys : [currentCat];
+  // 「すべて」表示では、おすすめ（recommended）を常にページ最上部に表示する
+  //   ※ 管理APPのカテゴリ並び順に recommended が含まれない場合でも先頭に固定
+  const cats = currentCat==='all'
+    ? ['recommended', ...allCatKeys.filter(k => k !== 'recommended')]
+    : [currentCat];
 
   // メニューアイテムカードを生成するヘルパー
   const buildItemEl = (item) => {
