@@ -2073,7 +2073,8 @@ function renderModal(){
   }
   if(c.rice)       reqHtml+=optGrpReq(t.optRice,'rice',riceOpts[lang],missing,{breakBefore:[2]});
   // SKつけ麺：「冷やし！スパイシーつけ麺に変更 +¥100」トグル（麺の量の上）
-  if(isTsukemenItem(item)) {
+  //   ※ #10014（スパイシーつけ麺）は元々スパイシーなのでこのトグルは非表示
+  if(isTsukemenItem(item) && item.id !== 10014) {
     const spicyChangeLabel = ({
       ja:'ピリ辛！スパイシーつけ麺に変更　+¥100',
       en:'Change to Mildly Spicy! Spicy Tsukemen  +¥100',
@@ -2097,6 +2098,25 @@ function renderModal(){
     }[lang] || '麺の量をお選びください（必須選択）');
     const tsukemenOpts = tsukemenSizeOpts[lang] || tsukemenSizeOpts.ja;
     reqHtml += optGrpReq(tsukemenLabel,'tsukemenSize',tsukemenOpts,missing);
+  }
+  // つけ麺（#10012 冷やしつけ麺 / #10014 スパイシーつけ麺）：つけ汁に納豆IN（無料・必須選択）
+  if(isTsukemenItem(item)) {
+    const nattoTitle = ({
+      ja:'つけ汁に納豆INがおすすめ（無料）',
+      en:'Natto in the dipping soup — recommended (Free)',
+      zh:'蘸汁加纳豆，推荐（免费）',
+      ko:'츠케지루에 낫토 추가 추천（무료）'
+    }[lang] || 'つけ汁に納豆INがおすすめ（無料）');
+    const nattoYes = ({ja:'いる',en:'Yes',zh:'要',ko:'네'}[lang] || 'いる');
+    const nattoNo  = ({ja:'いらない',en:'No',zh:'不要',ko:'아니요'}[lang] || 'いらない');
+    const nattoVal = curOpts.natto || '';
+    reqHtml += `<div class="option-group" id="field-natto" style="border:none;padding:6px 0">
+      <div class="option-label">${nattoTitle}</div>
+      <div class="option-btns">
+        <button class="option-btn ${nattoVal==='yes'?'selected':''}" onclick="pickNatto('yes')">${nattoYes}</button>
+        <button class="option-btn ${nattoVal==='no'?'selected':''}" onclick="pickNatto('no')">${nattoNo}</button>
+      </div>
+    </div>`;
   }
   if(c.karasaAdd){
     // 0辛〜10辛を常時表示。0辛 = 辛さなし（追加料金なし）
@@ -2164,7 +2184,7 @@ function hasRequiredFields(){
 // SKつけ麺判定：商品名に「つけ麺」を含む or id=10012（カスタム商品）
 function isTsukemenItem(item){
   if (!item) return false;
-  if (item.id === 10012) return true;
+  if (item.id === 10012 || item.id === 10014) return true; // 冷やしつけ麺 / スパイシーつけ麺
   const nm = (item.name && (item.name.ja || item.name.en || item.name.zh || item.name.ko)) || '';
   return /つけ麺/i.test(nm);
 }
@@ -2186,6 +2206,9 @@ function getMissingFields(){
   // SKつけ麺の麺の量（必須選択）
   if(isTsukemenItem(curItem) && !curOpts.tsukemenSize)
     missing.push({key:'tsukemenSize',label:'麺の量'});
+  // つけ麺：納豆IN いる/いらない（必須選択）
+  if(isTsukemenItem(curItem) && !curOpts.natto)
+    missing.push({key:'natto',label:'納豆'});
   return missing;
 }
 
@@ -2332,6 +2355,7 @@ function pickLunchFree(choice){
 }
 function toggleTsukemenSpicy(){ curOpts.tsukemenSpicy = !curOpts.tsukemenSpicy; renderModal(); }
 function calcTsukemenSpicyExtra(){ return curOpts.tsukemenSpicy ? 100 : 0; }
+function pickNatto(v){ curOpts.natto = v; renderModal(); }
 function pickKarasa(){ curOpts.karasa='pick'; renderModal(); } // 互換のため残す（現UIでは未使用）
 function pickSpicy(l,p){
   if (l === '0辛') {
@@ -2434,6 +2458,7 @@ function addCart(){
   if(curOpts.rice)       opts.push(curOpts.rice);
   if(curOpts.tsukemenSpicy) opts.push('スパイシーつけ麺に変更'); // 冷やし！スパイシーつけ麺
   if(curOpts.tsukemenSize) opts.push(curOpts.tsukemenSize); // SKつけ麺の麺の量
+  if(curOpts.natto) opts.push(curOpts.natto==='yes'?'納豆あり':'納豆なし'); // つけ汁に納豆IN
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
   // 平日ランチ「大盛り無料」は noodleSize に反映済みなのでここでは追加しない（重複防止）
   // 平日ランチ「替え玉無料」は下でカートに別商品として追加（キッチン伝票で独立カード表示・待機タブ対応）
