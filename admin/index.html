@@ -3027,9 +3027,14 @@ function calcVisitRate(orders) {
   return { first: first.size, repeat: repeat.size, total, rate };
 }
 
-// 冷やし！SKつけ麺（id:10012）で「スパイシーつけ麺に変更」が選択された注文かを判定
+// スパイシーつけ麺の判定（集計上ひとつの商品として扱う）
+//   ① 冷やし！SKつけ麺（id:10012）で「スパイシーつけ麺に変更」が選択された注文
+//   ② スパイシーつけ麺（id:10014）として独立登録した商品の注文
+//   → ①②は同一商品として疑似ID '10012s' に集約する
 function isSpicyTsukemen(item) {
-  return !!(item && item.itemId === 10012 && Array.isArray(item.opts)
+  if (!item) return false;
+  if (item.itemId === 10014) return true;
+  return !!(item.itemId === 10012 && Array.isArray(item.opts)
     && item.opts.some(o => /スパイシーつけ麺に変更/.test(String(o))));
 }
 function calcReportFor(session) {
@@ -3108,12 +3113,16 @@ function renderMenuCountHTML(counts, sections) {
       customMenuItems.forEach(c => {
         if (c.hidden) return;
         if (shownIds.has(c.id)) return;
+        // #10014（スパイシーつけ麺）は #10012 直後の '10012s' 行に集約表示するため
+        // 独立した行としては描画しない（カウントの二重表示防止）
+        if (c.id === 10014) { shownIds.add(c.id); return; }
         const key = getDinnerSectionKey({ cat: c.cat, name: c.name });
         if (key === sec.key) {
           const baseSort = c.sortOrder || 9999;
           items.push({ id: c.id, name: (c.name && c.name.ja) || '(無名)', count: counts[c.id] || 0, _sort: baseSort, _isCustom: true });
           shownIds.add(c.id);
           // 冷やし！SKつけ麺（id:10012）の直後にスパイシーつけ麺を別商品として表示
+          //   '10012s' は #10012+変更 と #10014 を合算したカウント
           if (c.id === 10012) {
             items.push({ id: '10012s', name: 'スパイシーつけ麺', count: counts['10012s'] || 0, _sort: baseSort + 0.5, _isCustom: true });
           }
@@ -3790,7 +3799,9 @@ function countTsukemenTeishokuRows(filtered, includeBaseline) {
   (filtered || []).forEach(o => (o.items || []).forEach(item => {
     const q = item.qty || 0;
     if (item.itemId === 70) gyoza += q;
-    else if (item.itemId === 10012) { if (isSpicyTsukemen(item)) skSpicy += q; else sk += q; }
+    // スパイシーつけ麺（#10012+変更 / #10014）は同一商品として skSpicy に合算
+    else if (isSpicyTsukemen(item)) skSpicy += q;
+    else if (item.itemId === 10012) sk += q;
   }));
   if (includeBaseline && SOUP_BASELINE.items && typeof SOUP_BASELINE.items[70] === 'number') {
     gyoza += SOUP_BASELINE.items[70];
