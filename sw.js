@@ -16,7 +16,6 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
-  // 古いキャッシュバージョンを削除
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
@@ -31,7 +30,6 @@ self.addEventListener('fetch', (e) => {
   const isImage = IMG_HOST_PATTERNS.some(re => re.test(url.hostname));
   if (!isImage) return;
 
-  // stale-while-revalidate
   e.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
     const hit = await cache.match(req);
