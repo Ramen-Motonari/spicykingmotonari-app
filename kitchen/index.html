@@ -797,6 +797,8 @@ const catOrder = ['ramen','teishoku','side','drink'];
 const catLabel = {ramen:'🍜 ラーメン', teishoku:'🥟 定食', side:'🥟 サイド', drink:'🍺 ドリンク'};
 
 let orders = [], tables = {}, soldoutIds = [];
+// 平打ち麺変更（細麺メニューの麺変更オプション）の売り切れフラグ。soldout/{今日} ドキュメントに保存（翌日自動リセット）
+let flatNoodleSoldout = false;
 // おすすめ商品 ID 配列（最大3件・全端末同期・スタッフが変更するまで永続）
 let recommendedIds = [];
 // 「全表示」モード対象の伝票ラベル（メモリ保持・ページリロードで初期化）
@@ -947,7 +949,9 @@ function startSoldoutListener() {
 const { doc, onSnapshot } = window.fbApi;
 const ref = doc(window.fb.db, 'soldout', todayKey());
 onSnapshot(ref, (snap) => {
-soldoutIds = snap.exists() ? (snap.data().ids || []) : [];
+const data = snap.exists() ? snap.data() : {};
+soldoutIds = data.ids || [];
+flatNoodleSoldout = !!data.flatNoodleSoldout;
 updateSoldoutBadge(); updateSoldoutModeLabel();
 if (document.getElementById('soldoutFullPage').style.display === 'block') renderSoldoutFullList();
 if (document.getElementById('soldoutScreen').classList.contains('active')) renderSoldoutList();
@@ -1041,6 +1045,17 @@ await setDoc(doc(window.fb.db, 'soldout', todayKey()), { ids, updatedAt: serverT
 
 function getSoldoutIds() { return soldoutIds; }
 
+// 平打ち麺変更の売り切れフラグを更新（オーダーAPPでは平打ち麺変更ボタンが消える）
+async function setFlatNoodleSoldoutRemote(sold) {
+const { doc, setDoc, serverTimestamp } = window.fbApi;
+await setDoc(doc(window.fb.db, 'soldout', todayKey()), { flatNoodleSoldout: !!sold, updatedAt: serverTimestamp() }, { merge: true });
+}
+async function toggleFlatNoodleSoldout() {
+const next = !flatNoodleSoldout;
+try { await setFlatNoodleSoldoutRemote(next); showToast(next ? '平打ち麺変更を売り切れに設定しました 🚫' : '平打ち麺変更を販売再開しました ✅'); }
+catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
+}
+
 function rebuildTables() {
 tables = {};
 SEAT_LABELS.forEach(label => {
@@ -1109,6 +1124,13 @@ html += `<div style="display:flex;align-items:center;justify-content:space-betwe
 </div>`;
 });
 });
+// ───── 麺変更オプション：平打ち麺変更（細麺メニュー用）─────
+const flatSold = flatNoodleSoldout;
+html += `<div style="font-size:11px;font-weight:700;color:var(--accent2);letter-spacing:1px;padding:14px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">麺変更オプション</div>`;
+html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${flatSold?'rgba(192,57,43,0.1)':'var(--surface)'};border-radius:12px;margin-bottom:6px;border:1px solid ${flatSold?'var(--accent2)':'var(--border)'}">
+<div><div style="font-size:14px;font-weight:700;color:${flatSold?'#e74c3c':'var(--text)'}">${flatSold?'🚫 ':''}平打ち麺変更</div><div style="font-size:11px;color:var(--muted);margin-top:2px">細麺メニューの平打ち麺への変更</div></div>
+<button onclick="toggleFlatNoodleSoldout()" style="padding:8px 16px;border-radius:10px;border:none;background:${flatSold?'var(--green)':'var(--accent2)'};color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">${flatSold?'販売再開':'売り切れ'}</button>
+</div>`;
 document.getElementById('soldoutFullList').innerHTML = html;
 }
 
