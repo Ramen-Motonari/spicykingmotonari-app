@@ -243,15 +243,37 @@ body.pdf-export-mode .print-target [id$="-spicy-chart"] span[style*="font-family
 body.pdf-export-mode .print-target [id$="-count-chart"] span[style*="font-family:'Oswald'"],
 body.print-mode .print-target [id$="-spicy-chart"] span[style*="font-family:'Oswald'"],
 body.print-mode .print-target [id$="-count-chart"] span[style*="font-family:'Oswald'"]{ font-size:13pt !important; color:#000 !important; font-weight:900 !important; }
-/* 管理表：1ページに収める＋数値大きめ */
+/* 管理表：A4横1枚に収める（表のみ・余白詰め） */
+/* 表以外（操作UI・説明文・サブ見出し・プレースホルダ）はPDF/印刷で非表示 */
+body.pdf-export-mode .print-target .kt-noprint,
+body.print-mode .print-target .kt-noprint{ display:none !important; }
+/* タイトルは小さめ・黒文字で1行だけ残す */
+body.pdf-export-mode .print-target#page-kanritable .page-title,
+body.print-mode .print-target#page-kanritable .page-title{ font-size:13pt !important; margin:0 0 2mm 0 !important; color:#000 !important; }
+/* 出力幅を固定して横長（A4ランドスケープ）比率に揃える */
+body.pdf-export-mode .print-target#page-kanritable,
+body.print-mode .print-target#page-kanritable{ width:1100px !important; max-width:1100px !important; padding:0 !important; }
 body.pdf-export-mode .print-target #kanritableWrap,
-body.print-mode .print-target #kanritableWrap{ display:block !important; max-height:none !important; overflow:visible !important; border:none !important; }
+body.print-mode .print-target #kanritableWrap{ display:block !important; max-height:none !important; overflow:visible !important; border:none !important; padding:0 !important; }
+body.pdf-export-mode .print-target #kanritableWrap > div,
+body.print-mode .print-target #kanritableWrap > div{ overflow:visible !important; }
 body.pdf-export-mode .print-target #kanritableTable,
-body.print-mode .print-target #kanritableTable{ width:100% !important; min-width:auto !important; font-size:8pt !important; }
+body.print-mode .print-target #kanritableTable{ width:100% !important; min-width:auto !important; font-size:8pt !important; table-layout:fixed !important; }
 body.pdf-export-mode .print-target #kanritableTable th,
-body.print-mode .print-target #kanritableTable th{ padding:1.2mm 0.8mm !important; font-size:7.5pt !important; background:#000 !important; color:#fff !important; font-weight:900 !important; }
+body.print-mode .print-target #kanritableTable th{ padding:0.6mm 0.5mm !important; font-size:7pt !important; background:#000 !important; color:#fff !important; font-weight:900 !important; min-width:0 !important; white-space:nowrap !important; line-height:1.05 !important; }
 body.pdf-export-mode .print-target #kanritableTable td,
-body.print-mode .print-target #kanritableTable td{ padding:0.8mm 1.2mm !important; font-size:9pt !important; line-height:1.1 !important; color:#000 !important; font-weight:700 !important; border:1px solid #999 !important; }
+body.print-mode .print-target #kanritableTable td{ padding:0.4mm 0.6mm !important; font-size:8pt !important; line-height:1.0 !important; color:#000 !important; font-weight:700 !important; border:1px solid #999 !important; }
+/* 天気：通常はselectで編集、PDF/印刷ではselectが描画されないため静的テキストを表示 */
+.kt-weather-print{ display:none; }
+body.pdf-export-mode .print-target .kt-weather-print,
+body.print-mode .print-target .kt-weather-print{ display:inline !important; }
+body.pdf-export-mode .print-target .kt-weather-edit,
+body.print-mode .print-target .kt-weather-edit{ display:none !important; }
+/* セル内編集UI（select/contenteditable span）も小さく・高さ詰め */
+body.pdf-export-mode .print-target #kanritableTable td select,
+body.print-mode .print-target #kanritableTable td select,
+body.pdf-export-mode .print-target #kanritableTable td span,
+body.print-mode .print-target #kanritableTable td span{ font-size:8pt !important; color:#000 !important; min-height:0 !important; line-height:1.0 !important; padding:0 !important; margin:0 !important; height:auto !important; }
 /* 印刷時に @page で A4 横向き */
 @media print {
   body{ background:#fff !important; color:#000 !important; display:block !important; }
@@ -730,8 +752,8 @@ window.adminLogout = adminLogout;
   <!-- 管理表ページ -->
   <div class="page" id="page-kanritable">
     <div class="page-title">📋 管理表</div>
-    <div class="page-sub">夜の日報で保存した数値の閲覧・修正・CSV出力</div>
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <div class="page-sub kt-noprint">夜の日報で保存した数値の閲覧・修正・CSV出力</div>
+    <div class="kt-noprint" style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
       <label style="font-size:13px;color:var(--muted)">対象月：</label>
       <select id="kanritableYear" class="form-input" style="width:100px"></select>
       <select id="kanritableMonthNum" class="form-input" style="width:90px"></select>
@@ -742,7 +764,7 @@ window.adminLogout = adminLogout;
       <button onclick="printPage('kanritable')" style="padding:10px 18px;border-radius:10px;background:#444;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🖨 印刷</button>
       <span id="kanritableStatus" style="font-size:11px;color:var(--muted)"></span>
     </div>
-    <div id="kanritableEmpty" style="padding:60px 20px;text-align:center;color:var(--muted);font-size:13px">
+    <div id="kanritableEmpty" class="kt-noprint" style="padding:60px 20px;text-align:center;color:var(--muted);font-size:13px">
       対象月を選んで「決定」ボタンを押してください
     </div>
     <div class="card" id="kanritableWrap" style="display:none;overflow:auto;max-height:calc(100vh - 200px)">
@@ -753,7 +775,7 @@ window.adminLogout = adminLogout;
         </table>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
+    <div class="kt-noprint" style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
       💡 セルをタップ/クリックして数値を直接編集できます。Enter または別のセルをクリックすると自動保存されます。<br>
       💡 グレー背景の列は APP 集計値・自動計算値（編集不可）。白背景の列は手入力項目。
     </div>
@@ -1893,12 +1915,13 @@ function getKanritableColumns() {
 }
 
 function _fmt(v, fmt) {
-  if (v == null || v === '' || isNaN(v)) return '';
-  if (fmt === 'num')   return Number(v).toLocaleString();
-  if (fmt === 'num1')  return Number(v).toFixed(1);
-  if (fmt === 'pct')   return Number(v).toFixed(1) + '%';
-  if (fmt === 'pct1')  return Number(v).toFixed(1) + '%';
-  if (fmt === 'yen')   return '¥' + Number(v).toLocaleString();
+  if (v == null || v === '') return '';
+  // 数値フォーマットのときだけ NaN を空欄に（曜日「水」や小計ラベル「週1」等の文字列は通す）
+  if (fmt === 'num')   return isNaN(v) ? '' : Number(v).toLocaleString();
+  if (fmt === 'num1')  return isNaN(v) ? '' : Number(v).toFixed(1);
+  if (fmt === 'pct')   return isNaN(v) ? '' : Number(v).toFixed(1) + '%';
+  if (fmt === 'pct1')  return isNaN(v) ? '' : Number(v).toFixed(1) + '%';
+  if (fmt === 'yen')   return isNaN(v) ? '' : '¥' + Number(v).toLocaleString();
   return String(v);
 }
 function _wd(yyyymmdd) {
@@ -1940,7 +1963,7 @@ function renderKanritableTable() {
     }
     if (c.editable) {
       const editAttr = c.type === 'weather'
-        ? `<select onchange="updateKanritableCell('${dateKey}','${c.key}',this.value)" style="background:transparent;border:none;color:var(--text);font-size:11px;width:100%"><option ${val==='晴'?'selected':''}>晴</option><option ${val==='曇'?'selected':''}>曇</option><option ${val==='雨'?'selected':''}>雨</option><option ${val==='台風'?'selected':''}>台風</option></select>`
+        ? `<span class="kt-weather-print">${display}</span><select class="kt-weather-edit" onchange="updateKanritableCell('${dateKey}','${c.key}',this.value)" style="background:transparent;border:none;color:var(--text);font-size:11px;width:100%"><option ${val==='晴'?'selected':''}>晴</option><option ${val==='曇'?'selected':''}>曇</option><option ${val==='雨'?'selected':''}>雨</option><option ${val==='台風'?'selected':''}>台風</option></select>`
         : `<span contenteditable="true" onblur="updateKanritableCell('${dateKey}','${c.key}',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" style="display:block;outline:none;min-height:18px;cursor:text;color:var(--text)">${display}</span>`;
       return `<td style="padding:5px 6px;border:1px solid var(--border);background:${bg};text-align:right;font-family:'Oswald',sans-serif">${editAttr}</td>`;
     }
