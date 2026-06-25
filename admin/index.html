@@ -225,6 +225,13 @@ body.pdf-export-mode .print-target #all-menu-count > div,
 body.print-mode .print-target #all-menu-count > div{ background:#fafafa !important; border:1px solid #bbb !important; padding:1mm 2mm !important; font-size:8.5pt !important; opacity:1 !important; }
 body.pdf-export-mode .print-target #all-menu-count > div span:last-child,
 body.print-mode .print-target #all-menu-count > div span:last-child{ font-size:13pt !important; font-weight:900 !important; color:#000 !important; }
+/* 売上分析の全メニュー販売数: 多段組みで省スペース（セクション見出しは段で分割しない） */
+body.pdf-export-mode .print-target #analytics-menu-count,
+body.print-mode .print-target #analytics-menu-count{ display:block !important; column-count:3 !important; column-gap:6mm !important; }
+body.pdf-export-mode .print-target #analytics-menu-count > div,
+body.print-mode .print-target #analytics-menu-count > div{ break-inside:avoid !important; -webkit-column-break-inside:avoid !important; font-size:9pt !important; opacity:1 !important; padding:0.6mm 2mm !important; }
+body.pdf-export-mode .print-target #analytics-menu-count > div span:last-child,
+body.print-mode .print-target #analytics-menu-count > div span:last-child{ font-size:11pt !important; font-weight:900 !important; color:#000 !important; }
 /* スープランキング: 合計バッジ大きく */
 body.pdf-export-mode .print-target .soup-total,
 body.print-mode .print-target .soup-total{ background:#f0f0f0 !important; border:2px solid #000 !important; padding:2mm 5mm !important; min-width:auto !important; }
@@ -688,8 +695,8 @@ window.adminLogout = adminLogout;
       <div class="rank-list" id="cat-ranking"></div>
     </div>
     <div class="card">
-      <div class="card-title"><span>全メニュー カウント一覧</span><span style="font-size:11px;color:var(--muted);font-weight:400">注文ゼロ含む全品目</span></div>
-      <div id="all-menu-count" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px"></div>
+      <div class="card-title"><span>全メニュー 販売数カウント</span><span style="font-size:11px;color:var(--muted);font-weight:400">期間内の販売数（注文ゼロ含む全品目）</span></div>
+      <div id="analytics-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
     </div>
   </div>
 
@@ -3708,8 +3715,16 @@ function renderAnalytics() {
       itemStats[id].total += price * (item.qty||0);
     });
   });
-  // 全メニューカウント
-  renderAllMenuCount(itemStats);
+  // 全メニュー販売数カウント（夜の報告と同じセクション別レイアウト）
+  //   スパイシーつけ麺は夜の報告と同様に疑似ID '10012s' に集約
+  const menuCounts = {};
+  allFiltered.forEach(o => {
+    (o.items||[]).forEach(item => {
+      const id = isSpicyTsukemen(item) ? '10012s' : item.itemId;
+      menuCounts[id] = (menuCounts[id] || 0) + (item.qty || 0);
+    });
+  });
+  renderAllMenuCount(menuCounts);
 
   // CSV出力用の最新スナップショットをキャッシュ
   _lastAnalytics = {
@@ -3781,19 +3796,11 @@ function exportAnalyticsCSV() {
   showToast('📥 売上分析 CSV出力完了');
 }
 
-function renderAllMenuCount(itemStats) {
-  const el = document.getElementById('all-menu-count');
+function renderAllMenuCount(counts) {
+  const el = document.getElementById('analytics-menu-count');
   if (!el) return;
-  const html = MOTONARI.MENU_ITEMS.map(m => {
-    const s = itemStats[m.id];
-    const qty = s ? s.qty : 0;
-    const isZero = qty === 0;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-radius:8px;padding:6px 10px;font-size:12px;${isZero?'opacity:0.4':''}">
-      <span style="color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name.ja}</span>
-      <span style="font-family:'Oswald',sans-serif;color:${isZero?'var(--muted)':'var(--accent)'};font-weight:700;flex-shrink:0;margin-left:8px">${qty}</span>
-    </div>`;
-  }).join('');
-  el.innerHTML = html;
+  // 夜の報告と同じセクション別レイアウトで描画（counts = {itemId: 販売数, '10012s': スパイシーつけ麺}）
+  el.innerHTML = renderMenuCountHTML(counts, DINNER_SECTIONS);
 }
 
 // ────── Soup ranking ──────
