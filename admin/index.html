@@ -3724,7 +3724,7 @@ function renderAnalytics() {
       menuCounts[id] = (menuCounts[id] || 0) + (item.qty || 0);
     });
   });
-  renderAllMenuCount(menuCounts);
+  renderAllMenuCount(menuCounts, allFiltered);
 
   // CSV出力用の最新スナップショットをキャッシュ
   _lastAnalytics = {
@@ -3796,11 +3796,45 @@ function exportAnalyticsCSV() {
   showToast('📥 売上分析 CSV出力完了');
 }
 
-function renderAllMenuCount(counts) {
+function renderAllMenuCount(counts, orders) {
   const el = document.getElementById('analytics-menu-count');
   if (!el) return;
+  // 替え玉(40)・半替え玉(41) は「替え玉など」セクションへ集約するため、
+  // 追加トッピングからは除外したセクション定義で描画する
+  const sections = DINNER_SECTIONS.map(sec => {
+    if (sec.key === 'topping') {
+      return Object.assign({}, sec, { ids: (sec.ids || []).filter(id => id !== 40 && id !== 41) });
+    }
+    return sec;
+  });
   // 夜の報告と同じセクション別レイアウトで描画（counts = {itemId: 販売数, '10012s': スパイシーつけ麺}）
-  el.innerHTML = renderMenuCountHTML(counts, DINNER_SECTIONS);
+  let html = renderMenuCountHTML(counts, sections);
+  // 「替え玉など」セクション（無料・ランチタイム無料は除外し、有料のみカウント）
+  html += renderKaedamaEtcHTML(calcNoodleOptionCounts(orders || []));
+  el.innerHTML = html;
+}
+
+// 「替え玉など」セクションの描画（有料のみ）
+//   替え玉 / 半替え玉 / 細麺大盛り / 平打ち麺変更（小・並・大）
+function renderKaedamaEtcHTML(noc) {
+  noc = noc || {};
+  const rows = [
+    { name: '替え玉（有料）', count: noc.kaedama || 0 },
+    { name: '半替え玉（有料）', count: noc.halfKaedama || 0 },
+    { name: '細麺大盛り（有料）', count: noc.thinLarge || 0 },
+    { name: '平打ち麺変更　小', count: noc.tonkotsuFlatSmall || 0 },
+    { name: '平打ち麺変更　並', count: noc.tonkotsuFlatRegular || 0 },
+    { name: '平打ち麺変更　大', count: noc.tonkotsuFlatLarge || 0 }
+  ];
+  let html = `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-top:12px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">🍜 替え玉など</div>`;
+  rows.forEach(r => {
+    const isZero = r.count === 0;
+    html += `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;font-size:12px;${isZero?'opacity:0.4':''}">
+        <span style="color:#ccc">${r.name}</span>
+        <span style="font-family:'Oswald',sans-serif;color:${isZero?'var(--muted)':'var(--accent)'};font-weight:700">${r.count}</span>
+      </div>`;
+  });
+  return html;
 }
 
 // ────── Soup ranking ──────
