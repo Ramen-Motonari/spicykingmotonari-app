@@ -107,13 +107,13 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 /* 全提供完了の演出状態：薄くなり「完了」感を視覚的に伝えるが、消えない（猶予期間中は表示維持） */
 .ticket.completing{opacity:0.72;filter:grayscale(0.35);position:relative}
 .ticket.completing::after{content:"✓ 全提供完了";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);font-family:'Oswald','Noto Sans JP',sans-serif;font-size:36px;font-weight:900;color:#22c55e;background:rgba(255,255,255,0.85);padding:10px 22px;border-radius:14px;border:3px solid #22c55e;box-shadow:0 4px 14px rgba(0,0,0,0.2);pointer-events:none;z-index:20;letter-spacing:2px}
-/* ─── 一覧モード（ラーメン／サイド／ドリンク） ─── */
-#ramenListContent,#sideListContent,#drinkListContent{position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px - 26px);width:100vw;padding:8px 10px 90px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:var(--bg);box-sizing:border-box}
-@media (max-height:760px){#ramenListContent,#sideListContent,#drinkListContent{top:32px;height:calc(100vh - 47px - 32px)}}
+/* ─── 一覧モード（ラーメン／サイド＋ドリンク） ─── */
+#ramenListContent,#sideListContent{position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px - 26px);width:100vw;padding:8px 10px 90px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:var(--bg);box-sizing:border-box}
+@media (max-height:760px){#ramenListContent,#sideListContent{top:32px;height:calc(100vh - 47px - 32px)}}
 /* スマホで一覧モード時：注文件数バーを非表示にして表示領域を最大化 */
 @media (max-width: 640px){
-  body.ramen-list-mode #kitchenCountBar,body.side-list-mode #kitchenCountBar,body.drink-list-mode #kitchenCountBar{display:none}
-  body.ramen-list-mode #ramenListContent,body.side-list-mode #sideListContent,body.drink-list-mode #drinkListContent{top:0;height:calc(100vh - 53px)}
+  body.ramen-list-mode #kitchenCountBar,body.side-list-mode #kitchenCountBar{display:none}
+  body.ramen-list-mode #ramenListContent,body.side-list-mode #sideListContent{top:0;height:calc(100vh - 53px)}
 }
 /* 全サイズで縦1列：iPadでもスマホでも横並び1列でカードがフル幅 */
 .rlist-grid{display:grid;gap:6px;grid-template-columns:1fr}
@@ -142,6 +142,10 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:50vh;color:#777;font-family:'Noto Sans JP',sans-serif}
 .rlist-empty-icon{font-size:64px;margin-bottom:10px}
 .rlist-empty-text{font-size:14px}
+/* サイド一覧内のセクション見出し（サイド／ドリンク） */
+.rlist-section-head{font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:900;color:#fff;letter-spacing:1px;margin:14px 2px 6px;padding:5px 12px;border-radius:8px;background:rgba(255,255,255,0.08);border-left:4px solid var(--accent)}
+.rlist-section-head:first-child{margin-top:2px}
+.rlist-section-empty{font-family:'Noto Sans JP',sans-serif;font-size:13px;color:#777;padding:6px 12px 2px}
 /* 全表示モード：伝票を広げて、商品カードを横に折り返し表示（スクロール不要に） */
 .ticket.expanded{flex:0 0 calc(100vw - 20px) !important;width:calc(100vw - 20px) !important;max-width:calc(100vw - 20px) !important;scroll-snap-align:start;outline:3px solid #e65100;outline-offset:-3px}
 .ticket.expanded > div:last-child{overflow-y:visible}
@@ -312,9 +316,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   #soldoutBtn .lbl{display:none !important}
   #ramenListBtn{padding:5px 8px !important;font-size:14px !important}
   #ramenListBtn .lbl{display:none !important}
-  /* サイド一覧・ドリンク一覧ボタンはスマホでは絵文字のみ表示 */
-  #sideListBtn,#drinkListBtn{padding:5px 8px !important;font-size:14px !important}
-  #sideListBtn .lbl,#drinkListBtn .lbl{display:none !important}
+  /* サイド一覧ボタンはスマホでは絵文字のみ表示 */
+  #sideListBtn{padding:5px 8px !important;font-size:14px !important}
+  #sideListBtn .lbl{display:none !important}
   /* 件数バー */
   #kitchenCountBar{height:32px;font-size:12px;gap:10px;letter-spacing:1px}
   #kitchenCountBar #kitchenCountNum{font-size:20px}
@@ -475,7 +479,6 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <button onclick="toggleReorderMode()" class="reorder-toggle-btn" id="reorderToggleBtn"><span class="ico">↕</span><span class="lbl"> 並び替え</span></button>
 <button onclick="toggleRamenListView()" id="ramenListBtn" style="padding:6px 12px;border-radius:20px;border:1px solid #ff9800;background:rgba(255,152,0,0.18);color:#ff9800;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span class="ico">🍜</span><span class="lbl" id="ramenListBtnLbl"> ラーメン一覧</span></button>
 <button onclick="toggleSideListView()" id="sideListBtn" style="padding:6px 12px;border-radius:20px;border:1px solid #4caf50;background:rgba(76,175,80,0.18);color:#4caf50;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span class="ico">🍟</span><span class="lbl" id="sideListBtnLbl"> サイド一覧</span></button>
-<button onclick="toggleDrinkListView()" id="drinkListBtn" style="padding:6px 12px;border-radius:20px;border:1px solid #2196f3;background:rgba(33,150,243,0.18);color:#2196f3;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span class="ico">🍺</span><span class="lbl" id="drinkListBtnLbl"> ドリンク一覧</span></button>
 <span class="order-count-badge" id="activeCount" style="display:none">0件</span>
 <button id="bellBtn" onclick="toggleBellPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px 6px;line-height:1;font-size:22px">🔔<span id="bellDot" style="display:none;position:absolute;top:2px;right:4px;width:9px;height:9px;background:#e74c3c;border-radius:50%;border:1.5px solid #111;animation:bellPulse 1s infinite"></span></button>
 </div>
@@ -503,10 +506,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div id="kitchenContent"></div>
 <!-- ラーメン一覧表示（縦スクロール・グリッドレイアウト） -->
 <div id="ramenListContent" style="display:none"></div>
-<!-- サイドメニュー一覧表示（縦スクロール・グリッドレイアウト） -->
+<!-- サイド＋ドリンク一覧表示（縦スクロール・グリッドレイアウト） -->
 <div id="sideListContent" style="display:none"></div>
-<!-- ドリンク一覧表示（縦スクロール・グリッドレイアウト） -->
-<div id="drinkListContent" style="display:none"></div>
 <div id="kitchenStatsBar">
   <div class="ksb-item"><span class="ksb-label">売上(税抜)</span><span class="ksb-val" id="ksbSales">¥0</span></div>
   <div class="ksb-item"><span class="ksb-label">客数</span><span class="ksb-val" id="ksbCustomers">0</span></div>
@@ -813,55 +814,41 @@ let recommendedIds = [];
 let _expandedTickets = new Set();
 // 「ラーメン一覧」モードかどうか
 let _ramenListMode = false;
-// 「サイドメニュー一覧」モードかどうか
+// 「サイド＋ドリンク一覧」モードかどうか
 let _sideListMode = false;
-// 「ドリンク一覧」モードかどうか
-let _drinkListMode = false;
-// 一覧モード（ラーメン / サイド / ドリンク）の表示状態を一括反映する内部ヘルパー
+// 一覧モード（ラーメン / サイド＋ドリンク）の表示状態を一括反映する内部ヘルパー
 function _applyListModes() {
   const contentEl = document.getElementById('kitchenContent');
   const ramenEl = document.getElementById('ramenListContent');
   const sideEl = document.getElementById('sideListContent');
-  const drinkEl = document.getElementById('drinkListContent');
   const ramenLbl = document.getElementById('ramenListBtnLbl');
   const sideLbl = document.getElementById('sideListBtnLbl');
-  const drinkLbl = document.getElementById('drinkListBtnLbl');
-  const anyList = _ramenListMode || _sideListMode || _drinkListMode;
+  const anyList = _ramenListMode || _sideListMode;
   // body クラス（スマホ表示用 CSS が反応する）
   document.body.classList.toggle('ramen-list-mode', _ramenListMode);
   document.body.classList.toggle('side-list-mode', _sideListMode);
-  document.body.classList.toggle('drink-list-mode', _drinkListMode);
   if (contentEl) contentEl.style.display = anyList ? 'none' : '';
   if (ramenEl) ramenEl.style.display = _ramenListMode ? 'block' : 'none';
   if (sideEl) sideEl.style.display = _sideListMode ? 'block' : 'none';
-  if (drinkEl) drinkEl.style.display = _drinkListMode ? 'block' : 'none';
   // 各ボタンのラベル（一覧表示中は「全体表示」、スマホでは絵文字のみ＝ラベル非表示）
   if (ramenLbl) ramenLbl.textContent = _ramenListMode ? ' 全体表示' : ' ラーメン一覧';
   if (sideLbl) sideLbl.textContent = _sideListMode ? ' 全体表示' : ' サイド一覧';
-  if (drinkLbl) drinkLbl.textContent = _drinkListMode ? ' 全体表示' : ' ドリンク一覧';
   if (typeof updateKitchenNavBar === 'function') updateKitchenNavBar();
   if (_ramenListMode) renderRamenList();
   else if (_sideListMode) renderSideList();
-  else if (_drinkListMode) renderDrinkList();
   else if (typeof renderKitchen === 'function') renderKitchen();
   if (typeof updateKitchenVNavBar === 'function') updateKitchenVNavBar();
 }
-// ラーメン一覧モードの切替（他の一覧とは排他）
+// ラーメン一覧モードの切替（サイド一覧とは排他）
 window.toggleRamenListView = function() {
   _ramenListMode = !_ramenListMode;
-  if (_ramenListMode) { _sideListMode = false; _drinkListMode = false; }
+  if (_ramenListMode) _sideListMode = false;
   _applyListModes();
 };
-// サイドメニュー一覧モードの切替（他の一覧とは排他）
+// サイド＋ドリンク一覧モードの切替（ラーメン一覧とは排他）
 window.toggleSideListView = function() {
   _sideListMode = !_sideListMode;
-  if (_sideListMode) { _ramenListMode = false; _drinkListMode = false; }
-  _applyListModes();
-};
-// ドリンク一覧モードの切替（他の一覧とは排他）
-window.toggleDrinkListView = function() {
-  _drinkListMode = !_drinkListMode;
-  if (_drinkListMode) { _ramenListMode = false; _sideListMode = false; }
+  if (_sideListMode) _ramenListMode = false;
   _applyListModes();
 };
 window.toggleExpandTicket = function(tableLabel) {
@@ -1600,7 +1587,6 @@ updateKitchenStatsBar();
 // 一覧モードならそちらも更新（リアルタイム反映）
 if (_ramenListMode) { try { renderRamenList(); } catch(_) {} }
 if (_sideListMode) { try { renderSideList(); } catch(_) {} }
-if (_drinkListMode) { try { renderDrinkList(); } catch(_) {} }
 // 表示候補：pending / preparing / served（servedは追加注文の文脈保持用、後で除外する）
 const allNotPaid = orders.filter(o =>
   o.status !== 'paid' &&
@@ -1912,7 +1898,7 @@ function updateKitchenNavBar() {
   const tickets = Array.from(content.querySelectorAll('.ticket:not([data-removing])'));
   const n = tickets.length;
   // 伝票0件 or 一覧モード（ラーメン/サイド）では非表示
-  if (n === 0 || document.body.classList.contains('ramen-list-mode') || document.body.classList.contains('side-list-mode') || document.body.classList.contains('drink-list-mode')) {
+  if (n === 0 || document.body.classList.contains('ramen-list-mode') || document.body.classList.contains('side-list-mode')) {
     bar.style.display = 'none';
     bar.innerHTML = '';
     bar._segCount = 0;
@@ -1967,11 +1953,10 @@ function updateKitchenVNavBar() {
   const N = 24; // セグメント数（縦解像度）
   const isRamenList = document.body.classList.contains('ramen-list-mode');
   const isSideList = document.body.classList.contains('side-list-mode');
-  const isDrinkList = document.body.classList.contains('drink-list-mode');
   let anchorEl = null, topFrac = 0, botFrac = 1, hasOverflow = false;
 
-  if (isRamenList || isSideList || isDrinkList) {
-    const rl = document.getElementById(isRamenList ? 'ramenListContent' : isSideList ? 'sideListContent' : 'drinkListContent');
+  if (isRamenList || isSideList) {
+    const rl = document.getElementById(isRamenList ? 'ramenListContent' : 'sideListContent');
     if (rl && rl.scrollHeight > rl.clientHeight + 2) {
       anchorEl = rl;
       topFrac = rl.scrollTop / rl.scrollHeight;
@@ -2047,11 +2032,6 @@ function updateKitchenVNavBar() {
   if (sl && !sl._vnavBound) {
     sl._vnavBound = true;
     sl.addEventListener('scroll', () => schedule(sl), { passive: true });
-  }
-  const dl = document.getElementById('drinkListContent');
-  if (dl && !dl._vnavBound) {
-    dl._vnavBound = true;
-    dl.addEventListener('scroll', () => schedule(dl), { passive: true });
   }
   window.addEventListener('resize', updateKitchenVNavBar);
 })();
@@ -3127,10 +3107,8 @@ function isSideItem(it) { return _listCatOf(it) === 'side'; }
 function isDrinkItem(it) { return _listCatOf(it) === 'drink'; }
 
 // サイド／ドリンク一覧を描画する汎用関数。ラーメン一覧と同じ rlist スタイルを再利用。
-function _renderItemList(targetCat, elId, emptyIcon, emptyText) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  // 抽出対象：未会計（pending/preparing）で _doneByEdit / isPendingKaedamaPaid でない対象カテゴリ
+// 指定カテゴリ（'side'|'drink'）の未会計アイテムを createdAt 昇順（＝注文の早いテーブル順）で抽出
+function _collectListItems(targetCat) {
   const matched = [];
   orders.forEach(o => {
     if (o.status !== 'pending' && o.status !== 'preparing') return;
@@ -3142,35 +3120,40 @@ function _renderItemList(targetCat, elId, emptyIcon, emptyText) {
       matched.push({ order: o, item: it, idx });
     });
   });
-  // 時系列で並べる（createdAt 昇順）
   matched.sort((a, b) => {
     const ta = (a.order.createdAt && a.order.createdAt.toMillis) ? a.order.createdAt.toMillis() : 0;
     const tb = (b.order.createdAt && b.order.createdAt.toMillis) ? b.order.createdAt.toMillis() : 0;
     return ta - tb;
   });
-  if (matched.length === 0) {
-    el.innerHTML = `<div class="rlist-empty"><div class="rlist-empty-icon">${emptyIcon}</div><div class="rlist-empty-text">${emptyText}</div></div>`;
-    if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
-    return;
-  }
-  // 各品をカードに展開（qty>1 ならその数だけ複製して別エントリ）
+  return matched;
+}
+// 抽出済みアイテム配列をカードHTML配列へ（qty>1 はその数だけ複製）
+function _listCardsFor(matched) {
   const cards = [];
   matched.forEach(({ order, item, idx }) => {
     const qty = Math.max(1, Number(item.qty) || 1);
-    for (let i = 0; i < qty; i++) {
-      cards.push(renderSideListCard(order, item, idx, i));
-    }
+    for (let i = 0; i < qty; i++) cards.push(renderSideListCard(order, item, idx, i));
   });
-  el.innerHTML = `<div class="rlist-grid">${cards.join('')}</div>`;
-  if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
+  return cards;
 }
-// サイドメニュー一覧（サイドのみ）
+// サイド＋ドリンク一覧（1画面に2セクション：サイド → ドリンクの順、各セクションは注文の早いテーブル順）
 function renderSideList() {
-  _renderItemList('side', 'sideListContent', '🍟', '現在サイドメニューの注文はありません');
-}
-// ドリンク一覧（ドリンクのみ）
-function renderDrinkList() {
-  _renderItemList('drink', 'drinkListContent', '🍺', '現在ドリンクの注文はありません');
+  const el = document.getElementById('sideListContent');
+  if (!el) return;
+  const sideCards = _listCardsFor(_collectListItems('side'));
+  const drinkCards = _listCardsFor(_collectListItems('drink'));
+  if (sideCards.length === 0 && drinkCards.length === 0) {
+    el.innerHTML = `<div class="rlist-empty"><div class="rlist-empty-icon">🍟</div><div class="rlist-empty-text">現在サイド・ドリンクの注文はありません</div></div>`;
+    if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
+    return;
+  }
+  let html = '';
+  html += `<div class="rlist-section-head">🍟 サイド</div>`;
+  html += sideCards.length ? `<div class="rlist-grid">${sideCards.join('')}</div>` : `<div class="rlist-section-empty">サイドの注文はありません</div>`;
+  html += `<div class="rlist-section-head">🍺 ドリンク</div>`;
+  html += drinkCards.length ? `<div class="rlist-grid">${drinkCards.join('')}</div>` : `<div class="rlist-section-empty">ドリンクの注文はありません</div>`;
+  el.innerHTML = html;
+  if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
 }
 
 function renderSideListCard(order, item, itemIdx, unitIdx) {
