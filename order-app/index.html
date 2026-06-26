@@ -1083,6 +1083,22 @@ function isJapaneseHoliday(date){
 
 const isWeekday    = () => { const d=new Date(); return d.getDay()>=1 && d.getDay()<=5 && !isJapaneseHoliday(d); };
 const isLunchWeekday = () => isLunchTime()&&isWeekday();
+// 指定時刻（Firestore Timestamp / Date / millis / {seconds}）が「平日ランチ時間帯」かを判定。
+// 替え玉無料権利は「ラーメンを注文した時刻」を基準に判定する（替え玉モーダルを開いた現在時刻ではない）。
+// これにより、ランチ時間内（10:30〜14:30）に注文したお客様がランチ終了後に替え玉を頼んでも無料が維持される。
+const isLunchWeekdayAt = (ts) => {
+  let d = null;
+  if (ts && typeof ts.toDate === 'function') d = ts.toDate();
+  else if (ts instanceof Date) d = ts;
+  else if (typeof ts === 'number') d = new Date(ts);
+  else if (ts && typeof ts.seconds === 'number') d = new Date(ts.seconds * 1000);
+  if (!d || isNaN(d.getTime())) return isLunchWeekday(); // 取得不能時は現在時刻でフォールバック
+  const day = d.getDay();
+  const isWk = day >= 1 && day <= 5 && !isJapaneseHoliday(d);
+  const mins = d.getHours() * 60 + d.getMinutes();
+  const isLunch = mins >= 630 && mins <= 870; // 10:30〜14:30
+  return isWk && isLunch;
+};
 const isAvailable  = item => !item.night || isNightTime();
 
 function showScreen(id){
@@ -1660,13 +1676,21 @@ async function tryStartRecovery(){
     return;
   }
   _recoveryAttempted = true;
-  // 自動セッション復元は無効化（QRコード読込時は毎回 言語選択 → 初回/リピート選択 を表示）
-  // 注文中のお客様がリロードした場合は新規セッションになりますが、
-  // QRスキャン後に常に最初の選択画面が表示されないバグを修正するための変更です。
-  console.log('[recovery] auto-recovery disabled — show langScreen for every QR scan');
+  // 自動セッション復元は「localStorage に保存された自分のセッション」限定で再有効化。
+  //   復元条件（attemptSessionRecovery 内）：同じテーブル ＋ 12時間以内 ＋ セッション有効 ＋ 未払い注文あり
+  // ・注文中のお客様がリロード／QRを読み直した場合 → 履歴・替え玉バッジが復活する
+  // ・新規のお客様（localStorage 空）や会計済み端末 → 従来どおり言語選択画面から開始
+  //   （会計済みは上の checkDeviceLockedByPayment で先に paidScreen 表示済み）
+  // ※ Firestore からのテーブル逆引き（path 2）は共有端末で他人のセッションを拾うリスクがあるため使わない（localOnly=true）
+  try {
+    const recovered = await attemptSessionRecovery(true);
+    console.log('[recovery] localStorage-only recovery result:', recovered);
+  } catch(e){
+    console.warn('[recovery] recovery error:', e);
+  }
 }
 
-async function attemptSessionRecovery(){
+async function attemptSessionRecovery(localOnly){
   // ── 1. localStorageから復元を試みる ──
   try {
     const raw = localStorage.getItem(SESSION_LS_KEY);
@@ -1694,6 +1718,12 @@ async function attemptSessionRecovery(){
       clearSessionFromLocal();
     }
   } catch(e){ console.warn('localStorage recovery skipped:', e); }
+
+  // localOnly 指定時は Firestore 逆引き（共有端末で他人のセッションを拾うリスクあり）は行わない
+  if (localOnly) {
+    console.log('[recovery] localOnly — skip Firestore reverse-lookup');
+    return false;
+  }
 
   // ── 2. Firestoreから「このテーブル × 未会計」の最新注文を逆引き ──
   // 複合インデックス回避のため where のみで取得、JS側で絞り込み＆ソート
@@ -3318,9 +3348,9 @@ function computeKaedamaCredits(){
   return ramenList.map(r => {
     const key = `${r.orderFbId}_${r.orderIdx}_${r.subIdx}`;
     const used = usedFreeByKey[key] || 0;
-    // 無料権利の最大数を判定
+    // 無料権利の最大数を判定（※現在時刻ではなく「親ラーメンの注文時刻」で判定する）
     let maxFree = 0;
-    if (isLunchWeekday()){
+    if (isLunchWeekdayAt(r.createdAt)){
       if (r.cat === 'tonkotsu'){
         // とんこつ平日ランチ：大盛りを選んでいなければ1杯無料
         const hasLarge = r.opts.some(o => /大盛り|Large|大碗|곱배기/.test(o));
