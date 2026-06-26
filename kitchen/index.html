@@ -2746,17 +2746,12 @@ function renderRamenGroupCard(orderId, grp) {
     }
     if (total > 0) {
       const bg = totalPending > 0 ? '#ff9800' : '#bdbdbd';
-      // お客様の注文言語に合わせて4言語対応
-      //   キッチンスタッフが顧客の母国語も認識できるよう、日本語＋顧客言語 を併記
-      const order = orders.find(o => o.id === orderId);
-      const custLang = (order && order.language) || 'ja';
-      const kaedamaTr = { ja:'替え玉', en:'Extra Noodles', zh:'加面', ko:'면 추가' };
+      // 替え玉通知バッジは顧客の注文言語に関わらず常に日本語のみで表示する
+      //   （以前は「日本語 / 顧客言語」併記だったが、伝票が見づらいため日本語のみに統一）
       // 学生替え玉が含まれる場合は 🎓 を付けてキッチンに明示
       const stuMark = hasStudent ? '🎓' : '';
       const labelJa = (total > 1 ? `替え玉 ×${total}` : '替え玉') + (hasStudent ? '(学生)' : '');
-      const labelCust = (total > 1 ? `${kaedamaTr[custLang] || kaedamaTr.ja} ×${total}` : (kaedamaTr[custLang] || kaedamaTr.ja)) + (hasStudent ? (custLang==='en'?'(Student)':custLang==='zh'?'(学生)':custLang==='ko'?'(학생)':'(学生)') : '');
-      // 顧客が日本語ならそのまま、それ以外なら「JP / 顧客言語」併記
-      const label = (custLang === 'ja') ? labelJa : `${labelJa} / ${labelCust}`;
+      const label = labelJa;
       // 小さい版（金額左側用）
       kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">${stuMark}${label}</span>`;
       // 大きい版（ヘッダー名右側用 — 確実に視認できるように）
@@ -3808,6 +3803,14 @@ if (existing) existing.remove();
 let total = 0, tableDisp = '';
 if (type === 'merge' && mergeData) { total = mergeData.total; tableDisp = mergeData.labels; }
 else if (selectedTable) { total = tables[selectedTable].total; tableDisp = selectedTable; }
+// 会計対象オーダーIDをこの時点で固定（提示額に含まれない後発注文を paid 化しないため）
+if (type === 'merge' && mergeData && Array.isArray(mergeData.orderIds)) {
+  window._paySnapshotOrderIds = mergeData.orderIds.slice();
+} else if (selectedTable) {
+  window._paySnapshotOrderIds = orders.filter(o => o.table === selectedTable && o.status !== 'paid').map(o => o.id);
+} else {
+  window._paySnapshotOrderIds = [];
+}
 const overlay = document.createElement('div');
 overlay.id = 'payMethodOverlay';
 overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:600;display:flex;align-items:center;justify-content:center;padding:24px;';
@@ -3971,7 +3974,8 @@ function refreshCashCalcDisplay() {
     if (bEl) bEl.textContent = change > 0 ? changeBreakdown(change) : '';
   }
   if (btn) {
-    if (received >= total && total > 0) {
+    // received >= total を満たせば完了可（合計¥0の注文でも会計できるよう total>0 条件は撤廃。カード会計との非対称も解消）
+    if (received >= total) {
       btn.disabled = false;
       btn.style.cssText = 'flex:2;padding:14px;border-radius:12px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:15px;font-weight:900;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif';
     } else {
@@ -4058,13 +4062,17 @@ if (_pmOverlay) _pmOverlay.remove();
 const payLabel = payMethod === 'cash' ? '現金' : 'クレジット';
 const payIcon = payMethod === 'cash' ? '💴' : '💳';
 const { doc, updateDoc, serverTimestamp } = window.fbApi;
+// 会計対象オーダーID（モーダル表示時に固定したスナップショット）。
+// これに含まれないオーダー（モーダル表示後の追加注文）は paid 化しない。
+const _snapIds = Array.isArray(window._paySnapshotOrderIds) ? window._paySnapshotOrderIds : [];
+const _useSnap = _snapIds.length > 0;
 if (mergeFlag === '__merge__') {
 const md = window._pendingMergeData;
 if (!md) return;
 try {
 const updates = [];
 md.mergedTables.forEach(label => {
-orders.filter(o => o.table === label && o.status !== 'paid').forEach(o => {
+orders.filter(o => o.table === label && o.status !== 'paid' && (!_useSnap || _snapIds.includes(o.id))).forEach(o => {
 updates.push(updateDoc(doc(window.fb.db,'orders',o.id), {
 status:'paid', paymentMethod:payMethod, paymentType:'merge', paymentRequested:false, updatedAt:serverTimestamp()
 }));
@@ -4076,17 +4084,19 @@ closeDetail();
 showToast(`${md.labels} 合算 ¥${md.total.toLocaleString()} ${payIcon}${payLabel} 会計完了！`);
 } catch(e) { console.error(e); showToast('エラー: 会計失敗'); }
 window._pendingMergeData = null;
+window._paySnapshotOrderIds = null;
 return;
 }
 if (!selectedTable) return;
 try {
-const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid');
+const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid' && (!_useSnap || _snapIds.includes(o.id)));
 await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db,'orders',o.id), {
 status:'paid', paymentMethod:payMethod, paymentType:type||'normal', paymentRequested:false, updatedAt:serverTimestamp()
 })));
 showToast(`${selectedTable} ${payIcon}${payLabel} 会計完了！`);
 closeDetail();
 } catch(e) { console.error(e); showToast('エラー: 会計失敗'); }
+window._paySnapshotOrderIds = null;
 }
 
 function completePayment(type) { if (selectedTable) openPaymentMethodModal(type, null); }
@@ -4220,6 +4230,8 @@ async function undoPaymentForTable(tableLabel) {
 function openSeparatePayment() {
 if (!selectedTable) return;
 const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid');
+// 別会計の対象オーダーIDを固定（開始後に入った追加注文を、内訳に含めず paid 化もしないため）
+window._betsuOrderIds = tableOrders.map(o => o.id);
 const allItems = tableOrders.flatMap(o => (o.items||[]).flatMap(item => {
 const unitPrice = getItemUnitPrice(item);
 return Array.from({length: item.qty}, () => ({
@@ -4395,7 +4407,10 @@ document.getElementById('betsuOverlay').remove();
 if (!selectedTable) return;
 try {
   const { doc, updateDoc, serverTimestamp } = window.fbApi;
-  const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid');
+  // 開始時に固定したオーダーIDのみを会計対象にする（開始後の追加注文は内訳に無いため巻き込まない）
+  const snapIds = Array.isArray(window._betsuOrderIds) ? window._betsuOrderIds : [];
+  const useSnap = snapIds.length > 0;
+  const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid' && (!useSnap || snapIds.includes(o.id)));
   await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db,'orders',o.id), {
     status:'paid',
     paymentMethod: dominantMethod,
@@ -4407,6 +4422,7 @@ try {
   const breakdownText = `現金¥${cashTotal.toLocaleString()} / カード¥${cardTotal.toLocaleString()}`;
   showToast(`${selectedTable} 別会計完了！${breakdownText}`);
   closeDetail();
+  window._betsuOrderIds = null;
 } catch(e) { console.error(e); showToast('エラー: 会計失敗'); }
 }
 
@@ -4863,8 +4879,12 @@ orders.filter(o => o.table === label && o.status !== 'paid').flatMap(o =>
 (o.items||[]).map(item => ({name: item.name, qty: item.qty, price: getItemUnitPrice(item)}))
 )
 );
+// 会計対象オーダーIDを固定（モーダル表示後の追加注文を巻き込まないため）
+const mergedOrderIds = mergedTables.flatMap(label =>
+orders.filter(o => o.table === label && o.status !== 'paid').map(o => o.id)
+);
 document.getElementById('mergeOverlay').style.display = 'none';
-openPaymentMethodModal('merge', { mergedTables, total, labels: labelStr, allItems: allMergedItems });
+openPaymentMethodModal('merge', { mergedTables, total, labels: labelStr, allItems: allMergedItems, orderIds: mergedOrderIds });
 }
 
 function closeDetail() { document.getElementById('detailOverlay').classList.remove('open'); selectedTable = null; }
