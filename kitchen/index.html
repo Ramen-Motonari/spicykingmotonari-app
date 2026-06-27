@@ -130,14 +130,14 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rlist-sep{color:#bbb;font-size:18px;font-weight:700;margin:0 4px}
 .rlist-noodle-change{color:#c0392b;font-weight:900}
 /* 2行目：追加トッピング */
-.rlist-line2{font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;color:#222;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;line-height:1.3;margin-top:2px;padding-top:4px;border-top:1px solid #e8d9b8}
+.rlist-line2{font-family:'Noto Sans JP',sans-serif;font-size:17px;font-weight:700;color:#222;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;line-height:1.3;margin-top:2px;padding-top:4px;border-top:1px solid #e8d9b8}
 .rlist-line2-empty{display:none}
 @media (max-width:640px){
   .rlist-table{font-size:22px;margin-right:4px}
   .rlist-name{font-size:20px}
   .rlist-spice{font-size:20px}
   .rlist-info{font-size:14px}
-  .rlist-line2{font-size:13px}
+  .rlist-line2{font-size:19px}
 }
 .rlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:50vh;color:#777;font-family:'Noto Sans JP',sans-serif}
 .rlist-empty-icon{font-size:64px;margin-bottom:10px}
@@ -372,7 +372,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .rlist-name{font-size:24px}
   .rlist-spice{font-size:24px}
   .rlist-info{font-size:17px}
-  .rlist-line2{font-size:16px}
+  .rlist-line2{font-size:19px}
 }
 .lang-btn{padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.15s;flex-shrink:0}
 .lang-btn:active{transform:scale(0.94)}
@@ -1535,10 +1535,22 @@ async function restorePastTicket(orderIdsCsv, tableLabel) {
   if (!confirm(`${tableLabel} の伝票（${targets.length}件まとめ）をキッチン伝票一覧に再表示しますか？`)) return;
   try {
     const { doc, updateDoc, serverTimestamp } = window.fbApi;
-    await Promise.all(targets.map(o => updateDoc(doc(window.fb.db, 'orders', o.id), {
-      status: 'preparing',
-      _restoredAt: serverTimestamp()
-    })));
+    await Promise.all(targets.map(o => {
+      const rawItems = Array.isArray(o.items) ? o.items : [];
+      // キッチン作業対象アイテム（替え玉支払い済・編集削除分を除く）
+      const kitchenItems = rawItems.filter(it => it && !it.isPendingKaedamaPaid && !it._doneByEdit && !it._deletedByEdit);
+      const allServed = kitchenItems.length > 0 && kitchenItems.every(it => it.served);
+      const patch = { status: 'preparing', _restoredAt: serverTimestamp() };
+      // 全アイテム提供済の伝票は status を preparing に戻しても「未提供アイテムなし」と判定され
+      // キッチン伝票一覧に表示されない。そのためこの場合のみ提供フラグを未提供へ戻して確実に再表示する。
+      if (allServed) {
+        patch.items = rawItems.map(it =>
+          (it && !it.isPendingKaedamaPaid && !it._doneByEdit && !it._deletedByEdit)
+            ? { ...it, served: false } : it
+        );
+      }
+      return updateDoc(doc(window.fb.db, 'orders', o.id), patch);
+    }));
     showToast(`${tableLabel} の伝票を再表示しました（${targets.length}件）`);
     // パネルを再描画して状態を反映
     openPastTicketPanel();
@@ -3081,7 +3093,9 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   }
   if (p.firmness) blockB.push(`<span>${p.firmness}</span>`);
   // ライス量（定食用）／ミニチャーシューエッグ丼変更（赤文字）
-  if (p.riceChange) blockB.push(`<span class="rg-rice-change">${p.riceChange}</span>`);
+  // ※ 一覧カードでは rg-rice-change(20px) ではなく rlist-noodle-change(色のみ・17px継承)で
+  //   「麺大盛り」など他の右側項目とフォントサイズを揃える
+  if (p.riceChange) blockB.push(`<span class="rlist-noodle-change">${p.riceChange}</span>`);
   else if (p.rice) blockB.push(`<span class="${p.rice.includes('大盛り') ? 'rg-large' : ''}">ライス${p.rice}</span>`);
   // SKつけ麺の麺の量（＋納豆IN表記を麺量の右に太字で）
   if (p.tsukemenSize || p.natto) {
@@ -4100,14 +4114,19 @@ function openCashCalculator(type, total, mergeFlag, opts) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  // 電卓ボタンのみクリック音を出す（pointerdownで即時フィードバック）
+  // 電卓内の全ボタンでクリック音を出す（テンキー＋決定/キャンセル等。無効ボタンは除外）
+  // pointerdownで即時フィードバック
   overlay.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.calc-btn')) playCalcClick();
+    const btn = e.target.closest('button');
+    if (btn && !btn.disabled) playCalcClick();
   });
   refreshCashCalcDisplay();
 }
 
 // 電卓ボタン用クリック音（Web Audioで合成。音声ファイル不要）
+// iPhoneキーボード風の短い「トッ」というクリック音：
+//   ・バンドパスを通した極短ノイズバースト＝打鍵の「カチ」感
+//   ・短いサイン波ポップを重ねて締まりのある質感に
 let _calcAudioCtx = null;
 function playCalcClick() {
   try {
@@ -4117,16 +4136,39 @@ function playCalcClick() {
     const ctx = _calcAudioCtx;
     if (ctx.state === 'suspended') ctx.resume();
     const now = ctx.currentTime;
+
+    // --- ノイズ成分（カチッという打鍵感）---
+    const dur = 0.03;
+    const buf = ctx.createBuffer(1, Math.max(1, Math.ceil(ctx.sampleRate * dur)), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      // 末尾に向かって急減衰するホワイトノイズ
+      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 2200;
+    bp.Q.value = 0.8;
+    const nGain = ctx.createGain();
+    nGain.gain.setValueAtTime(0.22, now);
+    nGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    noise.connect(bp).connect(nGain).connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + dur);
+
+    // --- サイン波ポップ成分（芯のある「トッ」）---
     const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(1100, now);
-    osc.frequency.exponentialRampToValueAtTime(520, now + 0.025);
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
-    osc.connect(gain).connect(ctx.destination);
+    const oGain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1800, now);
+    osc.frequency.exponentialRampToValueAtTime(900, now + 0.02);
+    oGain.gain.setValueAtTime(0.12, now);
+    oGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+    osc.connect(oGain).connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.06);
+    osc.stop(now + 0.03);
   } catch (e) {}
 }
 
