@@ -310,13 +310,11 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .header-title{font-size:13px}
   .header-badge{display:none}
   .back-btn{font-size:22px}
-  /* 切替・並び替え・売り切れボタンを絵文字のみ表示に */
+  /* 切替・並び替えボタンを絵文字のみ表示に */
   .switch-btn{padding:5px 8px;font-size:11px;gap:0}
   .switch-btn .lbl{display:none}
   .reorder-toggle-btn{padding:5px 8px;font-size:14px;letter-spacing:0}
   .reorder-toggle-btn .lbl{display:none}
-  #soldoutBtn{padding:5px 8px !important;font-size:14px !important}
-  #soldoutBtn .lbl{display:none !important}
   #ramenListBtn{padding:5px 8px !important;font-size:14px !important}
   #ramenListBtn .lbl{display:none !important}
   /* サイド一覧ボタンはスマホでは絵文字のみ表示 */
@@ -388,7 +386,11 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .reg-tab{flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all 0.15s;font-family:'Noto Sans JP',sans-serif}
 .reg-tab.active{background:var(--blue);border-color:var(--blue);color:#fff}
 .table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
-.table-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;transition:all 0.15s}
+.table-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;transition:all 0.15s}
+.table-lang{position:absolute;top:8px;right:8px;font-family:'Oswald',sans-serif;font-size:11px;font-weight:900;letter-spacing:0.5px;padding:2px 6px;border-radius:7px;background:#1e3a5f;color:#cfe6ff;border:1px solid #3b6ea5;line-height:1}
+.table-served{margin-top:6px;font-size:11px;font-weight:900;letter-spacing:0.3px}
+.table-served.partial{color:#e67e22}
+.table-served.all{color:#22c55e}
 .table-card:active{transform:scale(0.98)}
 .table-card.has-order{border-color:var(--accent)}
 .table-card.payment-req{border-color:var(--accent2);box-shadow:0 0 0 2px var(--accent2);animation:pulse 1.5s infinite}
@@ -484,20 +486,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <button onclick="toggleRamenListView()" id="ramenListBtn" style="padding:6px 12px;border-radius:20px;border:1px solid #ff9800;background:rgba(255,152,0,0.18);color:#ff9800;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span class="ico">🍜</span><span class="lbl" id="ramenListBtnLbl"> ラーメン一覧</span></button>
 <button onclick="toggleSideListView()" id="sideListBtn" style="padding:6px 12px;border-radius:20px;border:1px solid #4caf50;background:rgba(76,175,80,0.18);color:#4caf50;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span class="ico">🍟</span><span class="lbl" id="sideListBtnLbl"> サイド一覧</span></button>
 <span class="order-count-badge" id="activeCount" style="display:none">0件</span>
-<button id="bellBtn" onclick="toggleBellPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px 6px;line-height:1;font-size:22px">🔔<span id="bellDot" style="display:none;position:absolute;top:2px;right:4px;width:9px;height:9px;background:#e74c3c;border-radius:50%;border:1.5px solid #111;animation:bellPulse 1s infinite"></span></button>
 </div>
 </header>
-
-<div id="bellPanel" style="display:none;position:fixed;top:54px;right:12px;z-index:500;background:#1c1c1c;border:1px solid #333;border-radius:16px;padding:16px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
-<div style="font-size:12px;color:#aaa;letter-spacing:1px;font-weight:700;margin-bottom:12px">🔔 通知設定</div>
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-<span style="font-size:13px;color:#fff;font-weight:700">注文通知音</span>
-<button id="bellToggleBtn" onclick="toggleBellSound()" style="width:50px;height:26px;border-radius:13px;border:none;cursor:pointer;font-size:11px;font-weight:700">ON</button>
-</div>
-<div style="font-size:11px;color:#555;margin-bottom:14px">新規注文・追加注文が入ると<br>ベル音でお知らせします</div>
-<button onclick="testBellSound()" style="width:100%;padding:10px;border-radius:10px;border:1px solid #444;background:#2a2a2a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">🔔 テスト音を鳴らす</button>
-<button onclick="document.getElementById('bellPanel').style.display='none'" style="width:100%;padding:8px;border-radius:10px;border:1px solid #333;background:transparent;color:#666;font-size:12px;cursor:pointer">閉じる</button>
-</div>
 
 <div class="app-screen active" id="kitchenScreen">
 <div id="kitchenCountBar">
@@ -853,13 +843,24 @@ function _applyListModes() {
   if (typeof updateKitchenVNavBar === 'function') updateKitchenVNavBar();
 }
 // ラーメン一覧モードの切替（サイド一覧とは排他）
+// レジ画面から押された場合はキッチンへ移行してから一覧を表示（必ずONになるよう状態をリセット）
 window.toggleRamenListView = function() {
+  if (currentMode !== 'kitchen') {
+    switchMode();
+    _ramenListMode = false;
+    _sideListMode = false;
+  }
   _ramenListMode = !_ramenListMode;
   if (_ramenListMode) _sideListMode = false;
   _applyListModes();
 };
 // サイド＋ドリンク一覧モードの切替（ラーメン一覧とは排他）
 window.toggleSideListView = function() {
+  if (currentMode !== 'kitchen') {
+    switchMode();
+    _ramenListMode = false;
+    _sideListMode = false;
+  }
   _sideListMode = !_sideListMode;
   if (_sideListMode) _ramenListMode = false;
   _applyListModes();
@@ -882,7 +883,8 @@ const REG_I18N = {
     statusEmpty: '空席', statusOrdering: '注文中', statusPayment: '🔔 会計リクエスト',
     btnProceedPay: '会計に進む', btnSeparate: '別会計', btnMerge: '他テーブルと合算',
     btnEdit: '注文変更', btnService: 'サービス（全額無料）', closeBtn: '閉じる',
-    headerRegister: 'レジ', back: '戻る', confirm: '確定', total: '合計'
+    headerRegister: 'レジ', back: '戻る', confirm: '確定', total: '合計',
+    servedAll: '✓ 全て提供済み', servedPartial: '🍳 未提供あり'
   },
   en: {
     tabAll: 'All', tabOrdering: 'Ordering', tabPayment: '🔔 Payment Req.', undoPayment: '↩️ Undo Payment',
@@ -891,7 +893,8 @@ const REG_I18N = {
     statusEmpty: 'Empty', statusOrdering: 'Ordering', statusPayment: '🔔 Payment Request',
     btnProceedPay: 'Proceed to Payment', btnSeparate: 'Split Bill', btnMerge: 'Merge with Other Tables',
     btnEdit: 'Edit Order', btnService: 'Service (Free)', closeBtn: 'Close',
-    headerRegister: 'Register', back: 'Back', confirm: 'Confirm', total: 'Total'
+    headerRegister: 'Register', back: 'Back', confirm: 'Confirm', total: 'Total',
+    servedAll: '✓ All Served', servedPartial: '🍳 Unserved'
   }
 };
 function regT(key) { return (REG_I18N[regLang] && REG_I18N[regLang][key]) || (REG_I18N.ja[key] || key); }
@@ -1105,6 +1108,10 @@ if (o.status === 'paid' || o.status === 'cancelled') return;
 tables[key].orderIds.push(o.id);
 tables[key].total += (o.total || 0);
 tables[key].visitType = o.visitType || tables[key].visitType;
+if (!tables[key].language && o.language) tables[key].language = o.language;
+// 未提供アイテムが1つでも残っていれば 未提供あり（厨房作業対象外アイテムは除外）
+const _items = Array.isArray(o.items) ? o.items : [];
+if (_items.some(i => i && !i.served && !i.isPendingKaedamaPaid && !i._doneByEdit)) tables[key].hasUnserved = true;
 if (o.paymentRequested) { tables[key].paymentRequested = true; tables[key].status = 'payment'; }
 else if (tables[key].status !== 'payment') tables[key].status = 'ordering';
 });
@@ -1310,6 +1317,16 @@ const sub = document.getElementById('soldoutModeSubLabel');
 if (sub) sub.textContent = count > 0 ? `売り切れ管理（${count}品）` : '売り切れ管理';
 }
 
+// 並び替えボタンはキッチン専用（伝票並び替え）。レジ画面では非表示にする
+function _applyModeHeaderButtons(mode) {
+  const reorderBtn = document.getElementById('reorderToggleBtn');
+  if (reorderBtn) reorderBtn.style.display = (mode === 'register') ? 'none' : '';
+  // レジに移る際、並び替えモードが有効なら解除（非表示中に有効のまま残さない）
+  if (mode === 'register' && document.body.classList.contains('reorder-mode') && typeof toggleReorderMode === 'function') {
+    toggleReorderMode();
+  }
+}
+
 function startMode(mode) {
 if (mode === 'soldout') { openSoldoutFullPage(); return; }
 if (mode === 'recommended') { openRecommendedFullPage(); return; }
@@ -1335,6 +1352,7 @@ document.getElementById('registerScreen').classList.add('active');
 document.getElementById('kitchenScreen').classList.remove('active');
 renderRegister();
 }
+_applyModeHeaderButtons(mode);
 updateActiveCount();
 }
 
@@ -3293,10 +3311,23 @@ if (displayStatus === 'ordering') { statusClass='status-ordering'; statusLabel=r
 if (displayStatus === 'payment') { statusClass='status-payment'; statusLabel=regT('statusPayment'); }
 const cardClass = displayStatus==='payment' ? 'payment-req' : displayStatus==='ordering' ? 'has-order' : '';
 const totalToShow = t.total;
+const hasOrder = displayStatus === 'ordering' || displayStatus === 'payment';
+// 選択言語バッジ（カード右上）
+const langMap = { ja: 'JP', en: 'EN', zh: 'ZH', ko: 'KO' };
+const langLbl = t.language ? (langMap[t.language] || String(t.language).slice(0, 2).toUpperCase()) : '';
+const langBadge = (hasOrder && langLbl) ? `<span class="table-lang">${langLbl}</span>` : '';
+// 提供状態（未提供あり / 全て提供済み）
+const servedBadge = hasOrder
+  ? (t.hasUnserved
+      ? `<div class="table-served partial">${regT('servedPartial')}</div>`
+      : `<div class="table-served all">${regT('servedAll')}</div>`)
+  : '';
 return `<div class="table-card ${cardClass}" onclick="openTable('${label}')">
+${langBadge}
 <div class="table-num">${label}</div>
 <div class="table-status ${statusClass}">${statusLabel}</div>
 ${totalToShow>0?`<div class="table-total">¥${totalToShow.toLocaleString()}</div>`:''}
+${servedBadge}
 </div>`;
 }).join('');
 }
@@ -5202,6 +5233,7 @@ document.getElementById('registerScreen').classList.remove('active');
 document.getElementById('kitchenScreen').classList.add('active');
 renderKitchen();
 }
+_applyModeHeaderButtons(currentMode);
 updateActiveCount();
 }
 
@@ -5384,7 +5416,7 @@ function generateBellWavDataUrl() {
   return 'data:audio/wav;base64,' + btoa(bin);
 }
 function testBellSound() { document.getElementById('bellPanel').style.display='none'; playBellSound(); shakeBellIcon(); }
-function shakeBellIcon() { const btn = document.getElementById('bellBtn'); btn.style.animation = 'bellShake 0.6s ease'; setTimeout(()=>{btn.style.animation='';}, 700); }
+function shakeBellIcon() { const btn = document.getElementById('bellBtn'); if (!btn) return; btn.style.animation = 'bellShake 0.6s ease'; setTimeout(()=>{btn.style.animation='';}, 700); }
 function toggleBellPanel() {
 const panel = document.getElementById('bellPanel');
 const isOpen = panel.style.display !== 'none';
@@ -5405,10 +5437,11 @@ updateBellToggleBtn();
 if (bellEnabled) { playBellSound(); shakeBellIcon(); }
 }
 function onNewOrderReceived(orderLabel) {
-if (bellEnabled) { playBellSound(); shakeBellIcon(); }
+// レジ画面を開いているデバイスでは注文通知音を鳴らさない（会計担当には不要）
+if (bellEnabled && currentMode !== 'register') { playBellSound(); shakeBellIcon(); }
 bellUnread++;
-document.getElementById('bellDot').style.display = 'block';
-// 上部の緑バナー通知は廃止（ベル音・赤ドットのみで通知）
+const dot = document.getElementById('bellDot');
+if (dot) dot.style.display = 'block';
 }
 // showOrderNotification は廃止
 function initBellBtn() { updateBellToggleBtn(); }
