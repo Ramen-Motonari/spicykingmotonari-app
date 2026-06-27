@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MOTONARI — Order</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700&display=swap" rel="stylesheet">
 <style>
@@ -12,7 +12,8 @@
   --muted:#666; --border:#ddd; --spicy:#e74c3c;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--bg)}
+html{background:var(--bg);touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,.screen,[onclick]{touch-action:manipulation}
 html.dark-bg,html.dark-bg body{background:#111}
 /* 会計済みロック：paidScreen 以外のすべての要素を操作不能に */
 body.paid-locked > *:not(#paidScreen){pointer-events:none !important}
