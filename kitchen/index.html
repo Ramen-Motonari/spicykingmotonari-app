@@ -197,6 +197,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket-visit{display:inline-block;font-size:13px;font-weight:900;padding:4px 12px;border-radius:8px;letter-spacing:1px}
 .visit-first{background:#f59e0b;color:#1a1008;border:2px solid #fbbf24;text-shadow:none}
 .visit-repeat{background:#10b981;color:#0a1a0e;border:2px solid #34d399;text-shadow:none}
+.ticket-lang{display:inline-block;font-family:'Oswald',sans-serif;font-size:13px;font-weight:900;padding:4px 9px;border-radius:8px;letter-spacing:1px;background:#1e3a5f;color:#cfe6ff;border:2px solid #3b6ea5}
 .ticket-order-num{font-size:10px;color:#666}
 .ticket-section{padding:8px 14px}
 .ticket-section-label{font-size:15px;font-weight:700;letter-spacing:1px;color:#555;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e0e0e0}
@@ -235,6 +236,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-rice-change{color:#e74c3c;font-weight:900;font-size:20px}
 .rg-noodle-change{color:#e74c3c;font-weight:900}
 .rg-qty{font-weight:900;color:#111}
+.rg-large,.rg-qty.rg-large{color:#e74c3c}
+.rg-small,.rg-qty.rg-small{color:#2563eb}
 .rg-firm{font-weight:700;color:#222}
 .rg-sec-chashu{font-size:20px;font-weight:700;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-chashu{font-weight:800;color:#111}
@@ -332,6 +335,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .ticket-top{margin-bottom:2px}
   .ticket-table{font-size:22px}
   .ticket-visit{font-size:10px;padding:2px 6px}
+  .ticket-lang{font-size:10px;padding:2px 6px}
   .ticket-time{font-size:12px;font-weight:700}
   /* スマホ用：商品名・オプションを2列用に最適化 */
   .rg-main-name{font-size:17px;letter-spacing:0.3px}
@@ -775,6 +779,15 @@ function lookupMenuPrice(itemId) {
 function getItemUnitPrice(item) {
   if (item && typeof item.price === 'number') return item.price;
   return lookupMenuPrice(item && item.itemId) || 0;
+}
+
+// 1行分の合計金額（数量込み）。
+//   保存済みの item.total（＝オーダー確定時に確定し、レジ会計の根拠になる金額）を最優先で信頼し、
+//   無効な場合のみ「単価 × 数量」で算出する。オーダーAPP の getCartItemTotal と同じ基準にすることで、
+//   伝票下の小型合計金額がレジ会計額とズレないようにする。
+function getItemLineTotal(item) {
+  if (item && typeof item.total === 'number' && !isNaN(item.total)) return item.total;
+  return getItemUnitPrice(item) * ((item && item.qty) || 1);
 }
 
 const abbrev = {
@@ -2225,6 +2238,10 @@ function renderTableTicket(tt) {
   const tIdSafe = tableIdSafe(tLabel);
   const visitClass = first.visitType === 'first' ? 'visit-first' : 'visit-repeat';
   const visitLabel = first.visitType === 'first' ? '初' : 'リピ';
+  // オーダー時に選択された言語を2文字以内で表示（初/リピ バッジの右側）
+  const _tkLangMap = { ja: 'JP', en: 'EN', zh: 'ZH', ko: 'KO' };
+  const _tkLang = _tkLangMap[first.language] || (first.language ? String(first.language).slice(0, 2).toUpperCase() : '');
+  const langBadge = _tkLang ? `<span class="ticket-lang">${_tkLang}</span>` : '';
   // 替え玉オーダー（isPendingKaedamaOrder）処理:
   //   ・過去注文がすべて提供済 → 替え玉だけ表示（新規伝票として最上段に独立）
   //   ・過去注文に未提供アイテムが残っている → 同じ伝票内に「追加」扱いで合流表示
@@ -2323,6 +2340,7 @@ function renderTableTicket(tt) {
 <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
 <div class="ticket-table">${tLabel}</div>
 <span class="ticket-visit ${visitClass}">${visitLabel}</span>
+${langBadge}
 ${isKaedamaTicket ? '<span class="ticket-new-flag" style="background:linear-gradient(135deg,#e65100 0%,#ff9800 100%)">🍝 替え玉</span>' : (hasNewItems ? '<span class="ticket-new-flag">🆕 追加あり</span>' : '')}
 </div>
 <div style="display:flex;align-items:center;gap:6px">
@@ -2826,11 +2844,10 @@ function renderRamenGroupCard(orderId, grp) {
     const ramenCat = MOTONARI.getMenuById(main.itemId);
     const isRamenItem = ramenCat && (ramenCat.cat === 'tonkotsu' || ramenCat.cat === 'shouyu');
     if (isRamenItem) {
-      const mainQty = main.qty || 1;
-      const mainTotal = getItemUnitPrice(main) * mainQty;
+      const mainTotal = getItemLineTotal(main);
       const addonsTotal = addons.reduce((s, a) => {
         if (a.isPendingKaedamaPaid) return s;
-        return s + getItemUnitPrice(a) * (a.qty || 1);
+        return s + getItemLineTotal(a);
       }, 0);
       const groupTotal = mainTotal + addonsTotal;
       if (groupTotal > 0) {
@@ -2850,7 +2867,8 @@ function renderRamenGroupCard(orderId, grp) {
   }
   if (p.qty) {
     const qtyLabel = isTeishokuItem ? `麺${p.qty}` : p.qty;
-    noodleParts.push(`<span class="rg-qty">${qtyLabel}</span>`);
+    const largeCls = p.qty.includes('大盛り') ? ' rg-large' : (p.qty.includes('少') ? ' rg-small' : '');
+    noodleParts.push(`<span class="rg-qty${largeCls}">${qtyLabel}</span>`);
   }
   if (p.firmness) noodleParts.push(`<span class="rg-firm">${p.firmness}</span>`);
   const noodleHtml = noodleParts.length
@@ -2863,7 +2881,7 @@ function renderRamenGroupCard(orderId, grp) {
   const riceHtml = p.riceChange
     ? `<div class="rg-sec rg-sec-rice"><span class="rg-rice-change">${p.riceChange}</span></div>`
     : p.rice
-      ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty">ライス${p.rice}</span></div>`
+      ? `<div class="rg-sec rg-sec-rice"><span class="rg-qty${p.rice.includes('大盛り') ? ' rg-large' : ''}">ライス${p.rice}</span></div>`
       : '';
 
   // ━━━ Section 2c: SKつけ麺の麺の量（独立行で大きく表示） ━━━
@@ -3044,12 +3062,12 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   const isTeishokuListItem = mainCanonList && mainCanonList.cat === 'teishoku';
   if (p.qty) {
     const qtyLabel = isTeishokuListItem ? `麺${p.qty}` : p.qty;
-    blockB.push(`<span>${qtyLabel}</span>`);
+    blockB.push(`<span class="${p.qty.includes('大盛り') ? 'rg-large' : (p.qty.includes('少') ? 'rg-small' : '')}">${qtyLabel}</span>`);
   }
   if (p.firmness) blockB.push(`<span>${p.firmness}</span>`);
   // ライス量（定食用）／ミニチャーシューエッグ丼変更（赤文字）
   if (p.riceChange) blockB.push(`<span class="rg-rice-change">${p.riceChange}</span>`);
-  else if (p.rice) blockB.push(`<span>ライス${p.rice}</span>`);
+  else if (p.rice) blockB.push(`<span class="${p.rice.includes('大盛り') ? 'rg-large' : ''}">ライス${p.rice}</span>`);
   // SKつけ麺の麺の量（＋納豆IN表記を麺量の右に太字で）
   if (p.tsukemenSize || p.natto) {
     const nattoBold = p.natto ? ` <span style="font-weight:900">/ ${p.natto}</span>` : '';
@@ -3716,6 +3734,7 @@ function groupHistoryByPayment(historyOrders) {
       // 代表 paymentMethod は最初に設定したものを優先
       g.paymentMethod = g.paymentMethod || pm;
       g.visitType = g.visitType || o.visitType;
+      g.language = g.language || o.language;
     } else {
       const pm = o.paymentMethod;
       const pb = {};
@@ -3736,6 +3755,7 @@ function groupHistoryByPayment(historyOrders) {
         total: o.total || 0,
         items: (o.items || []).slice(),
         visitType: o.visitType,
+        language: o.language,
         date: getOrderDateString(o),
         time: getOrderTimeString(o)
       });
@@ -3839,7 +3859,8 @@ if (totalEl) totalEl.textContent = '';
 return;
 }
 const grandTotal = hist.reduce((s,h) => s + (h.total||0), 0);
-if (totalEl) totalEl.textContent = `${_showDeletedHistory ? '削除済み合計' : '合計'} ¥${grandTotal.toLocaleString()}`;
+const grandTotalNoTax = Math.round(grandTotal / 1.10);
+if (totalEl) totalEl.innerHTML = `<span>${_showDeletedHistory ? '削除済み合計' : '合計'} 税込¥${grandTotal.toLocaleString()}</span><span style="color:var(--muted);margin-left:8px">税抜¥${grandTotalNoTax.toLocaleString()}</span>`;
 
 // お会計単位にグループ化
 const paymentGroups = groupHistoryByPayment(hist);
@@ -3897,6 +3918,10 @@ const subBadge = g.orderIds.length > 1
 const cc = historyGroupCustomerCount(g);
 const custBadge = _showDeletedHistory ? '' :
   `<button onclick="editHistoryCustomerCount('${orderIdsCsv}','${(dispLabel||'').replace(/'/g,"\\'")}')" style="background:${cc.override!==null?'rgba(34,197,94,0.22)':'rgba(34,197,94,0.10)'};border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif" title="客数を変更">👥 ${cc.display}名${cc.override!==null?'（手動）':''} ✏️</button>`;
+// 言語バッジ（オーダー時に選択された言語）
+const langLabelMap = {ja:'JP', en:'EN', zh:'ZH', ko:'KO'};
+const langLbl = langLabelMap[g.language] || (g.language ? String(g.language).toUpperCase() : '');
+const langBadge = langLbl ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid var(--blue);color:var(--blue)" title="オーダー時の選択言語">🌐 ${langLbl}</span>` : '';
 return `<div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:8px;${cardBorder};position:relative">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0">
@@ -3906,6 +3931,7 @@ return `<div style="background:var(--surface2);border-radius:12px;padding:12px 1
 ${pmHtml}
 ${subBadge}
 ${custBadge}
+${langBadge}
 ${deletedBadge}
 </div>
 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -4046,7 +4072,34 @@ function openCashCalculator(type, total, mergeFlag, opts) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  // 電卓ボタンのみクリック音を出す（pointerdownで即時フィードバック）
+  overlay.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.calc-btn')) playCalcClick();
+  });
   refreshCashCalcDisplay();
+}
+
+// 電卓ボタン用クリック音（Web Audioで合成。音声ファイル不要）
+let _calcAudioCtx = null;
+function playCalcClick() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!_calcAudioCtx) _calcAudioCtx = new AC();
+    const ctx = _calcAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1100, now);
+    osc.frequency.exponentialRampToValueAtTime(520, now + 0.025);
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.06);
+  } catch (e) {}
 }
 
 function calcBtnStyle(kind) {
@@ -4360,6 +4413,121 @@ async function undoPaymentForTable(tableLabel) {
   }
 }
 
+// 別会計カード用の小タグ
+function _betsuTag(txt, bg, col) {
+  return `<span style="display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:7px;background:${bg||'rgba(255,255,255,0.07)'};color:${col||'#e8e8e8'};margin:4px 5px 0 0;white-space:nowrap">${txt}</span>`;
+}
+// ラーメン名（日本語）を取得
+function _betsuNameJa(item) {
+  if (!item) return '';
+  const ov = (typeof getOverriddenNameJa === 'function' && item.itemId) ? getOverriddenNameJa(item.itemId) : '';
+  return ov || item.name || getDetailItemName(item) || '';
+}
+// 別会計カード：ラーメン/定食グループを伝票風に整形
+//   ラーメン名 ＋ 辛さ ＋ 麺（大盛り・平打ち変更など）＋ トッピング ＋ 合計金額
+function _betsuRamenCardHtml(main, addons, groupTotal) {
+  const nameJa = _betsuNameJa(main);
+  const qty = main.qty || 1;
+  // 辛さデフォルト補完（伝票表示と同じロジック）
+  let opts = Array.isArray(main.opts) ? main.opts.slice() : [];
+  const isTsukemen = nameJa.includes('つけ麺');
+  const hasSpicyMenu = !isTsukemen && (nameJa.includes('SK') || nameJa.includes('カレー'));
+  const hasSpicyOpt = opts.some(o => /(\d+)\s*(辛|Spicy|辣|매움)/i.test(String(o)));
+  if (hasSpicyMenu && !hasSpicyOpt) opts = ['0辛', ...opts];
+  if (isTsukemen) opts = opts.filter(o => !/^0\s*(辛|Spicy|辣|매움)/i.test(String(o)) && !/^Mild\s*\(?0\)?$/i.test(String(o)));
+  const p = parseRamenOpts(opts, main);
+  let tags = '';
+  if (p.spice) tags += _betsuTag('🌶 ' + p.spice, 'rgba(231,76,60,0.20)', '#ffb4a8');
+  const noodleBits = [];
+  if (p.noodleType && p.noodleChanged) noodleBits.push(p.noodleType + '変更');
+  else if (p.noodleType) noodleBits.push(p.noodleType);
+  if (p.qty) noodleBits.push(p.qty);
+  if (p.tsukemenSize) noodleBits.push(p.tsukemenSize);
+  if (p.natto) noodleBits.push(p.natto);
+  if (p.firmness) noodleBits.push(p.firmness);
+  noodleBits.forEach(b => tags += _betsuTag('🍜 ' + b, 'rgba(200,134,10,0.20)', '#ffd98a'));
+  if (p.riceChange) tags += _betsuTag('🍚 ' + p.riceChange, 'rgba(200,134,10,0.14)', '#ffd98a');
+  else if (p.rice) tags += _betsuTag('🍚 ライス' + p.rice, 'rgba(200,134,10,0.14)', '#ffd98a');
+  if (p.chashu) tags += _betsuTag('チャーシュー' + p.chashu, 'rgba(255,255,255,0.08)');
+  if (p.curryTopping) tags += _betsuTag(p.curryTopping, 'rgba(255,255,255,0.08)');
+  (addons || []).forEach(a => {
+    const aq = (a.qty || 1) > 1 ? ` ×${a.qty}` : '';
+    tags += _betsuTag('＋' + _betsuNameJa(a) + aq, 'rgba(59,130,246,0.18)', '#bcd6ff');
+  });
+  (p.other || []).forEach(o => { tags += _betsuTag(o); });
+  return `<div style="display:flex;flex-direction:column;gap:3px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span style="font-size:16px;color:#fff;font-weight:800;line-height:1.2">${nameJa}${qty > 1 ? `<span style="font-family:'Oswald',sans-serif;color:var(--accent);font-size:14px;margin-left:6px">×${qty}</span>` : ''}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:#e74c3c;white-space:nowrap">¥${groupTotal.toLocaleString()}</span>
+</div>
+${tags ? `<div style="display:flex;flex-wrap:wrap;align-items:center">${tags}</div>` : ''}
+</div>`;
+}
+// 別会計カード：サイド/ドリンク/替え玉など単独アイテム（1個分）
+function _betsuSimpleCardHtml(it, unitPrice, prefix) {
+  const nameJa = _betsuNameJa(it);
+  const optTags = (Array.isArray(it.opts) ? it.opts : [])
+    .map(o => stripOptPrice(String(o)).trim())
+    .filter(o => o && !/^(並|Regular)$/i.test(o))
+    .map(o => _betsuTag(o, 'rgba(255,255,255,0.07)', '#cfcfcf'))
+    .join('');
+  return `<div style="display:flex;flex-direction:column;gap:3px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span style="font-size:15px;color:#f0f0f0;font-weight:700;line-height:1.2">${prefix || ''}${nameJa}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:#d8d8d8;white-space:nowrap">¥${unitPrice.toLocaleString()}</span>
+</div>
+${optTags ? `<div style="display:flex;flex-wrap:wrap">${optTags}</div>` : ''}
+</div>`;
+}
+
+// 別会計の支払い単位（カード）を生成。
+//   ・ラーメン/定食＋付随トッピングは1枚のカードにまとめ、合計金額を表示（伝票風）
+//   ・サイド/ドリンク/替え玉は数量分の単独カード
+//   ・先払い替え玉(isPendingKaedamaPaid)も課金対象なので単独カードに
+//   ・カード合計がレジ会計総額(Σ o.total)と一致しない端数は「その他」カードで調整し、
+//     現金/カードの内訳合計がレジ総額とズレないようにする
+function _buildBetsuUnits(tableOrders) {
+  const units = [];
+  tableOrders.forEach(o => {
+    // ラーメン＋トッピングのグループ化（伝票と同じロジック。_doneByEdit/先払い替え玉は除外される）
+    buildItemGroups(o.items || []).forEach(grp => {
+      if (isRamenGroup(grp)) {
+        const main = grp.main;
+        const addons = (grp.addons || []).filter(a => !a.isPendingKaedamaPaid);
+        const groupTotal = getItemLineTotal(main) + addons.reduce((s, a) => s + getItemLineTotal(a), 0);
+        units.push({ name: _betsuNameJa(main), cardHtml: _betsuRamenCardHtml(main, addons, groupTotal), unitPrice: groupTotal, _idx: null, _paid: false, _selected: false });
+      } else {
+        const it = grp.main || grp.items[0];
+        if (!it) return;
+        const qty = Math.max(1, it.qty || 1);
+        const unit = getItemUnitPrice(it);
+        for (let k = 0; k < qty; k++) {
+          units.push({ name: _betsuNameJa(it), cardHtml: _betsuSimpleCardHtml(it, unit), unitPrice: unit, _idx: null, _paid: false, _selected: false });
+        }
+      }
+    });
+    // 先払い替え玉（伝票グループからは除外されるが課金対象）を単独カードに
+    (o.items || []).forEach(it => {
+      if (!it || !it.isPendingKaedamaPaid) return;
+      const qty = Math.max(1, it.qty || 1);
+      const unit = getItemUnitPrice(it);
+      if (unit <= 0) return;
+      for (let k = 0; k < qty; k++) {
+        units.push({ name: _betsuNameJa(it), cardHtml: _betsuSimpleCardHtml(it, unit, '🍝 '), unitPrice: unit, _idx: null, _paid: false, _selected: false });
+      }
+    });
+  });
+  // レジ会計総額との差分を「その他」カードで調整（編集済み等のレアケースで取りこぼしを防ぐ）
+  const tableTotal = tableOrders.reduce((s, o) => s + (o.total || 0), 0);
+  const cardSum = units.reduce((s, u) => s + u.unitPrice, 0);
+  const diff = tableTotal - cardSum;
+  if (diff >= 1) {
+    units.push({ name: 'その他', cardHtml: _betsuSimpleCardHtml({ name: 'その他', opts: [] }, diff), unitPrice: diff, _idx: null, _paid: false, _selected: false });
+  }
+  units.forEach((u, i) => u._idx = i);
+  return units;
+}
+
 // 別会計（再設計版）：各人ごとに「商品選択 → 現金/カード」の流れ
 // 各人の支払いをログに記録し、最後にFirestoreへ反映
 function openSeparatePayment() {
@@ -4367,18 +4535,7 @@ if (!selectedTable) return;
 const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid');
 // 別会計の対象オーダーIDを固定（開始後に入った追加注文を、内訳に含めず paid 化もしないため）
 window._betsuOrderIds = tableOrders.map(o => o.id);
-const allItems = tableOrders.flatMap(o => (o.items||[]).flatMap(item => {
-const unitPrice = getItemUnitPrice(item);
-return Array.from({length: item.qty}, () => ({
-  name: getDetailItemName(item),
-  rawName: item.name,
-  unitPrice,
-  itemId: item.itemId,
-  _idx:null, _paid:false, _selected:false
-}));
-}));
-allItems.forEach((item, i) => item._idx = i);
-window._betsuItems = allItems;
+window._betsuItems = _buildBetsuUnits(tableOrders);
 window._betsuPersonNum = 1;
 window._betsuPaidLog = []; // [{ person, items[], total, payMethod }]
 renderBetsuUI();
@@ -4428,12 +4585,9 @@ itemsHtml = `<div style="padding:14px 18px 6px;background:linear-gradient(180deg
 </div>`;
 remaining.forEach(item => {
 const isSel = item._selected;
-itemsHtml += `<div onclick="toggleBetsuItem(${item._idx})" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'rgba(59,130,246,0.18)':'transparent'};transition:background 0.15s">
-<div style="display:flex;align-items:center;gap:12px">
-<div style="width:26px;height:26px;border-radius:50%;border:2px solid ${isSel?'var(--blue)':'#888'};background:${isSel?'var(--blue)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isSel?'<span style="color:#fff;font-size:14px;font-weight:900">✓</span>':''}</div>
-<span style="font-size:17px;color:${isSel?'#fff':'#f0f0f0'};font-weight:700">${item.name}</span>
-</div>
-<span style="font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:${isSel?'#e74c3c':'#d8d8d8'}">¥${item.unitPrice.toLocaleString()}</span>
+itemsHtml += `<div onclick="toggleBetsuItem(${item._idx})" style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'rgba(59,130,246,0.12)':'transparent'};transition:background 0.15s">
+<div style="width:24px;height:24px;border-radius:50%;border:2px solid ${isSel?'var(--blue)':'#888'};background:${isSel?'var(--blue)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isSel?'<span style="color:#fff;font-size:13px;font-weight:900">✓</span>':''}</div>
+<div style="flex:1;min-width:0;border-radius:9px;border:1px solid ${isSel?'var(--blue)':'var(--border)'};background:rgba(255,255,255,0.03);padding:7px 11px">${item.cardHtml}</div>
 </div>`;
 });
 }
