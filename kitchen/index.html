@@ -255,10 +255,12 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rg-sec-total{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:22px;font-weight:900;color:#1a1008;text-align:right;padding:8px 4px 4px;border-top:2px solid #e8d9b8;margin-top:4px;letter-spacing:1px}
 .ramen-group-card.served .rg-sec-total{color:#aaa;text-decoration:line-through}
 .rg-attached-label{font-size:10px;color:#a37915;letter-spacing:1.5px;font-weight:700;margin-bottom:4px;font-family:'Oswald',sans-serif}
-.rg-attached-item{display:flex;align-items:center;gap:6px;font-size:18px;color:#333;font-weight:800;line-height:1.45;padding:2px 0}
+.rg-attached-item{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:18px;color:#333;font-weight:800;line-height:1.45;padding:2px 0}
 .ra-bullet{color:#c8860a;font-weight:900;font-size:17px;flex-shrink:0;line-height:1}
 .ra-name{flex:1;word-break:break-word}
 .ra-qty{font-family:'Oswald',sans-serif;color:#c8860a;font-weight:700;font-size:14px;flex-shrink:0}
+/* 選択肢付きドリンク（焼酎の水割り等）はアルコール名の下に2段表記 */
+.ra-opts{flex-basis:100%;padding-left:23px;font-size:inherit;font-weight:700;color:#b45309;line-height:1.35}
 /* === コンパクトカード（単独のドリンク・サイド等） === */
 .ticket-compact-card{display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;margin:3px 3px;cursor:pointer;transition:all 0.15s}
 .ticket-compact-card:active{transform:scale(0.99)}
@@ -2950,7 +2952,14 @@ function renderRamenGroupCard(orderId, grp) {
 
   // ━━━ Section 4: 追加トッピング ━━━
   const addonsHtml = addons.length ? `<div class="rg-sec rg-sec-addons">
-    ${addons.map(a => `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}</div>`).join('')}
+    ${addons.map(a => {
+      // ドリンク（焼酎・泡盛・ラム酒など）に選択肢（水割り/炭酸/ロック等）がある場合は2段表記
+      const canon = MOTONARI.getMenuById(a.itemId);
+      const custom = canon ? null : (_kitchenCustomMenuItems.find(c => c.id === a.itemId) || null);
+      const aCat = canon ? canon.cat : (custom ? custom.cat : null);
+      const aOpts = (aCat === 'drink') ? buildOptsHtml(a.opts, a) : '';
+      return `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}${aOpts ? `<span class="ra-opts">${aOpts}</span>` : ''}</div>`;
+    }).join('')}
   </div>` : '';
 
   return `<div class="ramen-group-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
