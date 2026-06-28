@@ -2059,7 +2059,7 @@ function renderModal(){
       </div>`;
     } else {
       // 「選択してください」案内：赤枠/背景なし・センター寄せ・🔻で挟む
-      h+=`<div id="req-banner" style="margin-bottom:12px;padding:6px 0;text-align:center;font-size:14px;font-weight:900;color:#c0392b;letter-spacing:.5px">
+      h+=`<div id="req-banner" style="margin-bottom:12px;padding:6px 0;text-align:center;font-size:18px;font-weight:900;color:#c0392b;letter-spacing:.5px">
         🔻 ${t.selectRequiredMsg} 🔻
       </div>`;
     }
@@ -2513,27 +2513,41 @@ function drinkAddonCard(key,item){
 
 function renderDrinkAddonSection(key,label,items,sepStyle){
   const gridOf = arr => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${arr.map(it=>drinkAddonCard(key,it)).join('')}</div>`;
+  // カテゴリー見出し（ラーメンのサブカテゴリー「スパイシーキングシリーズ / SK ———」と同デザイン）
+  const catHead = txt => `<div class="subcat-divider"><span class="subcat-name">${txt}</span><span class="subcat-line"></span></div>`;
+  const softTitle = {ja:'ソフトドリンク',en:'Soft Drinks',zh:'软饮',ko:'소프트드링크'}[lang]||'ソフトドリンク';
+  const alcTitle  = {ja:'アルコール',en:'Alcohol',zh:'酒类',ko:'주류'}[lang]||'アルコール';
   const alcohol = items.filter(isAlcoholDrink);
   const soft = items.filter(m=>!isAlcoholDrink(m));
   const top4 = alcohol.slice(0,4);
   const restAlc = alcohol.slice(4);
-  let h=`<div class="option-group" style="${sepStyle}"><div class="option-label">${label}</div>`;
-  h += gridOf(top4);
-  if(restAlc.length){
-    const ex = addonAlcoholExpanded;
-    const btnLabel = ex
-      ? ({ja:'▼ その他アルコールを閉じる',en:'▼ Hide other alcohol',zh:'▼ 收起其他酒类',ko:'▼ 기타 주류 닫기'}[lang]||'▼ その他アルコールを閉じる')
-      : ({ja:'▶︎ その他アルコールを表示',en:'▶︎ Show other alcohol',zh:'▶︎ 显示其他酒类',ko:'▶︎ 기타 주류 보기'}[lang]||'▶︎ その他アルコールを表示');
-    h += `<button type="button" onclick="toggleAddonAlcohol()" style="width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1.5px dashed var(--accent);background:transparent;color:var(--accent);font-size:13px;font-weight:800;cursor:pointer">${btnLabel}</button>`;
-    if(ex) h += `<div style="margin-top:8px">${gridOf(restAlc)}</div>`;
-  }
+  let h=`<div class="option-group" style="${sepStyle}">${addonSectionLabel(label)}`;
+  // ① ソフトドリンク（常時表示・上）
   if(soft.length){
-    h += `<div style="margin-top:8px">${gridOf(soft)}</div>`;
+    h += catHead(softTitle);
+    h += gridOf(soft);
+  }
+  // ② アルコール（下）
+  if(alcohol.length){
+    h += catHead(alcTitle);
+    h += gridOf(top4);
+    if(restAlc.length){
+      const ex = addonAlcoholExpanded;
+      const btnLabel = ex
+        ? ({ja:'▼ その他アルコールを閉じる',en:'▼ Hide other alcohol',zh:'▼ 收起其他酒类',ko:'▼ 기타 주류 닫기'}[lang]||'▼ その他アルコールを閉じる')
+        : ({ja:'▶︎ その他アルコールを表示',en:'▶︎ Show other alcohol',zh:'▶︎ 显示其他酒类',ko:'▶︎ 기타 주류 보기'}[lang]||'▶︎ その他アルコールを表示');
+      h += `<button type="button" onclick="toggleAddonAlcohol()" style="width:100%;margin-top:10px;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:800;cursor:pointer">${btnLabel}</button>`;
+      if(ex) h += `<div style="margin-top:8px">${gridOf(restAlc)}</div>`;
+    }
   }
   h += `</div>`;
   return h;
 }
 
+// アドオン見出し（「〜をお選びください」）: オレンジ下線グラデーションデザイン
+function addonSectionLabel(label){
+  return `<div style="font-size:20px;font-weight:900;letter-spacing:1px;color:#1a1a1a;padding:8px 12px;margin:0 0 12px;background:linear-gradient(to right,var(--accent),rgba(200,134,10,.08) 70%,transparent);background-repeat:no-repeat;background-size:100% 0.7em;background-position:left bottom 6px">${label}</div>`;
+}
 function addonSection(key,label,cat,t,isFirstShown){
   const items = menu.filter(m=>m.cat===cat && isAvailable(m) && !isItemSoldout(m.id));
   if(!items.length) return ''; // 該当アイテムなしの場合はセクション自体を非表示
@@ -2544,7 +2558,7 @@ function addonSection(key,label,cat,t,isFirstShown){
   // ドリンクはアルコールのアコーディオン構成で表示（ソフトは常時表示）
   if(cat==='drink') return renderDrinkAddonSection(key,label,items,sepStyle);
   let h=`<div class="option-group" style="${sepStyle}">
-    <div class="option-label">${label}</div>
+    ${addonSectionLabel(label)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
   items.forEach(item=>{
     const qty = (curOpts[key+'Items'] && curOpts[key+'Items'][item.id]) || 0;
