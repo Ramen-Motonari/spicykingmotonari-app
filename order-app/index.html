@@ -839,6 +839,14 @@ let _categoryOrder = null;
 let _itemOrder = { byCategory: {} }; // appConfig/itemOrder（管理APPで設定する商品並び順）
 let _subCategories = []; // subCategories collection: [{docId, cat, name, order}]
 
+// カスタム商品（管理画面追加）のドリンクに割り方/銘柄の選択肢を付与するためのIDマップ。
+// canonicalの商品は menu-canonical.js 側に drinkOpt を持つ。ここはFirestore由来のカスタム商品用。
+const DRINK_OPT_BY_ID = {
+  // ラム酒：炭酸 / コーラ / ロック（価格据え置き・必須単一選択）
+  10016: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'炭酸',en:'With Soda',zh:'兑苏打',ko:'탄산'},{ja:'コーラ',en:'With Cola',zh:'兑可乐',ko:'콜라'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]},
+  10017: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'炭酸',en:'With Soda',zh:'兑苏打',ko:'탄산'},{ja:'コーラ',en:'With Cola',zh:'兑可乐',ko:'콜라'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]}
+};
+
 function wrapLunchFree(m) {
   if (!m.lunchFreeBase) return m;
   const w = { ...m };
@@ -916,6 +924,9 @@ function rebuildMenu() {
     rebuilt.push(...leftovers);
   });
   menu = rebuilt;
+
+  // カスタム商品（ラム酒等）にコード側の選択肢を付与（canonicalの drinkOpt は上書きしない）
+  menu.forEach(it => { if (DRINK_OPT_BY_ID[it.id] && !it.drinkOpt) it.drinkOpt = DRINK_OPT_BY_ID[it.id]; });
 
   // カテゴリラベル更新（カスタムカテゴリのラベルを反映）
   _customCategories.forEach(c => {
@@ -1991,6 +2002,7 @@ function openItem(id){
   }
   curItem=item; curOpts={}; curQty=1;
   studentSectionExpanded=false; // モーダルを開くたびに学生替え玉セクションは閉じた状態から
+  addonAlcoholExpanded=false; // ドリンクの「その他アルコール」は毎回閉じた状態から
   renderModal();
   $('itemModal').classList.add('open');
   document.body.style.overflow='hidden';
@@ -2282,6 +2294,11 @@ function renderModal(){
     }
   }
 
+  // ドリンク単品（タブから開いた場合）：割り方/銘柄/中おかわりの選択肢
+  if(item.cat==='drink' && (item.drinkOpt || item.drinkRefill)){
+    h += renderDrinkOptsTab(item);
+  }
+
   if(isMainDish){
     const addonTop  = addonSection('addonTopping',t.addonToppingLabel,'topping',t,true);
     const addonSide = addonSection('addonSide',   t.addonSideLabel,   'side',   t,!addonTop);
@@ -2311,6 +2328,8 @@ function renderModal(){
 
 function hasRequiredFields(){
   const c=curItem.custom;
+  // ドリンク単品で割り方/銘柄の必須選択がある場合も「必須あり」とする
+  if(curItem.cat==='drink' && curItem.drinkOpt) return true;
   return !!(c.chashu||c.top||c.noodleSize||c.kata||c.rice);
 }
 
@@ -2336,6 +2355,9 @@ function getMissingFields(){
   if(c.kata && !c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku' && !curOpts.kata)
     missing.push({key:'kata',label:t.optNoodle});
   if(c.rice && !curOpts.rice) missing.push({key:'rice',label:t.optRice});
+  // ドリンク単品：割り方/銘柄の必須選択
+  if(curItem.cat==='drink' && curItem.drinkOpt && !curOpts.drinkChoice)
+    missing.push({key:'drinkChoice',label:(curItem.drinkOpt.label[lang]||curItem.drinkOpt.label.ja)});
   // SKつけ麺の麺の量（必須選択）
   if(isTsukemenItem(curItem) && !curOpts.tsukemenSize)
     missing.push({key:'tsukemenSize',label:'麺の量'});
@@ -2371,6 +2393,147 @@ function optGrpReq(label,key,opts,missing, options){
   </div>`;
 }
 
+/* ===== ドリンク選択肢（割り方／銘柄／中おかわり）ヘルパー =====
+   ・焼酎/ハイボール：選択後に「割り方」「銘柄」を必須単一選択（価格据え置き）
+   ・緑茶割り：このテーブルが一度でも緑茶割りを注文済み（カート or 注文履歴）の時のみ
+              「中おかわり ¥250」を選択可。未注文時はグレーアウト。 */
+function drinkChoiceLabel(c){ return (c && (c[lang] || c.ja)) || ''; }
+
+// このテーブルが緑茶割り(id55)を既に注文済みか（中おかわり選択可否）
+function canRefillGreenTea(){
+  const GT = 55;
+  try {
+    if (Array.isArray(cart) && cart.some(i=>Number(i.itemId)===GT)) return true;
+    if (Array.isArray(orderHistory) && orderHistory.some(o=>(o.items||[]).some(it=>Number(it.itemId)===GT))) return true;
+  } catch(e){}
+  return false;
+}
+
+const _drinkRefillNote = {ja:'※緑茶ハイ注文後に選択できます',en:'※Available after ordering Green Tea Highball',zh:'※点过绿茶烧酎后可选',ko:'※녹차 소주 주문 후 선택 가능'};
+
+// アドオンセクション内：ドリンク選択肢のインラインUI（数量>0で表示）
+function renderDrinkOptsInline(key, item){
+  let h='';
+  if (item.drinkOpt) {
+    const sel = (curOpts[key+'Choice'] && curOpts[key+'Choice'][item.id]) || '';
+    h += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px">${item.drinkOpt.label[lang]||item.drinkOpt.label.ja}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        ${item.drinkOpt.choices.map(c=>{const lbl=drinkChoiceLabel(c);const on=sel===lbl;return `<button onclick="pickAddonDrinkOpt('${key}',${item.id},'${lbl}')" style="padding:5px 9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ${on?'var(--accent)':'var(--border)'};background:${on?'rgba(200,134,10,.12)':'transparent'};color:${on?'var(--accent)':'#1a1a1a'}">${lbl}</button>`;}).join('')}
+      </div>
+    </div>`;
+  }
+  if (item.drinkRefill) {
+    const can = canRefillGreenTea();
+    const isRefill = !!(curOpts[key+'Refill'] && curOpts[key+'Refill'][item.id]);
+    const baseLbl = item.drinkRefill.baseLabel[lang]||item.drinkRefill.baseLabel.ja;
+    const refLbl = item.drinkRefill.label[lang]||item.drinkRefill.label.ja;
+    const note = !can ? `<div style="font-size:10px;color:#999;margin-top:4px">${_drinkRefillNote[lang]||_drinkRefillNote.ja}</div>` : '';
+    h += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        <button onclick="pickAddonDrinkRefill('${key}',${item.id},false)" style="padding:5px 9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ${!isRefill?'var(--accent)':'var(--border)'};background:${!isRefill?'rgba(200,134,10,.12)':'transparent'};color:${!isRefill?'var(--accent)':'#1a1a1a'}">${baseLbl} ¥${item.price.toLocaleString()}</button>
+        <button ${can?'':'disabled'} onclick="${can?`pickAddonDrinkRefill('${key}',${item.id},true)`:''}" style="padding:5px 9px;border-radius:8px;font-size:12px;font-weight:700;cursor:${can?'pointer':'not-allowed'};border:1.5px solid ${isRefill?'var(--accent)':'var(--border)'};background:${isRefill?'rgba(200,134,10,.12)':'transparent'};color:${isRefill?'var(--accent)':(can?'#1a1a1a':'#bbb')};opacity:${can?'1':'0.55'}">${refLbl} ¥${item.drinkRefill.price.toLocaleString()}</button>
+      </div>${note}
+    </div>`;
+  }
+  return h;
+}
+
+function pickAddonDrinkOpt(key, itemId, label){
+  if(!curOpts[key+'Choice']) curOpts[key+'Choice']={};
+  curOpts[key+'Choice'][itemId]=label;
+  renderModal();
+}
+function pickAddonDrinkRefill(key, itemId, isRefill){
+  if(!curOpts[key+'Refill']) curOpts[key+'Refill']={};
+  if(isRefill) curOpts[key+'Refill'][itemId]=true;
+  else delete curOpts[key+'Refill'][itemId];
+  renderModal();
+}
+
+// ドリンクタブ（単品）：選択肢UI
+function renderDrinkOptsTab(item){
+  let h='';
+  if(item.drinkOpt){
+    const sel=curOpts.drinkChoice||'';
+    h += `<div class="option-group" id="field-drinkChoice"><div class="option-label">${item.drinkOpt.label[lang]||item.drinkOpt.label.ja}</div><div class="option-btns">${item.drinkOpt.choices.map(c=>{const lbl=drinkChoiceLabel(c);return `<button class="option-btn ${sel===lbl?'selected':''}" onclick="pickOpt('drinkChoice','${lbl}')">${lbl}</button>`;}).join('')}</div></div>`;
+  }
+  if(item.drinkRefill){
+    const can=canRefillGreenTea();
+    const isRefill=!!curOpts.drinkRefill;
+    const baseLbl=item.drinkRefill.baseLabel[lang]||item.drinkRefill.baseLabel.ja;
+    const refLbl=item.drinkRefill.label[lang]||item.drinkRefill.label.ja;
+    const note=!can?`<div style="font-size:11px;color:#999;margin-top:6px">${_drinkRefillNote[lang]||_drinkRefillNote.ja}</div>`:'';
+    h += `<div class="option-group"><div class="option-btns">
+      <button class="option-btn ${!isRefill?'selected':''}" onclick="pickDrinkRefill(false)">${baseLbl} ¥${item.price.toLocaleString()}</button>
+      <button class="option-btn ${isRefill?'selected':''} ${can?'':'disabled-grey'}" ${can?'':'disabled'} onclick="${can?'pickDrinkRefill(true)':''}">${refLbl} ¥${item.drinkRefill.price.toLocaleString()}</button>
+    </div>${note}</div>`;
+  }
+  return h;
+}
+function pickDrinkRefill(v){ if(v) curOpts.drinkRefill=true; else delete curOpts.drinkRefill; renderModal(); }
+
+/* ===== ラーメン画面のドリンク：アルコールのアコーディオン表示 =====
+   ・上4種のアルコール（表示順の先頭4つ）を常時表示
+   ・残りのアルコールは「▶︎その他アルコールを表示」で開閉
+   ・ソフトドリンクは常時表示（アルコールの下）
+   ・通常のドリンクタブ（単品）は全表示のまま（この分岐はアドオン専用） */
+let addonAlcoholExpanded = false;
+function toggleAddonAlcohol(){ addonAlcoholExpanded = !addonAlcoholExpanded; renderModal(); }
+
+// 非アルコール（ソフトドリンク）判定
+const SOFT_DRINK_IDS = new Set([59,60,61,91,92,10002]);
+function isAlcoholDrink(item){
+  if(!item || item.cat!=='drink') return false;
+  if(SOFT_DRINK_IDS.has(item.id)) return false;
+  const nm = (item.name && item.name.ja) || '';
+  // ソフトドリンク系キーワード（ただし「〜ハイ/サワー/焼酎/ビール/ウイスキー/ラム/泡盛」はアルコール）
+  if(/(ウーロン茶|コーラ|オレンジ|コーヒー|レモネード|ジュース|お茶|ソフトドリンク|ミルク|水)/.test(nm)
+     && !/(ハイ|サワー|焼酎|ビール|ウイスキー|ラム|泡盛|酒)/.test(nm)) return false;
+  return true;
+}
+
+// ドリンクアドオンの1カード（数量＋選択後の割り方/銘柄/中おかわり）
+function drinkAddonCard(key,item){
+  const qty = (curOpts[key+'Items'] && curOpts[key+'Items'][item.id]) || 0;
+  const drinkOptsBlock = (qty>0 && (item.drinkOpt || item.drinkRefill)) ? renderDrinkOptsInline(key, item) : '';
+  return `<div style="display:flex;flex-direction:column;justify-content:space-between;padding:10px;border-radius:10px;border:1.5px solid ${qty>0?'var(--accent)':'var(--border)'};background:${qty>0?'rgba(200,134,10,.06)':'transparent'};min-height:96px">
+    <div style="min-width:0">
+      <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.3;word-break:break-word">${item.name[lang]}</div>
+      <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--accent);margin-top:4px">+¥${item.price.toLocaleString()}</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px">
+      <button onclick="addonQty('${key}',${item.id},-1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)">−</button>
+      <span style="font-family:'Oswald',sans-serif;font-size:16px;width:20px;text-align:center">${qty}</span>
+      <button onclick="addonQty('${key}',${item.id},1)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent)">＋</button>
+    </div>
+    ${drinkOptsBlock}
+  </div>`;
+}
+
+function renderDrinkAddonSection(key,label,items,sepStyle){
+  const gridOf = arr => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${arr.map(it=>drinkAddonCard(key,it)).join('')}</div>`;
+  const alcohol = items.filter(isAlcoholDrink);
+  const soft = items.filter(m=>!isAlcoholDrink(m));
+  const top4 = alcohol.slice(0,4);
+  const restAlc = alcohol.slice(4);
+  let h=`<div class="option-group" style="${sepStyle}"><div class="option-label">${label}</div>`;
+  h += gridOf(top4);
+  if(restAlc.length){
+    const ex = addonAlcoholExpanded;
+    const btnLabel = ex
+      ? ({ja:'▼ その他アルコールを閉じる',en:'▼ Hide other alcohol',zh:'▼ 收起其他酒类',ko:'▼ 기타 주류 닫기'}[lang]||'▼ その他アルコールを閉じる')
+      : ({ja:'▶︎ その他アルコールを表示',en:'▶︎ Show other alcohol',zh:'▶︎ 显示其他酒类',ko:'▶︎ 기타 주류 보기'}[lang]||'▶︎ その他アルコールを表示');
+    h += `<button type="button" onclick="toggleAddonAlcohol()" style="width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1.5px dashed var(--accent);background:transparent;color:var(--accent);font-size:13px;font-weight:800;cursor:pointer">${btnLabel}</button>`;
+    if(ex) h += `<div style="margin-top:8px">${gridOf(restAlc)}</div>`;
+  }
+  if(soft.length){
+    h += `<div style="margin-top:8px">${gridOf(soft)}</div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
 function addonSection(key,label,cat,t,isFirstShown){
   const items = menu.filter(m=>m.cat===cat && isAvailable(m) && !isItemSoldout(m.id));
   if(!items.length) return ''; // 該当アイテムなしの場合はセクション自体を非表示
@@ -2378,6 +2541,8 @@ function addonSection(key,label,cat,t,isFirstShown){
   const sepStyle = isFirstShown
     ? 'margin-top:0;padding-top:0;border-top:none'
     : 'margin-top:16px;padding-top:16px;border-top:1px solid var(--border)';
+  // ドリンクはアルコールのアコーディオン構成で表示（ソフトは常時表示）
+  if(cat==='drink') return renderDrinkAddonSection(key,label,items,sepStyle);
   let h=`<div class="option-group" style="${sepStyle}">
     <div class="option-label">${label}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
@@ -2419,6 +2584,9 @@ function addonSection(key,label,cat,t,isFirstShown){
         </div>`;
       });
     } else {
+      // ドリンクで選択肢を持つもの（焼酎/ハイボール/緑茶割り）は数量>0の時に選択肢を表示
+      const drinkOptsBlock = (cat==='drink' && qty>0 && (item.drinkOpt || item.drinkRefill))
+        ? renderDrinkOptsInline(key, item) : '';
       h+=`<div style="display:flex;flex-direction:column;justify-content:space-between;padding:10px;border-radius:10px;border:1.5px solid ${qty>0?'var(--accent)':'var(--border)'};background:${qty>0?'rgba(200,134,10,.06)':'transparent'};min-height:96px">
         <div style="min-width:0">
           <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.3;word-break:break-word">${item.name[lang]}</div>
@@ -2429,6 +2597,7 @@ function addonSection(key,label,cat,t,isFirstShown){
           <span style="font-family:'Oswald',sans-serif;font-size:16px;width:20px;text-align:center">${qty}</span>
           <button onclick="addonQty('${key}',${item.id},1)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent)">＋</button>
         </div>
+        ${drinkOptsBlock}
       </div>`;
     }
   });
@@ -2552,6 +2721,11 @@ function addonQty(key,itemId,delta){
   else curOpts[key+'Items'][itemId]=next;
   // 替え玉アドオン数が0になったら硬さ選択もクリア
   if (Number(itemId) === 40 && next === 0) delete curOpts.addonKaedamaKata;
+  // ドリンクの数量が0になったら割り方/銘柄/中おかわりの選択もクリア
+  if (next === 0) {
+    if (curOpts[key+'Choice']) delete curOpts[key+'Choice'][itemId];
+    if (curOpts[key+'Refill']) delete curOpts[key+'Refill'][itemId];
+  }
   renderModal();
 }
 
@@ -2581,15 +2755,23 @@ function calcAddonExtra(){
       // コンポジットキー（"62:豚" 等）対応：":" 以前がベース itemId
       const baseId = parseInt(String(id).split(':')[0], 10);
       const m=menu.find(m=>m.id===baseId);
-      if(m) extra += m.price*qty;
+      if(m){
+        // 緑茶割りの中おかわり選択時は割引価格
+        const unit = (m.drinkRefill && curOpts[key+'Refill'] && curOpts[key+'Refill'][baseId])
+          ? m.drinkRefill.price : m.price;
+        extra += unit*qty;
+      }
     });
   });
   return extra;
 }
 
 function calcTotal(){
+  // ドリンクタブ単品：緑茶割りの中おかわり選択時は割引価格を基準に
+  let base = curItem.price;
+  if(curItem.drinkRefill && curOpts.drinkRefill) base = curItem.drinkRefill.price;
   const extra = (curOpts.spicyPr||0) + calcNoodleExtra() + calcRiceExtra() + calcAddonExtra() + calcTsukemenSpicyExtra();
-  return (curItem.price+extra)*curQty;
+  return (base+extra)*curQty;
 }
 
 function addCart(){
@@ -2611,6 +2793,17 @@ function addCart(){
     return;
   }
 
+  // アドオンのドリンク（焼酎/ハイボール）で割り方/銘柄が未選択なら確定不可
+  const _adItems = curOpts.addonDrinkItems || {};
+  for (const idStr of Object.keys(_adItems)) {
+    const did = parseInt(idStr,10);
+    const dm = menu.find(m=>m.id===did);
+    if (dm && dm.drinkOpt && _adItems[idStr] > 0 && !(curOpts.addonDrinkChoice && curOpts.addonDrinkChoice[did])) {
+      showValidationMsg('🥃 ' + (dm.name[lang]||dm.name.ja) + '：' + (dm.drinkOpt.label[lang]||dm.drinkOpt.label.ja));
+      return;
+    }
+  }
+
   // メイン商品の売り切れ最終チェック（万が一openItem時から状態が変わった場合の保険）
   if(curItem && isItemSoldout(curItem.id)){
     showValidationMsg('🚫 申し訳ございません、この商品は売り切れです');
@@ -2628,6 +2821,9 @@ function addCart(){
   if(curOpts.tsukemenSize) opts.push(curOpts.tsukemenSize); // SKつけ麺の麺の量
   if(curOpts.natto) opts.push(curOpts.natto==='yes'?'納豆あり':'納豆なし'); // つけ出汁に納豆IN
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
+  // ドリンク単品：割り方/銘柄・中おかわりを opts に反映
+  if(curOpts.drinkChoice) opts.push(curOpts.drinkChoice);
+  if(curOpts.drinkRefill && curItem.drinkRefill) opts.push(curItem.drinkRefill.label[lang]||curItem.drinkRefill.label.ja);
   // 平日ランチ「大盛り無料」は noodleSize に反映済みなのでここでは追加しない（重複防止）
   // 平日ランチ「替え玉無料」は下でカートに別商品として追加（キッチン伝票で独立カード表示・待機タブ対応）
 
@@ -2635,7 +2831,9 @@ function addCart(){
   // キッチンAPPで「ラーメンとそのトッピング」を一括りで表示するため
   const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
 
-  const basePrice = Number(curItem.price) || 0;
+  const basePrice = (curItem.drinkRefill && curOpts.drinkRefill)
+    ? (Number(curItem.drinkRefill.price) || 0)
+    : (Number(curItem.price) || 0);
   const spicyExtra = Number(curOpts.spicyPr) || 0;
   const noodleExtra = Number(calcNoodleExtra()) || 0;
   const riceExtra = Number(calcRiceExtra()) || 0;
@@ -2716,7 +2914,16 @@ function addCart(){
         }
         // variant がある場合は opts に格納（伝票で「ブタ/トリ」識別に使用）
         const addonOpts = variant ? [variant] : [];
-        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:false, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:m.price, total:m.price*qty};
+        let addonUnitPrice = m.price;
+        // ドリンクの割り方/銘柄・中おかわりを opts と価格に反映
+        if (key === 'addonDrink') {
+          if (curOpts.addonDrinkChoice && curOpts.addonDrinkChoice[m.id]) addonOpts.push(curOpts.addonDrinkChoice[m.id]);
+          if (m.drinkRefill && curOpts.addonDrinkRefill && curOpts.addonDrinkRefill[m.id]) {
+            addonUnitPrice = m.drinkRefill.price;
+            addonOpts.push(m.drinkRefill.label[lang]||m.drinkRefill.label.ja);
+          }
+        }
+        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:false, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:addonUnitPrice, total:addonUnitPrice*qty};
         cart.push(cartItem);
       }
     });
