@@ -2880,7 +2880,8 @@ const DINNER_SECTIONS = [
   { label: '🥢 つけ麺・定食', key: 'teishoku', ids: [70] },
   { label: '🥄 追加トッピング', key: 'topping', ids: [40,43,44,45,46,47,48,49,62,63] },
   { label: '🥟 サイド', key: 'side', ids: [89,29,24,25,26,27,28,66,67,65,64,22,21,20,80,81,82,83,84,85,86,87,88] },
-  { label: '🍺 ドリンク', key: 'drink', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
+  { label: '🍺 ドリンク', key: 'drink', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] },
+  { label: '🛍️ グッズ', key: 'goods', ids: [] }
 ];
 
 // 麺サイズ・替え玉オプションの集計（夜営業報告の末尾用）
@@ -3007,6 +3008,9 @@ function getDinnerSectionKey(item) {
   if (item.cat === 'topping') return 'topping';
   if (item.cat === 'side') return 'side';
   if (item.cat === 'drink') return 'drink';
+  if (item.cat === 'takeout') return null; // テイクアウトは従来通り夜の商品カウント対象外
+  // それ以外のカスタムカテゴリ（グッズ等）は末尾の「グッズ」枠に集約
+  if (item.cat) return 'goods';
   return null;
 }
 
@@ -3414,16 +3418,16 @@ function buildReportText(session) {
   // メニュー一覧：豚骨/カレー/醤油/定食/トッピング/サイド/ドリンク の順
   const sectionEmojis = {
     tonkotsu: '【豚骨】', curry: '【カレー】', shouyu: '【醤油】', teishoku: '【定食】',
-    topping: '【追加トッピング】', side: '【サイド】', drink: '【ドリンク】'
+    topping: '【追加トッピング】', side: '【サイド】', drink: '【ドリンク】', goods: '【グッズ】'
   };
   const visible = getVisibleMenuItems();
   // セクション別にグルーピング
-  const grouped = { tonkotsu: [], curry: [], shouyu: [], teishoku: [], topping: [], side: [], drink: [] };
+  const grouped = { tonkotsu: [], curry: [], shouyu: [], teishoku: [], topping: [], side: [], drink: [], goods: [] };
   visible.forEach(item => {
     const key = getDinnerSectionKey({ cat: item.cat, name: { ja: item.name } });
     if (key && grouped[key]) grouped[key].push(item);
   });
-  ['tonkotsu','curry','shouyu','teishoku','topping','side','drink'].forEach(key => {
+  ['tonkotsu','curry','shouyu','teishoku','topping','side','drink','goods'].forEach(key => {
     if (!grouped[key].length) return;
     txt += `${sectionEmojis[key]}\n`;
     grouped[key].forEach(item => {
@@ -3785,6 +3789,17 @@ function exportAnalyticsCSV() {
     const total = s ? s.total : 0;
     csv += m.id + ',"' + (m.name.ja || '').replace(/"/g, '""') + '",' + qty + ',' + total + '\n';
   });
+  // カスタムメニュー（グッズ等）も全メニューカウントに含める
+  if (typeof customMenuItems !== 'undefined') {
+    customMenuItems.forEach(c => {
+      if (c.hidden || c.deleted) return;
+      const s = a.itemStats[c.id];
+      const qty = s ? s.qty : 0;
+      const total = s ? s.total : 0;
+      const cname = (c.name && c.name.ja) || '(無名)';
+      csv += c.id + ',"' + cname.replace(/"/g, '""') + '",' + qty + ',' + total + '\n';
+    });
+  }
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
