@@ -810,6 +810,11 @@ const catLabel = {ramen:'🍜 ラーメン', teishoku:'🥟 定食', side:'🥟 
 let orders = [], tables = {}, soldoutIds = [];
 // 平打ち麺変更（細麺メニューの麺変更オプション）の売り切れフラグ。soldout/{今日} ドキュメントに保存（翌日自動リセット）
 let flatNoodleSoldout = false;
+// 食材レベルの売り切れフラグ。soldout/{今日} ドキュメントに保存（翌日自動リセット）
+//   riceSoldout         : ご飯切れ → オーダーAPPで ライス/半ライス/餃子2個+半ライス/餃子定食/つけ麺 を一括売り切れ
+//   chickenChashuSoldout: 鶏チャーシュー切れ → オーダーAPPのラーメン選択画面で「鶏」選択肢を非表示
+//   porkChashuSoldout   : 豚チャーシュー切れ → オーダーAPPのラーメン選択画面で「豚」選択肢を非表示
+let riceSoldout = false, chickenChashuSoldout = false, porkChashuSoldout = false;
 // おすすめ商品 ID 配列（最大3件・全端末同期・スタッフが変更するまで永続）
 let recommendedIds = [];
 // 「全表示」モード対象の伝票ラベル（メモリ保持・ページリロードで初期化）
@@ -989,6 +994,9 @@ onSnapshot(ref, (snap) => {
 const data = snap.exists() ? snap.data() : {};
 soldoutIds = data.ids || [];
 flatNoodleSoldout = !!data.flatNoodleSoldout;
+riceSoldout = !!data.riceSoldout;
+chickenChashuSoldout = !!data.chickenChashuSoldout;
+porkChashuSoldout = !!data.porkChashuSoldout;
 updateSoldoutBadge(); updateSoldoutModeLabel();
 if (document.getElementById('soldoutFullPage').style.display === 'block') renderSoldoutFullList();
 if (document.getElementById('soldoutScreen').classList.contains('active')) renderSoldoutList();
@@ -1093,6 +1101,21 @@ try { await setFlatNoodleSoldoutRemote(next); showToast(next ? '平打ち麺変�
 catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
 }
 
+// 食材レベルの売り切れフラグを更新（soldout/{今日} に保存）。
+//   field: 'riceSoldout' | 'chickenChashuSoldout' | 'porkChashuSoldout'
+async function setSoldoutFlagRemote(field, sold) {
+const { doc, setDoc, serverTimestamp } = window.fbApi;
+await setDoc(doc(window.fb.db, 'soldout', todayKey()), { [field]: !!sold, updatedAt: serverTimestamp() }, { merge: true });
+}
+async function toggleIngredientSoldout(field) {
+const cur = field === 'riceSoldout' ? riceSoldout
+  : field === 'chickenChashuSoldout' ? chickenChashuSoldout
+  : field === 'porkChashuSoldout' ? porkChashuSoldout : false;
+const next = !cur;
+try { await setSoldoutFlagRemote(field, next); showToast(next ? '売り切れに設定しました 🚫' : '販売再開しました ✅'); }
+catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
+}
+
 function rebuildTables() {
 tables = {};
 SEAT_LABELS.forEach(label => {
@@ -1172,6 +1195,19 @@ html += `<div style="display:flex;align-items:center;justify-content:space-betwe
 <div><div style="font-size:14px;font-weight:700;color:${flatSold?'#e74c3c':'var(--text)'}">${flatSold?'🚫 ':''}平打ち麺変更</div><div style="font-size:11px;color:var(--muted);margin-top:2px">細麺メニューの平打ち麺への変更</div></div>
 <button onclick="toggleFlatNoodleSoldout()" style="padding:8px 16px;border-radius:10px;border:none;background:${flatSold?'var(--green)':'var(--accent2)'};color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">${flatSold?'販売再開':'売り切れ'}</button>
 </div>`;
+// ───── 食材の売り切れ（連動・選択肢非表示）─────
+const ingredientRows = [
+  { field: 'riceSoldout',          sold: riceSoldout,          name: 'ご飯',         note: 'ライス・半ライス・餃子2個+半ライス・餃子定食・つけ麺・ミニチャーシューエッグ丼を一括売り切れ' },
+  { field: 'chickenChashuSoldout', sold: chickenChashuSoldout, name: '鶏チャーシュー', note: 'ラーメン選択画面で「鶏」の選択肢を非表示' },
+  { field: 'porkChashuSoldout',    sold: porkChashuSoldout,    name: '豚チャーシュー', note: 'ラーメン選択画面で「豚」の選択肢を非表示' }
+];
+html += `<div style="font-size:11px;font-weight:700;color:var(--accent2);letter-spacing:1px;padding:14px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">食材の売り切れ</div>`;
+ingredientRows.forEach(r => {
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${r.sold?'rgba(192,57,43,0.1)':'var(--surface)'};border-radius:12px;margin-bottom:6px;border:1px solid ${r.sold?'var(--accent2)':'var(--border)'}">
+<div style="flex:1;min-width:0;padding-right:10px"><div style="font-size:14px;font-weight:700;color:${r.sold?'#e74c3c':'var(--text)'}">${r.sold?'🚫 ':''}${r.name}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${r.note}</div></div>
+<button onclick="toggleIngredientSoldout('${r.field}')" style="padding:8px 16px;border-radius:10px;border:none;background:${r.sold?'var(--green)':'var(--accent2)'};color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0">${r.sold?'販売再開':'売り切れ'}</button>
+</div>`;
+});
 document.getElementById('soldoutFullList').innerHTML = html;
 }
 
