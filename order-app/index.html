@@ -727,6 +727,17 @@ const BASE_CAT_ORDER = ['recommended','tonkotsu','shouyu','teishoku','topping','
 let allCatKeys = [...BASE_CAT_ORDER]; // rebuildMenuで動的更新
 
 const chashuOpts = {ja:['豚','鶏'],en:['Pork','Chicken'],zh:['猪肉','鸡肉'],ko:['돼지','닭']};
+// チャーシュー選択肢のうち、売り切れ食材（鶏/豚）を除外したリストを返す。
+//   chashuOpts の index 0 = 豚（pork）, index 1 = 鶏（chicken）で全言語共通。
+function availableChashuOpts(langArg){
+  const L = langArg || lang;
+  const list = chashuOpts[L] || chashuOpts.ja;
+  return list.filter((o, idx) => {
+    if(idx === 0 && (typeof porkChashuSoldout !== 'undefined') && porkChashuSoldout) return false;    // 豚チャーシュー売り切れ
+    if(idx === 1 && (typeof chickenChashuSoldout !== 'undefined') && chickenChashuSoldout) return false; // 鶏チャーシュー売り切れ
+    return true;
+  });
+}
 const kataOpts   = {ja:['かため','ふつう','やわ'],en:['Firm','Medium','Soft'],zh:['硬','普通','软'],ko:['단단히','보통','부드럽게']};
 const topOpts    = {ja:['とんかつ','チキンカツ'],en:['Tonkatsu','Chicken Katsu'],zh:['炸猪排','炸鸡排'],ko:['돈카츠','치킨카츠']};
 const riceOpts   = {ja:['ライス並','ライス大盛り（無料）','ミニチャーシューエッグ丼に変更 +¥200'],en:['Rice Regular','Rice Large (Free)','Switch to Mini Chashu Egg Bowl +¥200'],zh:['米饭普通','米饭大碗（免费）','换成迷你叉烧鸡蛋盖饭 +¥200'],ko:['라이스 보통','라이스 곱배기（무료）','미니 차슈 에그 동으로 변경 +¥200']};
@@ -844,7 +855,9 @@ let _subCategories = []; // subCategories collection: [{docId, cat, name, order}
 const DRINK_OPT_BY_ID = {
   // ラム酒：炭酸 / コーラ / ロック（価格据え置き・必須単一選択）
   10016: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'炭酸',en:'With Soda',zh:'兑苏打',ko:'탄산'},{ja:'コーラ',en:'With Cola',zh:'兑可乐',ko:'콜라'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]},
-  10017: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'炭酸',en:'With Soda',zh:'兑苏打',ko:'탄산'},{ja:'コーラ',en:'With Cola',zh:'兑可乐',ko:'콜라'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]}
+  10017: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'炭酸',en:'With Soda',zh:'兑苏打',ko:'탄산'},{ja:'コーラ',en:'With Cola',zh:'兑可乐',ko:'콜라'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]},
+  // ウイスキー：余市 / 宮城峡 / AMAHAGAN（銘柄選択・価格据え置き・必須単一選択）
+  10015: {label:{ja:'銘柄をお選びください',en:'Choose your whisky',zh:'请选择品牌',ko:'브랜드를 선택해 주세요'},choices:[{ja:'余市',en:'Yoichi',zh:'余市',ko:'요이치'},{ja:'宮城峡',en:'Miyagikyo',zh:'宫城峡',ko:'미야기쿄'},{ja:'AMAHAGAN',en:'AMAHAGAN',zh:'AMAHAGAN',ko:'AMAHAGAN'}]}
 };
 
 function wrapLunchFree(m) {
@@ -975,6 +988,11 @@ let fbReady=false, fbError=null;
 let soldoutSet=new Set();
 // 平打ち麺変更の売り切れ（キッチンAPPで設定）。true の間は細麺メニューの平打ち麺変更を選べない
 let flatNoodleSoldout=false;
+// 食材レベルの売り切れ（キッチンAPPで設定）
+//   riceSoldout         : ご飯切れ → ライス/半ライス/餃子2個+半ライス/餃子定食/つけ麺 を一括売り切れ
+//   chickenChashuSoldout: 鶏チャーシュー切れ → ラーメン選択画面の「鶏」選択肢を非表示
+//   porkChashuSoldout   : 豚チャーシュー切れ → ラーメン選択画面の「豚」選択肢を非表示
+let riceSoldout=false, chickenChashuSoldout=false, porkChashuSoldout=false;
 // おすすめ商品 ID 配列（永続。キッチンAPPで管理）
 let recommendedIds = [];
 let unsubRecommended = null;
@@ -1044,7 +1062,24 @@ const $ = id => document.getElementById(id);
 const setText = (id, txt) => { const el=$(id); if(el) el.textContent=txt; };
 const setHTML = (id, html) => { const el=$(id); if(el) el.innerHTML=html; };
 
-const isItemSoldout = id => soldoutSet.has(id);
+// ご飯（riceSoldout）の連動売り切れ対象。
+//   29:ライス 65:半ライス 66:餃子2個＋半ライスセット 70:餃子定食（89:ミニチャーシューエッグ丼の旧canonical ID）
+const RICE_DEP_IDS = new Set([29, 65, 66, 70, 89]);
+// ＋ 商品名で連動判定（メニュー改訂で ID が変わっても追従できるようにする）
+//   「つけ麺」          ：冷やしSKつけ麺 / スパイシーつけ麺 等
+//   「チャーシューエッグ」：ミニチャーシューエッグ丼（id は本番データで 201。「チャーシュー3枚」等のトッピングは含まない）
+const RICE_DEP_NAME_RE = /つけ麺|チャーシューエッグ/;
+function isRiceDependent(id){
+  if(RICE_DEP_IDS.has(id)) return true;
+  const m = menu.find(x => x.id === id);
+  if(m && m.name && typeof m.name.ja === 'string' && RICE_DEP_NAME_RE.test(m.name.ja)) return true;
+  return false;
+}
+const isItemSoldout = id => {
+  if(soldoutSet.has(id)) return true;
+  if(riceSoldout && isRiceDependent(id)) return true;
+  return false;
+};
 const isNightTime  = () => { const h=new Date().getHours(); return h>=17&&h<21; };
 const isLunchTime  = () => { const now=new Date(); const m=now.getHours()*60+now.getMinutes(); return m>=630&&m<=870; }; // 10:30〜14:30（替え玉・大盛り無料判定／余裕を持った時間枠）
 
@@ -1308,9 +1343,15 @@ function subscribeSoldout(){
       const data = snap.data();
       soldoutSet = new Set(data.ids || []);
       flatNoodleSoldout = !!data.flatNoodleSoldout;
+      riceSoldout = !!data.riceSoldout;
+      chickenChashuSoldout = !!data.chickenChashuSoldout;
+      porkChashuSoldout = !!data.porkChashuSoldout;
     } else {
       soldoutSet = new Set();
       flatNoodleSoldout = false;
+      riceSoldout = false;
+      chickenChashuSoldout = false;
+      porkChashuSoldout = false;
     }
     if($('menuScreen').classList.contains('active')) renderMenu();
     // カート画面を開いてる時に売り切れが反映されたら即座に再描画
@@ -2039,6 +2080,9 @@ function renderModal(){
 
   const c=item.custom;
   const isMainDish=['tonkotsu','shouyu','teishoku'].includes(item.cat);
+  // 売り切れ食材（鶏/豚チャーシュー）で選択肢が消えた場合、選択済みの値を先に解除しておく
+  // （getMissingFields より前に行うことで、案内バナーと選択状態の不整合を防ぐ）
+  if(c && c.chashu && curOpts.chashu && !availableChashuOpts(lang).includes(curOpts.chashu)) delete curOpts.chashu;
   const missing=getMissingFields();
   const allDone=missing.length===0;
 
@@ -2068,7 +2112,11 @@ function renderModal(){
   // === 必須項目セクション開始 — 未選択がある場合は外側を1つの赤枠で囲む ===
   let reqHtml = '';
   if(c.top)        reqHtml+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
-  if(c.chashu)     reqHtml+=optGrpReq(t.optChashu,'chashu',chashuOpts[lang],missing);
+  if(c.chashu){
+    // 売り切れ食材（鶏/豚チャーシュー）の選択肢を非表示（選択解除は getMissingFields 前に実施済み）。
+    const chashuList = availableChashuOpts(lang);
+    if(chashuList.length) reqHtml+=optGrpReq(t.optChashu,'chashu',chashuList,missing);
+  }
   if(c.kata && !c.noodleSize) reqHtml+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
   if(c.noodleSize) {
     // 平日ランチのとんこつ・定食では「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
@@ -2345,7 +2393,7 @@ function getMissingFields(){
   const c=curItem.custom, t=T[lang];
   const cat=curItem.cat;
   const missing=[];
-  if(c.chashu && !curOpts.chashu) missing.push({key:'chashu',label:t.optChashu});
+  if(c.chashu && availableChashuOpts(lang).length && !curOpts.chashu) missing.push({key:'chashu',label:t.optChashu});
   if(c.top    && !curOpts.top)    missing.push({key:'top',label:t.optTop});
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
   // 醤油・餃子定食は硬さセクションを非表示にしているため必須から除外
