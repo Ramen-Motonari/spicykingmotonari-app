@@ -120,15 +120,24 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rlist-card{background:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.45);padding:10px 14px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
 .rlist-card.served{opacity:.4;background:#3a3a3a;box-shadow:none}
 .rlist-card.served *{text-decoration:line-through;color:#aaa !important}
+/* 替え玉カード：ラーメン一覧の最上部に赤枠で目立たせる */
+.rlist-card.kaedama{border:2.5px solid #e53935;box-shadow:0 2px 10px rgba(229,57,53,.4)}
+.rlist-card.kaedama.served{border-color:#7a2320}
+.rlist-section-head.kaedama-head{background:rgba(229,57,53,.18);border-left-color:#e53935}
+/* 追加注文カード：同一テーブルの2件目以降の注文。テーブルの注文の下に赤枠で表示 */
+.rlist-card.additional{border:2.5px solid #e74c3c;box-shadow:0 2px 10px rgba(231,76,60,.35)}
+.rlist-card.additional.served{border-color:#7a2320}
+.rlist-add-badge{background:#e74c3c;color:#fff;border-radius:6px;padding:2px 9px;font-size:13px;font-weight:900;letter-spacing:.3px;white-space:nowrap;line-height:1.2}
 /* 1行目：テーブル番号 + 商品名 + 辛さ + 麺/硬さ/チャーシュー を横並び */
 .rlist-line1{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;line-height:1.2}
 .rlist-table{font-family:'Oswald',sans-serif;font-size:28px;font-weight:700;color:#111;line-height:1;letter-spacing:1px;margin-right:32px}
 .rlist-name{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:24px;font-weight:900;color:#1a1008;line-height:1;letter-spacing:1px}
-.rlist-spice{font-family:'Oswald',sans-serif;font-size:22px;font-weight:900;color:#c0392b;line-height:1;letter-spacing:1px}
+.rlist-spice{font-family:'Oswald',sans-serif;font-size:22px;font-weight:900;color:#e74c3c;line-height:1;letter-spacing:1px}
 .rlist-spice.zero{color:#888}
 .rlist-info{font-family:'Noto Sans JP',sans-serif;font-size:17px;font-weight:700;color:#111;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 6px;line-height:1.2}
 .rlist-sep{color:#bbb;font-size:18px;font-weight:700;margin:0 4px}
-.rlist-noodle-change{color:#c0392b;font-weight:900}
+/* 大盛り(.rg-large)・辛さ・麺変更 等の赤文字は全体表示と共通の #e74c3c で統一 */
+.rlist-noodle-change{color:#e74c3c;font-weight:900}
 /* 2行目：追加トッピング */
 .rlist-line2{font-family:'Noto Sans JP',sans-serif;font-size:17px;font-weight:700;color:#222;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;line-height:1.3;margin-top:2px;padding-top:4px;border-top:1px solid #e8d9b8}
 .rlist-line2-empty{display:none}
@@ -814,7 +823,8 @@ let flatNoodleSoldout = false;
 //   riceSoldout         : ご飯切れ → オーダーAPPで ライス/半ライス/餃子2個+半ライス/餃子定食/つけ麺 を一括売り切れ
 //   chickenChashuSoldout: 鶏チャーシュー切れ → オーダーAPPのラーメン選択画面で「鶏」選択肢を非表示
 //   porkChashuSoldout   : 豚チャーシュー切れ → オーダーAPPのラーメン選択画面で「豚」選択肢を非表示
-let riceSoldout = false, chickenChashuSoldout = false, porkChashuSoldout = false;
+//   shoyuSoldout        : 醤油切れ → オーダーAPPで醤油ラーメンシリーズ（cat:'shouyu'）を一括売り切れ
+let riceSoldout = false, chickenChashuSoldout = false, porkChashuSoldout = false, shoyuSoldout = false;
 // おすすめ商品 ID 配列（最大3件・全端末同期・スタッフが変更するまで永続）
 let recommendedIds = [];
 // 「全表示」モード対象の伝票ラベル（メモリ保持・ページリロードで初期化）
@@ -997,6 +1007,7 @@ flatNoodleSoldout = !!data.flatNoodleSoldout;
 riceSoldout = !!data.riceSoldout;
 chickenChashuSoldout = !!data.chickenChashuSoldout;
 porkChashuSoldout = !!data.porkChashuSoldout;
+shoyuSoldout = !!data.shoyuSoldout;
 updateSoldoutBadge(); updateSoldoutModeLabel();
 if (document.getElementById('soldoutFullPage').style.display === 'block') renderSoldoutFullList();
 if (document.getElementById('soldoutScreen').classList.contains('active')) renderSoldoutList();
@@ -1102,7 +1113,7 @@ catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
 }
 
 // 食材レベルの売り切れフラグを更新（soldout/{今日} に保存）。
-//   field: 'riceSoldout' | 'chickenChashuSoldout' | 'porkChashuSoldout'
+//   field: 'riceSoldout' | 'chickenChashuSoldout' | 'porkChashuSoldout' | 'shoyuSoldout'
 async function setSoldoutFlagRemote(field, sold) {
 const { doc, setDoc, serverTimestamp } = window.fbApi;
 await setDoc(doc(window.fb.db, 'soldout', todayKey()), { [field]: !!sold, updatedAt: serverTimestamp() }, { merge: true });
@@ -1110,7 +1121,8 @@ await setDoc(doc(window.fb.db, 'soldout', todayKey()), { [field]: !!sold, update
 async function toggleIngredientSoldout(field) {
 const cur = field === 'riceSoldout' ? riceSoldout
   : field === 'chickenChashuSoldout' ? chickenChashuSoldout
-  : field === 'porkChashuSoldout' ? porkChashuSoldout : false;
+  : field === 'porkChashuSoldout' ? porkChashuSoldout
+  : field === 'shoyuSoldout' ? shoyuSoldout : false;
 const next = !cur;
 try { await setSoldoutFlagRemote(field, next); showToast(next ? '売り切れに設定しました 🚫' : '販売再開しました ✅'); }
 catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
@@ -1199,7 +1211,8 @@ html += `<div style="display:flex;align-items:center;justify-content:space-betwe
 const ingredientRows = [
   { field: 'riceSoldout',          sold: riceSoldout,          name: 'ご飯',         note: 'ライス・半ライス・餃子2個+半ライス・餃子定食・つけ麺・ミニチャーシューエッグ丼を一括売り切れ' },
   { field: 'chickenChashuSoldout', sold: chickenChashuSoldout, name: '鶏チャーシュー', note: 'ラーメン選択画面で「鶏」の選択肢を非表示' },
-  { field: 'porkChashuSoldout',    sold: porkChashuSoldout,    name: '豚チャーシュー', note: 'ラーメン選択画面で「豚」の選択肢を非表示' }
+  { field: 'porkChashuSoldout',    sold: porkChashuSoldout,    name: '豚チャーシュー', note: 'ラーメン選択画面で「豚」の選択肢を非表示' },
+  { field: 'shoyuSoldout',         sold: shoyuSoldout,         name: '醤油',         note: '醤油ラーメンシリーズ（醤油・スパイシー醤油・ネギ玉等）を一括売り切れ' }
 ];
 html += `<div style="font-size:11px;font-weight:700;color:var(--accent2);letter-spacing:1px;padding:14px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">食材の売り切れ</div>`;
 ingredientRows.forEach(r => {
@@ -3066,6 +3079,7 @@ function renderRamenList() {
   if (!el) return;
   // 抽出対象：未会計（pending/preparing）で _doneByEdit / isPendingKaedamaPaid でない、ラーメン or 定食 のメイン
   const allRamen = [];
+  const allKaedama = []; // 替え玉（id 40/41 または isKaedama）は最上部に赤枠で別表示
   orders.forEach(o => {
     if (o.status !== 'pending' && o.status !== 'preparing') return;
     if (o.paymentType === 'cancelled_by_edit') return;
@@ -3074,6 +3088,8 @@ function renderRamenList() {
     const items2 = items.map((it, idx) => ({ ...it, _idx: idx }));
     items2.forEach(it => {
       if (it.isPendingKaedamaPaid || it._doneByEdit) return;
+      // 替え玉（厨房で作る実注文分）を収集
+      if (isKaedamaListItem(it)) { allKaedama.push({ order: o, item: it, idx: it._idx }); return; }
       if (!it.isMain) return;
       const logical = getItemLogicalCat(it);
       if (logical !== 'ramen' && logical !== 'teishoku') return;
@@ -3088,31 +3104,143 @@ function renderRamenList() {
     });
   });
   // 時系列で並べる（createdAt 昇順）
-  allRamen.sort((a, b) => {
+  const byCreatedAt = (a, b) => {
     const ta = (a.order.createdAt && a.order.createdAt.toMillis) ? a.order.createdAt.toMillis() : 0;
     const tb = (b.order.createdAt && b.order.createdAt.toMillis) ? b.order.createdAt.toMillis() : 0;
     return ta - tb;
-  });
-  if (allRamen.length === 0) {
+  };
+  allKaedama.sort(byCreatedAt);
+  if (allRamen.length === 0 && allKaedama.length === 0) {
     el.innerHTML = `<div class="rlist-empty"><div class="rlist-empty-icon">🍜</div><div class="rlist-empty-text">現在ラーメンの注文はありません</div></div>`;
     if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
     return;
   }
-  // 各ラーメンをカードに展開（qty>1 ならその数だけ複製して別エントリ）
-  const cards = [];
-  allRamen.forEach(({ order, main, addons }) => {
-    const qty = Math.max(1, Number(main.qty) || 1);
-    for (let i = 0; i < qty; i++) {
-      cards.push(renderRamenListCard(order, main, addons, i));
+  // ── 追加注文の検出：テーブルごとに注文を createdAt 昇順でランク付け（0=最初の注文, 1以降=追加注文）──
+  const orderMsOf = (o) => {
+    if (o && o.createdAt) {
+      if (typeof o.createdAt.toMillis === 'function') return o.createdAt.toMillis();
+      if (typeof o.createdAt.seconds === 'number') return o.createdAt.seconds * 1000;
     }
+    return 0;
+  };
+  // 順位付けは「ラーメンを含む注文」だけで行う（替え玉のみ／ドリンクのみの先行注文で
+  // ラーメンが誤って追加注文扱いになるのを防ぐ）。＝最初のラーメン注文が必ず rank0。
+  const tableOrderRank = new Map(); // tLabel -> Map(orderId -> rank)
+  {
+    const byTable = new Map(); // tLabel -> Map(orderId -> ms)
+    allRamen.forEach(({ order }) => {
+      const t = order.tableLabel || order.table || '?';
+      if (!byTable.has(t)) byTable.set(t, new Map());
+      const m = byTable.get(t);
+      if (!m.has(order.id)) m.set(order.id, orderMsOf(order));
+    });
+    byTable.forEach((m, t) => {
+      const arr = [...m.entries()].sort((a, b) => (a[1] - b[1]) || String(a[0]).localeCompare(String(b[0])));
+      const rank = new Map();
+      arr.forEach(([id], i) => rank.set(id, i));
+      tableOrderRank.set(t, rank);
+    });
+  }
+  // ── テーブル単位でまとめ、テーブル内は「最初の注文 → 追加注文」の順で並べる ──
+  const ramenByTable = new Map(); // tLabel -> { firstMs, list:[{order,main,addons,rank,isAdd,ms}] }
+  allRamen.forEach(entry => {
+    const t = entry.order.tableLabel || entry.order.table || '?';
+    const rank = (tableOrderRank.get(t) || new Map()).get(entry.order.id) || 0;
+    const ms = orderMsOf(entry.order);
+    if (!ramenByTable.has(t)) ramenByTable.set(t, { firstMs: Infinity, list: [] });
+    const g = ramenByTable.get(t);
+    if (ms < g.firstMs) g.firstMs = ms;
+    g.list.push({ ...entry, rank, isAdd: rank > 0, ms });
   });
-  el.innerHTML = `<div class="rlist-grid">${cards.join('')}</div>`;
+  // テーブルは最初の注文時刻順（=先に来たテーブルが上）
+  const tableGroupsSorted = [...ramenByTable.entries()].sort((a, b) => a[1].firstMs - b[1].firstMs);
+  // 各ラーメンをカードに展開（qty>1 ならその数だけ複製）。追加注文はテーブルの下・赤枠
+  const cards = [];
+  tableGroupsSorted.forEach(([t, g]) => {
+    g.list.sort((a, b) => (a.rank - b.rank) || (a.ms - b.ms)); // 最初の注文が上、追加が下
+    g.list.forEach(({ order, main, addons, isAdd }) => {
+      const qty = Math.max(1, Number(main.qty) || 1);
+      for (let i = 0; i < qty; i++) {
+        cards.push(renderRamenListCard(order, main, addons, i, isAdd));
+      }
+    });
+  });
+  // 替え玉カードを展開（最上部に配置）
+  const kaedamaCards = [];
+  allKaedama.forEach(({ order, item, idx }) => {
+    const qty = Math.max(1, Number(item.qty) || 1);
+    for (let i = 0; i < qty; i++) kaedamaCards.push(renderKaedamaListCard(order, item, idx, i));
+  });
+  let html = '';
+  if (kaedamaCards.length) {
+    html += `<div class="rlist-section-head kaedama-head">🍝 替え玉</div>`;
+    html += `<div class="rlist-grid">${kaedamaCards.join('')}</div>`;
+  }
+  if (cards.length) {
+    if (kaedamaCards.length) html += `<div class="rlist-section-head">🍜 ラーメン</div>`;
+    html += `<div class="rlist-grid">${cards.join('')}</div>`;
+  }
+  el.innerHTML = html;
   if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
 }
 
-function renderRamenListCard(order, main, addons, unitIdx) {
+// 替え玉一覧アイテム判定：厨房で作る実注文分の替え玉のみ true
+//   ・id 40（替え玉）/ 41（半替え玉）または isKaedama フラグ
+//   ・先払い未注文（isPendingKaedamaPaid）/ 編集完了（_doneByEdit）は呼び出し側で既に除外
+function isKaedamaListItem(it) {
+  if (!it) return false;
+  if (it.itemId === 40 || it.itemId === 41) return true;
+  if (it.isKaedama === true) return true;
+  const nm = it.name || '';
+  return nm.includes('替え玉');
+}
+
+// 替え玉カード（ラーメン一覧の最上部・赤枠）
+function renderKaedamaListCard(order, item, itemIdx, unitIdx) {
+  const tLabel = order.tableLabel || order.table || '?';
+  const name = getAbbrevJa(item);
+  const isServed = (Array.isArray(item.servedIndices) && item.servedIndices.includes(unitIdx)) || ((Number(item.qty) || 1) <= 1 && item.served);
+  // オプション（硬さ等）を補足表示
+  const opts = Array.isArray(item.opts) ? item.opts.filter(o => o != null && String(o).trim() !== '') : [];
+  const optsHtml = opts.length ? `<span class="rlist-info">${opts.map(o => `<span>${o}</span>`).join('')}</span>` : '';
+  return `<div class="rlist-card kaedama ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','idx:${itemIdx}')">
+    <div class="rlist-line1">
+      <span class="rlist-table">${tLabel}</span>
+      <span class="rlist-name">🍝 ${name}</span>
+      ${optsHtml ? `<span class="rlist-sep">/</span>${optsHtml}` : ''}
+    </div>
+  </div>`;
+}
+
+// ラーメンに紐付く替え玉「権利」バッジ（全体表示と同一ロジック）を小さめで返す。権利なしは ''
+//   待機が残ればオレンジ #ff9800／全て注文済ならグレー #bdbdbd。複数権利は「替え玉 ×N」。
+function getKaedamaRightBadgeSmall(main) {
+  if (!main) return '';
+  const freeR = main.pendingKaedamaRight;
+  const freePending = !!(freeR && !freeR.requested);
+  const freeDone    = !!(freeR && freeR.requested);
+  const studentR = main.pendingStudentKaedamaRight;
+  const studentPending = !!(studentR && !studentR.requested);
+  const studentDone    = !!(studentR && studentR.requested);
+  const paidArr = Array.isArray(main.pendingKaedamaRightsPaid) ? main.pendingKaedamaRightsPaid : [];
+  const paidPending = paidArr.filter(r => r && !r.requested).length;
+  const paidDone    = paidArr.filter(r => r && r.requested).length;
+  const totalPending = (freePending ? 1 : 0) + (studentPending ? 1 : 0) + paidPending;
+  const totalDone    = (freeDone    ? 1 : 0) + (studentDone    ? 1 : 0) + paidDone;
+  const total = totalPending + totalDone;
+  if (total <= 0) return '';
+  const hasStudent = !!studentR;
+  const bg = totalPending > 0 ? '#ff9800' : '#bdbdbd';
+  const stuMark = hasStudent ? '🎓' : '';
+  const label = (total > 1 ? `替え玉 ×${total}` : '替え玉') + (hasStudent ? '(学生)' : '');
+  return `<span class="rlist-kaedama-badge" style="margin-left:auto;background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:13px;font-weight:900;letter-spacing:.3px;white-space:nowrap">${stuMark}🍝 ${label}</span>`;
+}
+
+function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   const tLabel = order.tableLabel || order.table || '?';
   const mainName = getAbbrevJa(main);
+  const kaedamaBadge = getKaedamaRightBadgeSmall(main);
+  const addBadge = isAdditional ? `<span class="rlist-add-badge">🆕追加</span>` : '';
   // 辛さデフォルト補完
   let opts = Array.isArray(main.opts) ? main.opts.slice() : [];
   const mainNameJa = (MOTONARI.getMenuById(main.itemId)?.name?.ja) || main.name || '';
@@ -3171,12 +3299,14 @@ function renderRamenListCard(order, main, addons, unitIdx) {
   const row2Class = row2Items.length ? 'rlist-line2' : 'rlist-line2 rlist-line2-empty';
   // タップで提供済トグル（既存の toggleGroupServed を呼ぶ）
   const groupKey = (typeof getGroupKey === 'function') ? getGroupKey({ groupId: main.groupId, items:[main], main, isSolo: !main.groupId }) : ('item:' + (main.itemId || main.id || ''));
-  return `<div class="rlist-card ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','${groupKey}')">
+  return `<div class="rlist-card ${isServed?'served':''} ${isAdditional?'additional':''}" onclick="toggleGroupServed('${order.id}','${groupKey}')">
     <div class="rlist-line1">
       <span class="rlist-table">${tLabel}</span>
+      ${addBadge}
       <span class="rlist-name">${mainName}</span>
       ${p.spice ? `<span class="rlist-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
       ${infoHtml}
+      ${kaedamaBadge}
     </div>
     <div class="${row2Class}">${row2Html}</div>
   </div>`;
