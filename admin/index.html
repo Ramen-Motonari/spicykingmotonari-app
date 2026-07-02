@@ -660,11 +660,13 @@ window.adminLogout = adminLogout;
       <div class="an-kpi-card">
         <div class="an-kpi-label">新規率</div>
         <div class="an-kpi-value" style="color:#10b981" id="an-newrate">0%</div>
+        <div class="an-kpi-prev">新規 <span id="an-newrate-count">0</span> / <span id="an-newrate-total">0</span>人</div>
         <div class="an-kpi-prev">前年: <span id="an-newrate-prev">—</span> <span class="diff" id="an-newrate-diff"></span></div>
       </div>
       <div class="an-kpi-card">
         <div class="an-kpi-label">外国人率</div>
         <div class="an-kpi-value" style="color:#e2a14b" id="an-foreignrate">0%</div>
+        <div class="an-kpi-prev">外国人 <span id="an-foreignrate-count">0</span> / <span id="an-foreignrate-total">0</span>人</div>
         <div class="an-kpi-prev">前年: <span id="an-foreignrate-prev">—</span> <span class="diff" id="an-foreignrate-diff"></span></div>
       </div>
     </div>
@@ -3604,6 +3606,12 @@ function renderAnalytics() {
   document.getElementById('an-avg').textContent = '¥' + avg.toLocaleString();
   document.getElementById('an-newrate').textContent = visitRate.rate + '%';
   document.getElementById('an-foreignrate').textContent = foreignRate.rate + '%';
+  // 新規率・外国人率の客数（客組=セッション単位）。率と同時に実数がわかるように表示
+  const _setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  _setTxt('an-newrate-count', visitRate.first.toLocaleString());
+  _setTxt('an-newrate-total', visitRate.total.toLocaleString());
+  _setTxt('an-foreignrate-count', foreignRate.foreign.toLocaleString());
+  _setTxt('an-foreignrate-total', foreignRate.total.toLocaleString());
 
   // 替え玉率 / サイド率 / ドリンク率（期間集計）
   //   分母「ラーメン杯数」＝スープランキングのグランド合計（calcSoupGrandTotal）。
