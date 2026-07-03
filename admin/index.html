@@ -4594,7 +4594,7 @@ async function forceRefreshMenuData() {
 
 // ────── 商品編集モーダル ──────
 function openAddItemModal() {
-  _editingItem = { isNew: true, id: generateNewItemId(), cat: '', name: {ja:'',en:'',zh:'',ko:''}, price: 0, imageUrl: null, custom: {} };
+  _editingItem = { isNew: true, id: generateNewItemId(), cat: '', name: {ja:'',en:'',zh:'',ko:''}, desc: {ja:'',en:'',zh:'',ko:''}, price: 0, imageUrl: null, custom: {} };
   _pendingImageFile = null;
   const saveBtn = document.getElementById('itemEditSaveBtn');
   if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
@@ -4638,6 +4638,7 @@ function openEditItemModal(editKey) {
       pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : !!canon.pirikara,
       kitchenName: ov.kitchenName || '',
       subCat: ov.subCatOverride || '',
+      desc: (ov.descOverride && typeof ov.descOverride === 'object') ? { ja: ov.descOverride.ja||'', en: ov.descOverride.en||'', zh: ov.descOverride.zh||'', ko: ov.descOverride.ko||'' } : { ja:'', en:'', zh:'', ko:'' },
       lunchFreeBase: canon.lunchFreeBase
     };
   } else {
@@ -4652,7 +4653,8 @@ function openEditItemModal(editKey) {
       custom: c.custom || {},
       spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara,
       kitchenName: c.kitchenName || '',
-      subCat: c.subCat || ''
+      subCat: c.subCat || '',
+      desc: (c.desc && typeof c.desc === 'object') ? { ja: c.desc.ja||'', en: c.desc.en||'', zh: c.desc.zh||'', ko: c.desc.ko||'' } : { ja:'', en:'', zh:'', ko:'' }
     };
   }
   _pendingImageFile = null;
@@ -4675,6 +4677,9 @@ function renderItemEditForm() {
   if (!_editingItem) return;
   const it = _editingItem;
   const cats = getMergedCategories();
+  // textarea 内に安全に埋め込むためのエスケープ
+  const escT = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const d = (it.desc && typeof it.desc === 'object') ? it.desc : {};
   const imgPreview = it.imageUrl
     ? `<img src="${it.imageUrl}">`
     : `<span>📷</span>`;
@@ -4716,6 +4721,27 @@ function renderItemEditForm() {
       <div class="itemedit-row">
         <label class="itemedit-label">価格（円） <span style="color:var(--accent2)">必須</span></label>
         <input type="number" class="itemedit-input" id="itemPrice" value="${it.price || 0}" min="0" step="10">
+      </div>
+    </div>
+
+    <div class="itemedit-row">
+      <label class="itemedit-label">商品説明（日本語） <span style="font-size:10px;color:var(--muted);font-weight:400">（任意・オーダー画面の商品画像下に表示。空欄なら表示なし）</span></label>
+      <textarea class="itemedit-input" id="descJa" rows="3" style="resize:vertical;min-height:60px;line-height:1.5" placeholder="例：濃厚な豚骨スープに背脂を効かせた一杯。">${escT(d.ja)}</textarea>
+      <button class="itemedit-translate-btn" style="margin-top:6px" onclick="translateDescAllLangs()">🌐 説明を他言語へ自動翻訳</button>
+    </div>
+
+    <div class="itemedit-grid">
+      <div class="itemedit-row">
+        <label class="itemedit-label">説明 English</label>
+        <textarea class="itemedit-input" id="descEn" rows="2" style="resize:vertical;line-height:1.5">${escT(d.en)}</textarea>
+      </div>
+      <div class="itemedit-row">
+        <label class="itemedit-label">説明 中文</label>
+        <textarea class="itemedit-input" id="descZh" rows="2" style="resize:vertical;line-height:1.5">${escT(d.zh)}</textarea>
+      </div>
+      <div class="itemedit-row">
+        <label class="itemedit-label">説明 한국어</label>
+        <textarea class="itemedit-input" id="descKo" rows="2" style="resize:vertical;line-height:1.5">${escT(d.ko)}</textarea>
       </div>
     </div>
 
@@ -4838,6 +4864,31 @@ async function translateAllLangs() {
   }
 }
 
+// 商品説明の自動翻訳（日本語 → en/zh/ko）
+async function translateDescAllLangs() {
+  const jaEl = document.getElementById('descJa');
+  const ja = (jaEl?.value || '').trim();
+  if (!ja) { showToast('商品説明（日本語）を先に入力してください', true); return; }
+  const btn = document.querySelector('[onclick="translateDescAllLangs()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '🌐 翻訳中...'; }
+  try {
+    const [en, zh, ko] = await Promise.all([
+      translateText(ja, 'en'),
+      translateText(ja, 'zh'),
+      translateText(ja, 'ko')
+    ]);
+    if (en) document.getElementById('descEn').value = en;
+    if (zh) document.getElementById('descZh').value = zh;
+    if (ko) document.getElementById('descKo').value = ko;
+    showToast('翻訳完了');
+  } catch(e) {
+    console.error(e);
+    showToast('翻訳に失敗しました', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🌐 説明を他言語へ自動翻訳'; }
+  }
+}
+
 async function saveItemEdit() {
   if (!_editingItem) return;
   const it = _editingItem;
@@ -4856,6 +4907,14 @@ async function saveItemEdit() {
   const hidden = document.getElementById('itemHidden').checked;
   const kitchenName = (document.getElementById('kitchenName')?.value || '').trim();
   const subCat = (document.getElementById('itemSubCat')?.value || '').trim();
+  // 商品説明（4言語）。全言語が空欄なら null（＝説明なし）
+  const descJa = (document.getElementById('descJa')?.value || '').trim();
+  const descEn = (document.getElementById('descEn')?.value || '').trim();
+  const descZh = (document.getElementById('descZh')?.value || '').trim();
+  const descKo = (document.getElementById('descKo')?.value || '').trim();
+  const descObj = (descJa || descEn || descZh || descKo)
+    ? { ja: descJa, en: descEn || descJa, zh: descZh || descJa, ko: descKo || descJa }
+    : null;
 
   const saveBtn = document.getElementById('itemEditSaveBtn');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
@@ -4888,6 +4947,8 @@ async function saveItemEdit() {
       overrideData.kitchenName = kitchenName || null;
       // サブカテゴリ
       overrideData.subCatOverride = subCat || null;
+      // 商品説明（canonical には説明が無いので、入力があればそのまま override 保存）
+      overrideData.descOverride = descObj;
       await saveMenuOverride(it.id, overrideData);
     } else {
       // custom: customMenuItems に保存
@@ -4897,6 +4958,7 @@ async function saveItemEdit() {
         price, imageUrl, hidden, spicy, night, pirikara,
         kitchenName: kitchenName || '',
         subCat: subCat || '',
+        desc: descObj,
         custom: it.custom || {}
       };
       console.log('[saveItemEdit] saving custom item', { docId: it.docId, data });
@@ -5959,6 +6021,7 @@ window.exportKanritablePDF = exportKanritablePDF;
 window.handleImageSelect = handleImageSelect;
 window.clearImage = clearImage;
 window.translateAllLangs = translateAllLangs;
+window.translateDescAllLangs = translateDescAllLangs;
 window.openCategoryModal = openCategoryModal;
 window.closeCategoryModal = closeCategoryModal;
 window.translateNewCatName = translateNewCatName;

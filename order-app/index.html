@@ -135,6 +135,8 @@ body.dark-bg{background:#111}
 .modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
 .modal-name{font-size:20px;font-weight:900;margin-bottom:4px;color:#1a1a1a}
 .modal-price{font-family:'Oswald',sans-serif;font-size:26px;color:var(--accent);margin-bottom:20px}
+/* 商品説明（管理APPで登録した任意テキスト）。未記入時は要素自体を描画しないためスペースも出ない */
+.modal-desc{font-size:14px;line-height:1.7;color:#444;background:#f7f7f5;border-radius:10px;padding:12px 14px;margin-bottom:20px;white-space:normal;word-break:break-word}
 
 .option-group{margin-bottom:20px}
 .option-label{font-size:17px;font-weight:900;letter-spacing:0.5px;color:#1a1a1a;margin-bottom:12px;padding:6px 0 6px 10px;border-left:4px solid var(--accent);line-height:1.3}
@@ -884,6 +886,7 @@ function rebuildMenu() {
     if (typeof ov.pirikaraOverride === 'boolean') item.pirikara = ov.pirikaraOverride;
     if (typeof ov.priceOverride === 'number') item.price = ov.priceOverride;
     if (ov.imageUrl) item.img = ov.imageUrl;
+    if (ov.descOverride && typeof ov.descOverride === 'object') item.desc = ov.descOverride;
     item.subCat = ov.subCatOverride || '';
     item._sortOrder = (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1);
     merged.push(wrapLunchFree(item));
@@ -899,6 +902,7 @@ function rebuildMenu() {
       price: c.price || 0,
       spicy: !!c.spicy, night: !!c.night, pirikara: !!c.pirikara,
       custom: c.custom || {},
+      desc: (c.desc && typeof c.desc === 'object') ? c.desc : null,
       subCat: c.subCat || '',
       _sortOrder: (typeof c.sortOrder === 'number') ? c.sortOrder : (9000 + idx * 10)
     });
@@ -992,7 +996,8 @@ let flatNoodleSoldout=false;
 //   riceSoldout         : ご飯切れ → ライス/半ライス/餃子2個+半ライス/餃子定食/つけ麺 を一括売り切れ
 //   chickenChashuSoldout: 鶏チャーシュー切れ → ラーメン選択画面の「鶏」選択肢を非表示
 //   porkChashuSoldout   : 豚チャーシュー切れ → ラーメン選択画面の「豚」選択肢を非表示
-let riceSoldout=false, chickenChashuSoldout=false, porkChashuSoldout=false;
+//   shoyuSoldout        : 醤油切れ → 醤油ラーメンシリーズ（cat:'shouyu'）を一括売り切れ
+let riceSoldout=false, chickenChashuSoldout=false, porkChashuSoldout=false, shoyuSoldout=false;
 // おすすめ商品 ID 配列（永続。キッチンAPPで管理）
 let recommendedIds = [];
 let unsubRecommended = null;
@@ -1075,9 +1080,16 @@ function isRiceDependent(id){
   if(m && m.name && typeof m.name.ja === 'string' && RICE_DEP_NAME_RE.test(m.name.ja)) return true;
   return false;
 }
+// 醤油（shoyuSoldout）の連動売り切れ対象 = 醤油ラーメンシリーズ（cat:'shouyu'）全商品を一括売り切れ。
+//   カテゴリで判定するため、メニュー改訂で商品が増減/IDが変わっても自動で追従できる。
+function isShoyuDependent(id){
+  const m = menu.find(x => x.id === id);
+  return !!(m && m.cat === 'shouyu');
+}
 const isItemSoldout = id => {
   if(soldoutSet.has(id)) return true;
   if(riceSoldout && isRiceDependent(id)) return true;
+  if(shoyuSoldout && isShoyuDependent(id)) return true;
   return false;
 };
 const isNightTime  = () => { const h=new Date().getHours(); return h>=17&&h<21; };
@@ -1346,12 +1358,14 @@ function subscribeSoldout(){
       riceSoldout = !!data.riceSoldout;
       chickenChashuSoldout = !!data.chickenChashuSoldout;
       porkChashuSoldout = !!data.porkChashuSoldout;
+      shoyuSoldout = !!data.shoyuSoldout;
     } else {
       soldoutSet = new Set();
       flatNoodleSoldout = false;
       riceSoldout = false;
       chickenChashuSoldout = false;
       porkChashuSoldout = false;
+      shoyuSoldout = false;
     }
     if($('menuScreen').classList.contains('active')) renderMenu();
     // カート画面を開いてる時に売り切れが反映されたら即座に再描画
@@ -2087,6 +2101,16 @@ function renderModal(){
   const allDone=missing.length===0;
 
   let h=`<div class="modal-name">${item.name[lang]}</div><div class="modal-price">¥${item.price.toLocaleString()}</div>`;
+
+  // 商品説明（管理APPで登録・任意）。該当言語→日本語の順でフォールバック。未記入なら行ごと非表示（スペースも出さない）
+  {
+    const _d = item.desc;
+    const _txt = (_d && typeof _d === 'object') ? String(_d[lang] || _d.ja || '').trim() : '';
+    if (_txt) {
+      const _esc = _txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      h += `<div class="modal-desc">${_esc}</div>`;
+    }
+  }
 
   if(item.ghost){
     h+=`<div style="padding:10px 14px;background:#1a1a2e;border:1.5px solid #e94560;border-radius:10px;margin-bottom:8px;text-align:center">
