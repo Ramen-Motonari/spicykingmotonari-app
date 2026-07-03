@@ -136,6 +136,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rlist-spice.zero{color:#888}
 .rlist-info{font-family:'Noto Sans JP',sans-serif;font-size:17px;font-weight:700;color:#111;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 6px;line-height:1.2}
 .rlist-sep{color:#bbb;font-size:18px;font-weight:700;margin:0 4px}
+/* テーブル番号と商品名の区切り「｜」。区切りを付ける行では table の大きな右マージンを打ち消す */
+.rlist-table.with-sep{margin-right:0}
+.rlist-tsep{color:#c8c8c8;font-family:'Oswald',sans-serif;font-size:24px;font-weight:400;line-height:1;margin:0 2px}
 /* 大盛り(.rg-large)・辛さ・麺変更 等の赤文字は全体表示と共通の #e74c3c で統一 */
 .rlist-noodle-change{color:#e74c3c;font-weight:900}
 /* 2行目：追加トッピング */
@@ -143,6 +146,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .rlist-line2-empty{display:none}
 @media (max-width:640px){
   .rlist-table{font-size:22px;margin-right:4px}
+  .rlist-tsep{font-size:20px}
   .rlist-name{font-size:20px}
   .rlist-spice{font-size:20px}
   .rlist-info{font-size:14px}
@@ -3205,7 +3209,8 @@ function renderKaedamaListCard(order, item, itemIdx, unitIdx) {
   const optsHtml = opts.length ? `<span class="rlist-info">${opts.map(o => `<span>${o}</span>`).join('')}</span>` : '';
   return `<div class="rlist-card kaedama ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','idx:${itemIdx}')">
     <div class="rlist-line1">
-      <span class="rlist-table">${tLabel}</span>
+      <span class="rlist-table with-sep">${tLabel}</span>
+      <span class="rlist-tsep">｜</span>
       <span class="rlist-name">🍝 ${name}</span>
       ${optsHtml ? `<span class="rlist-sep">/</span>${optsHtml}` : ''}
     </div>
@@ -3240,7 +3245,7 @@ function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   const tLabel = order.tableLabel || order.table || '?';
   const mainName = getAbbrevJa(main);
   const kaedamaBadge = getKaedamaRightBadgeSmall(main);
-  const addBadge = isAdditional ? `<span class="rlist-add-badge">🆕追加</span>` : '';
+  const addBadge = isAdditional ? `<span class="rlist-add-badge">追加</span>` : '';
   // 辛さデフォルト補完
   let opts = Array.isArray(main.opts) ? main.opts.slice() : [];
   const mainNameJa = (MOTONARI.getMenuById(main.itemId)?.name?.ja) || main.name || '';
@@ -3301,7 +3306,8 @@ function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   const groupKey = (typeof getGroupKey === 'function') ? getGroupKey({ groupId: main.groupId, items:[main], main, isSolo: !main.groupId }) : ('item:' + (main.itemId || main.id || ''));
   return `<div class="rlist-card ${isServed?'served':''} ${isAdditional?'additional':''}" onclick="toggleGroupServed('${order.id}','${groupKey}')">
     <div class="rlist-line1">
-      <span class="rlist-table">${tLabel}</span>
+      <span class="rlist-table with-sep">${tLabel}</span>
+      <span class="rlist-tsep">｜</span>
       ${addBadge}
       <span class="rlist-name">${mainName}</span>
       ${p.spice ? `<span class="rlist-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
