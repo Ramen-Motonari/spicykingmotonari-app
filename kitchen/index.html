@@ -117,6 +117,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 }
 /* 全サイズで縦1列：iPadでもスマホでも横並び1列でカードがフル幅 */
 .rlist-grid{display:grid;gap:6px;grid-template-columns:1fr}
+/* 同テーブルの注文を緑の細枠でまとめて囲む */
+.rlist-tgroup{border:1.5px solid #43a047;border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:6px;background:rgba(67,160,71,.04)}
 .rlist-card{background:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.45);padding:10px 14px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
 .rlist-card.served{opacity:.4;background:#3a3a3a;box-shadow:none}
 .rlist-card.served *{text-decoration:line-through;color:#aaa !important}
@@ -3164,15 +3166,18 @@ function renderRamenList() {
   // テーブルは最初の注文時刻順（=先に来たテーブルが上）
   const tableGroupsSorted = [...ramenByTable.entries()].sort((a, b) => a[1].firstMs - b[1].firstMs);
   // 各ラーメンをカードに展開（qty>1 ならその数だけ複製）。追加注文はテーブルの下・赤枠
-  const cards = [];
+  // 同テーブルの注文は緑の細枠（.rlist-tgroup）でまとめて囲む
+  const tableGroups = [];
   tableGroupsSorted.forEach(([t, g]) => {
     g.list.sort((a, b) => (a.rank - b.rank) || (a.ms - b.ms)); // 最初の注文が上、追加が下
+    const inner = [];
     g.list.forEach(({ order, main, addons, isAdd }) => {
       const qty = Math.max(1, Number(main.qty) || 1);
       for (let i = 0; i < qty; i++) {
-        cards.push(renderRamenListCard(order, main, addons, i, isAdd));
+        inner.push(renderRamenListCard(order, main, addons, i, isAdd));
       }
     });
+    if (inner.length) tableGroups.push(`<div class="rlist-tgroup">${inner.join('')}</div>`);
   });
   // 替え玉カードを展開（最上部に配置）
   const kaedamaCards = [];
@@ -3185,9 +3190,9 @@ function renderRamenList() {
     html += `<div class="rlist-section-head kaedama-head">🍝 替え玉</div>`;
     html += `<div class="rlist-grid">${kaedamaCards.join('')}</div>`;
   }
-  if (cards.length) {
+  if (tableGroups.length) {
     if (kaedamaCards.length) html += `<div class="rlist-section-head">🍜 ラーメン</div>`;
-    html += `<div class="rlist-grid">${cards.join('')}</div>`;
+    html += `<div class="rlist-grid">${tableGroups.join('')}</div>`;
   }
   el.innerHTML = html;
   if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
