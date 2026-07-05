@@ -523,6 +523,9 @@ window.adminLogout = adminLogout;
         </div>
       </div>
       <div id="report-all-section">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button onclick="copyNightReport()" id="copyNightReportBtn" style="padding:6px 14px;border-radius:10px;background:var(--purple);color:#fff;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🌙 夜の報告をコピー</button>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)" id="all-sales-tax">¥0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="all-sales-notax">¥0</div></div>
@@ -3522,6 +3525,22 @@ function copyDailyReport() {
     .catch(() => showToast('コピー失敗', true));
 }
 
+// 合算ページから「夜の報告」をコピー（夜営業タブのコピーと同じ挙動：管理表にも自動保存）
+function copyNightReport() {
+  const txt = buildReportText('dinner');
+  navigator.clipboard.writeText(txt)
+    .then(() => {
+      try {
+        Promise.resolve(saveDailyReportFromDinner()).catch(e => console.error('auto-save failed:', e));
+        showToast('夜の報告をコピーしました 🌙（管理表に自動保存中…）');
+      } catch(e) {
+        console.error('auto-save trigger failed:', e);
+        showToast('夜の報告をコピーしました 🌙');
+      }
+    })
+    .catch(() => showToast('コピー失敗', true));
+}
+
 // ────── Analytics ──────
 function getAnalyticsRange() {
   const fromEl = document.getElementById('analyticsDateFrom');
@@ -5727,6 +5746,7 @@ window.deleteAllOrders = deleteAllOrders;
 window.copyTestUrl = copyTestUrl;
 window.renderServicePage = renderServicePage;
 window.copyDailyReport = copyDailyReport;
+window.copyNightReport = copyNightReport;
 // 商品管理
 window.openAddItemModal = openAddItemModal;
 window.openEditItemModal = openEditItemModal;
