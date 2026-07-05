@@ -1630,9 +1630,8 @@ function countCustomersFromOrders(orders) {
     const v = visits.get(key);
     if (typeof o.customerCountOverride === 'number') v.override = o.customerCountOverride;
     (o.items || []).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const cat = canon ? canon.cat : null;
-      if (cat === 'tonkotsu' || cat === 'shouyu' || cat === 'teishoku') v.auto += (item.qty || 0);
+      const logical = getItemLogicalCat(item);
+      if (logical === 'ramen' || logical === 'teishoku') v.auto += (item.qty || 0);
     });
   });
   let total = 0;
@@ -3645,9 +3644,8 @@ async function editCustomerCount() {
   let autoCount = 0;
   tableOrders.forEach(o => {
     (o.items || []).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const cat = canon ? canon.cat : null;
-      if (cat === 'tonkotsu' || cat === 'shouyu' || cat === 'teishoku') autoCount += (item.qty || 0);
+      const logical = getItemLogicalCat(item);
+      if (logical === 'ramen' || logical === 'teishoku') autoCount += (item.qty || 0);
     });
   });
   const overrideOrder = tableOrders.find(o => typeof o.customerCountOverride === 'number');
@@ -3694,9 +3692,8 @@ const tableOrders = orders.filter(o => o.table === selectedTable && o.status !==
   let autoCount = 0;
   tableOrders.forEach(o => {
     (o.items || []).forEach(item => {
-      const canon = MOTONARI.getMenuById(item.itemId);
-      const cat = canon ? canon.cat : null;
-      if (cat === 'tonkotsu' || cat === 'shouyu' || cat === 'teishoku') autoCount += (item.qty || 0);
+      const logical = getItemLogicalCat(item);
+      if (logical === 'ramen' || logical === 'teishoku') autoCount += (item.qty || 0);
     });
   });
   const displayCount = overrideOrder ? overrideOrder.customerCountOverride : autoCount;
