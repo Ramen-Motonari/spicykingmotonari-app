@@ -3189,6 +3189,11 @@ function renderRamenList() {
     g.list.forEach(({ order, main, addons, isAdd }) => {
       const qty = Math.max(1, Number(main.qty) || 1);
       for (let i = 0; i < qty; i++) {
+        // 提供済みの杯はラーメン一覧から即座に除外（タップした瞬間に消える）。
+        // 取り消し（提供済み解除）は伝票画面で行う運用。
+        const unitServed = (Array.isArray(main.servedIndices) && main.servedIndices.includes(i))
+                           || (qty <= 1 && !!main.served);
+        if (unitServed) continue;
         inner.push(renderRamenListCard(order, main, addons, i, isAdd));
       }
     });

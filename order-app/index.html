@@ -1465,6 +1465,8 @@ function startOrderPolling(){
         orderHistory = newHistory;
         if($('historyScreen').classList.contains('open')) renderHistory();
         if($('paymentScreen').classList.contains('open')) renderPayment();
+        // リスナー切断時でも替え玉バッジ表示を更新（未注文の替え玉権利がある場合に消えないよう）
+        updateKaedamaFloatBtn();
       }
       // 重要：会計済みチェックは毎回実行（リスナーが動いてなくてもここで検知）
       checkAllPaidAndLock();
@@ -1517,6 +1519,9 @@ async function manualFetchOrders(){
     console.log('[manualFetch] fetched:', orderHistory.length);
     if($('historyScreen').classList.contains('open')) renderHistory();
     if($('paymentScreen').classList.contains('open')) renderPayment();
+    // スリープ復帰／タブ復帰（visibilitychange・focus）でもバッジを再評価。
+    // onSnapshot が切れていてもここで替え玉バッジが復活する。
+    updateKaedamaFloatBtn();
     checkAllPaidAndLock();
     return true;
   } catch(e) {
