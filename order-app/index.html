@@ -1739,9 +1739,13 @@ function checkDeviceLockedByPayment() {
 // 復元トレース（コンソールのみ。本番のお客様には何も表示しない）
 function rtrace(msg){ try { console.log('[recovery-trace]', msg); } catch(_){} }
 
-let _recoveryAttempted = false;
+let _recoveryAttempted = false;   // 復元が確定（成功 or 新規客として確定）したら true
+let _recoveryInFlight = false;    // 復元処理の同時多重実行を防ぐ
+let _recoveryRetries = 0;         // 認証直後の取りこぼし用リトライ回数
+const RECOVERY_MAX_RETRIES = 6;   // 認証直後の Firestore 反映待ちを想定
+const RECOVERY_RETRY_DELAY_MS = 700;
 async function tryStartRecovery(){
-  if(_recoveryAttempted) return;
+  if(_recoveryAttempted || _recoveryInFlight) return;
   rtrace(`tryStartRecovery fbReady=${fbReady} user=${!!currentUser} table=${tableNum}`);
   if(!fbReady || !currentUser) {
     rtrace('→ not ready（fbReady/auth待ち）次イベントで再試行');
@@ -1760,21 +1764,46 @@ async function tryStartRecovery(){
     showPaidScreen();
     return;
   }
-  // 既にメニュー画面に居る（=selectVisit済み）ならスキップ
+  // 既にメニュー画面に居る（=selectVisit済み or 復元済み）ならスキップ
   if($('menuScreen').classList.contains('active')) {
     rtrace('→ 既に menuScreen 表示中 → スキップ');
     _recoveryAttempted = true;
     return;
   }
-  _recoveryAttempted = true;
   // 自動セッション復元。localStorage（自端末の保存セッション）＋ Firestore テーブル逆引き（path2）の両方を試みる。
   //   復元条件：同じテーブル ＋ 12時間以内 ＋ セッション/注文が未払い（pending/preparing/served）
+  //   ※ 認証直後は Firestore の反映待ちで一時的に「未会計注文なし」と返ることがあり、その1回を逃すと
+  //     カード／履歴が出ない（＝リロードで直る）症状になる。→ 未復元なら数回リトライして取りこぼしを防ぐ。
+  _recoveryInFlight = true;
   try {
     const recovered = await attemptSessionRecovery(false);
-    rtrace(`recovery result = ${recovered}`);
+    rtrace(`recovery result = ${recovered} (retry ${_recoveryRetries}/${RECOVERY_MAX_RETRIES})`);
+    if (recovered) { _recoveryAttempted = true; return; }
+    scheduleRecoveryRetry();
   } catch(e){
     rtrace('recovery error: ' + (e && e.message ? e.message : e));
+    scheduleRecoveryRetry();
+  } finally {
+    _recoveryInFlight = false;
   }
+}
+// 未復元時のリトライ予約。認証直後のFirestore反映待ちなどの一時的な取りこぼしを救う。
+// 成功・会計済み・selectVisitでメニューに進んだ場合は _recoveryAttempted が true になり打ち切る。
+function scheduleRecoveryRetry(){
+  if (_recoveryAttempted) return;
+  if (_recoveryRetries >= RECOVERY_MAX_RETRIES) {
+    rtrace('→ リトライ上限。新規のお客様として言語選択画面のまま');
+    _recoveryAttempted = true;
+    return;
+  }
+  _recoveryRetries++;
+  rtrace(`→ 未復元。${RECOVERY_RETRY_DELAY_MS}ms後に再試行 (${_recoveryRetries}/${RECOVERY_MAX_RETRIES})`);
+  setTimeout(() => {
+    if (_recoveryAttempted) return;
+    // ユーザーが手動でメニューへ進んだ（selectVisit）なら復元しない
+    if ($('menuScreen').classList.contains('active')) { _recoveryAttempted = true; return; }
+    tryStartRecovery();
+  }, RECOVERY_RETRY_DELAY_MS);
 }
 
 async function attemptSessionRecovery(localOnly){
