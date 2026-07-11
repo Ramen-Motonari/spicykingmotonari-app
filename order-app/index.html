@@ -1736,22 +1736,56 @@ function checkDeviceLockedByPayment() {
   } catch(e) { return false; }
 }
 
+// ── 復元診断トレース（モバイルで原因を目視できるように画面に出す） ──
+window._recoveryTrace = [];
+function rtrace(msg){
+  const line = `${new Date().toLocaleTimeString()} ${msg}`;
+  window._recoveryTrace.push(line);
+  console.log('[recovery-trace]', msg);
+}
+function showRecoveryDebugBanner(){
+  try {
+    // メニュー画面に遷移済み（＝復元成功 or 通常フロー進行中）なら出さない
+    if ($('menuScreen') && $('menuScreen').classList.contains('active')) return;
+    let el = document.getElementById('recoveryDebugBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'recoveryDebugBanner';
+      el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:2000;background:rgba(20,20,20,0.92);color:#eee;font-size:10px;line-height:1.45;padding:8px 10px;border-radius:8px;font-family:monospace;max-height:38vh;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)';
+      el.addEventListener('click', () => el.remove());
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<b style="color:#ffca28">🔍 復元診断（タップで消える）</b><br>' +
+      window._recoveryTrace.map(l => l.replace(/</g,'&lt;')).join('<br>');
+  } catch(_){}
+}
+// 認証やfbが永遠に来ない等で復元が完了しないケースでも、7秒後に診断を表示する保険
+setTimeout(() => {
+  try {
+    if ($('menuScreen') && $('menuScreen').classList.contains('active')) return; // 復元/通常進行OK
+    if (!window._recoveryTrace || window._recoveryTrace.length === 0) {
+      rtrace(`7秒経過も復元未実行 fbReady=${typeof fbReady!=='undefined'?fbReady:'?'} user=${typeof currentUser!=='undefined'?!!currentUser:'?'} table=${typeof tableNum!=='undefined'?tableNum:'?'}`);
+    }
+    showRecoveryDebugBanner();
+  } catch(_){}
+}, 7000);
+
 let _recoveryAttempted = false;
 async function tryStartRecovery(){
   if(_recoveryAttempted) return;
-  console.log('[recovery] tryStartRecovery — fbReady:', fbReady, 'currentUser:', !!currentUser, 'tableNum:', tableNum);
+  rtrace(`tryStartRecovery fbReady=${fbReady} user=${!!currentUser} table=${tableNum}`);
   if(!fbReady || !currentUser) {
-    console.log('[recovery] not ready, will retry on next event');
+    rtrace('→ not ready（fbReady/auth待ち）次イベントで再試行');
     return;
   }
   if(!tableNum || tableNum === '?') {
-    console.log('[recovery] no tableNum in URL — skip');
+    rtrace('→ tableNum が無いのでスキップ');
     _recoveryAttempted = true;
     return;
   }
   // 会計済みロックチェック（リロードでも解除させない）
   if (checkDeviceLockedByPayment()) {
-    console.log('[recovery] device is paid-locked, showing paidScreen');
+    rtrace('→ この端末は会計済みロック中 → paidScreen');
     _recoveryAttempted = true;
     sessionActive = false;
     showPaidScreen();
@@ -1759,22 +1793,20 @@ async function tryStartRecovery(){
   }
   // 既にメニュー画面に居る（=selectVisit済み）ならスキップ
   if($('menuScreen').classList.contains('active')) {
-    console.log('[recovery] menuScreen already active — skip');
+    rtrace('→ 既に menuScreen 表示中 → スキップ');
     _recoveryAttempted = true;
     return;
   }
   _recoveryAttempted = true;
   // 自動セッション復元。localStorage（自端末の保存セッション）＋ Firestore テーブル逆引き（path2）の両方を試みる。
   //   復元条件：同じテーブル ＋ 12時間以内 ＋ セッション/注文が未払い（pending/preparing/served）
-  // ・注文中のお客様がリロード／Safariのタブ削除→QR再読込しても、お会計完了までは履歴・替え玉バッジが復活する
-  // ・会計済み端末（status=paid）は path2 のフィルタから除外されるので復活しない
-  //   （会計済みは上の checkDeviceLockedByPayment で先に paidScreen 表示済み）
-  // ・path2 には 12時間の鮮度ガードを入れ、別日の古い未払い注文を拾わないようにしている
   try {
     const recovered = await attemptSessionRecovery(false);
-    console.log('[recovery] recovery result:', recovered);
+    rtrace(`recovery result = ${recovered}`);
+    if (!recovered) showRecoveryDebugBanner();
   } catch(e){
-    console.warn('[recovery] recovery error:', e);
+    rtrace('recovery error: ' + (e && e.message ? e.message : e));
+    showRecoveryDebugBanner();
   }
 }
 
@@ -1782,34 +1814,38 @@ async function attemptSessionRecovery(localOnly){
   // ── 1. localStorageから復元を試みる ──
   try {
     const raw = localStorage.getItem(SESSION_LS_KEY);
-    console.log('[recovery] localStorage:', raw ? 'found' : 'empty');
+    rtrace(`path1 localStorage: ${raw ? 'あり' : '空'}`);
     if(raw){
       const saved = JSON.parse(raw);
       const ageMs = Date.now() - (saved.savedAt||0);
-      console.log('[recovery] saved:', saved, 'ageMs:', ageMs, 'maxAge:', SESSION_MAX_AGE_MS);
+      const ageMin = Math.round(ageMs/60000);
+      rtrace(`path1 saved.table=${saved.table} vs table=${tableNum} / 経過${ageMin}分`);
       if(saved && saved.table === tableNum && ageMs < SESSION_MAX_AGE_MS){
         const sessDoc = await window.FB.getDoc(
           window.FB.doc(window.FB.db, 'sessions', saved.sessionId)
         );
-        console.log('[recovery] sessDoc exists:', sessDoc.exists(), 'active:', sessDoc.exists() && sessDoc.data().active);
+        rtrace(`path1 sessionDoc exists=${sessDoc.exists()} active=${sessDoc.exists() && sessDoc.data().active}`);
         if(sessDoc.exists() && sessDoc.data().active !== false){
           // セッション内に未会計の注文が残っているか軽くチェック
           const stillOpen = await hasUnpaidOrdersForSession(saved.sessionId);
-          console.log('[recovery] stillOpen:', stillOpen);
+          rtrace(`path1 未会計注文あり=${stillOpen}`);
           if(stillOpen){
+            rtrace('path1 ✅ 復元実行');
             return restoreSession(saved.sessionId, saved.lang||'ja', saved.visitType||'first');
           }
         }
+      } else {
+        rtrace('path1 条件不一致（テーブル違い/期限切れ）');
       }
       // 期限切れ or テーブル違い or 全paid → クリア
-      console.log('[recovery] localStorage recovery failed — clearing');
+      rtrace('path1 失敗 → localStorage クリア');
       clearSessionFromLocal();
     }
-  } catch(e){ console.warn('localStorage recovery skipped:', e); }
+  } catch(e){ rtrace('path1 例外: ' + (e && e.message ? e.message : e)); }
 
   // localOnly 指定時は Firestore 逆引き（共有端末で他人のセッションを拾うリスクあり）は行わない
   if (localOnly) {
-    console.log('[recovery] localOnly — skip Firestore reverse-lookup');
+    rtrace('localOnly指定 → path2スキップ');
     return false;
   }
 
@@ -1821,18 +1857,23 @@ async function attemptSessionRecovery(localOnly){
       window.FB.where('table','==', tableNum)
     );
     const snap = await window.FB.getDocs(q);
+    rtrace(`path2 table=${tableNum} の注文 ${snap.size}件取得`);
     // JS側で status と createdAt の絞り込み・ソート
     const candidates = [];
     const nowMs = Date.now();
+    const statusSeen = {};
+    let agedOut = 0;
     snap.forEach(d => {
       const data = d.data();
+      statusSeen[data.status||'?'] = (statusSeen[data.status||'?']||0)+1;
       if (['pending','preparing','served'].includes(data.status)) {
         // 鮮度ガード：12時間より古い未払い注文は別日の残骸とみなして拾わない
         const cMs = (data.createdAt && data.createdAt.toMillis) ? data.createdAt.toMillis() : 0;
-        if (cMs && (nowMs - cMs) > SESSION_MAX_AGE_MS) return;
+        if (cMs && (nowMs - cMs) > SESSION_MAX_AGE_MS) { agedOut++; return; }
         candidates.push(data);
       }
     });
+    rtrace(`path2 status内訳=${JSON.stringify(statusSeen)} / 12h超で除外=${agedOut} / 候補=${candidates.length}`);
     candidates.sort((a, b) => {
       const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
       const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
@@ -1840,6 +1881,7 @@ async function attemptSessionRecovery(localOnly){
     });
     if(candidates.length > 0){
       const order = candidates[0];
+      rtrace(`path2 ✅ 復元実行 sessionId=${order.sessionId ? order.sessionId.slice(-8) : 'なし'}`);
       if(order.sessionId){
         let langR = 'ja', visitR = 'first';
         try {
@@ -1859,9 +1901,13 @@ async function attemptSessionRecovery(localOnly){
           visitR = order.visitType || 'first';
         }
         return restoreSession(order.sessionId, langR, visitR);
+      } else {
+        rtrace('path2 候補にsessionId無し → 復元不可');
       }
+    } else {
+      rtrace('path2 復元候補ゼロ → 復元しない');
     }
-  } catch(e){ console.warn('Firestore recovery skipped:', e); }
+  } catch(e){ rtrace('path2 例外: ' + (e && e.message ? e.message : e)); }
   return false;
 }
 
