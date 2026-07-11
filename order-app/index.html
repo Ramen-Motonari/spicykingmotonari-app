@@ -394,6 +394,22 @@ body.dark-bg{background:#111}
   <div id="historyList"></div>
 </div>
 
+<!-- Recovery Confirmation Card (セッション復元時に履歴の上に表示) -->
+<div id="recoveryConfirmOverlay" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:18px;max-width:420px;width:100%;max-height:82vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.35)">
+    <div style="padding:22px 22px 8px;text-align:center">
+      <div style="font-size:34px;line-height:1;margin-bottom:10px">🧾</div>
+      <div style="font-size:15px;font-weight:900;color:#1a1a1a;line-height:1.5;margin-bottom:4px">こちらの注文履歴で間違いないですか？<br><span style="font-weight:700;color:#c0392b">もし誤りならスタッフをお呼びください</span></div>
+    </div>
+    <div style="padding:4px 22px 8px;border-top:1px solid #eee;margin-top:12px">
+      <div style="padding:12px 0;border-bottom:1px solid #f0f0f0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:3px">ENGLISH</div><div style="font-size:13px;color:#333;line-height:1.5">Is this your order history? If anything looks wrong, please call our staff.</div></div>
+      <div style="padding:12px 0;border-bottom:1px solid #f0f0f0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:3px">中文</div><div style="font-size:13px;color:#333;line-height:1.5">这是您的订单记录吗？如有错误，请呼叫店员。</div></div>
+      <div style="padding:12px 0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:3px">한국어</div><div style="font-size:13px;color:#333;line-height:1.5">이 주문 내역이 맞으신가요? 잘못된 경우 직원을 불러 주세요.</div></div>
+    </div>
+    <div style="padding:14px 22px 22px"><button onclick="closeRecoveryConfirm()" style="width:100%;padding:14px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ CLOSE</button></div>
+  </div>
+</div>
+
 <!-- Payment Screen -->
 <div class="sub-screen" id="paymentScreen">
   <div class="sub-header">
@@ -1748,15 +1764,15 @@ async function tryStartRecovery(){
     return;
   }
   _recoveryAttempted = true;
-  // 自動セッション復元は「localStorage に保存された自分のセッション」限定で再有効化。
-  //   復元条件（attemptSessionRecovery 内）：同じテーブル ＋ 12時間以内 ＋ セッション有効 ＋ 未払い注文あり
-  // ・注文中のお客様がリロード／QRを読み直した場合 → 履歴・替え玉バッジが復活する
-  // ・新規のお客様（localStorage 空）や会計済み端末 → 従来どおり言語選択画面から開始
+  // 自動セッション復元。localStorage（自端末の保存セッション）＋ Firestore テーブル逆引き（path2）の両方を試みる。
+  //   復元条件：同じテーブル ＋ 12時間以内 ＋ セッション/注文が未払い（pending/preparing/served）
+  // ・注文中のお客様がリロード／Safariのタブ削除→QR再読込しても、お会計完了までは履歴・替え玉バッジが復活する
+  // ・会計済み端末（status=paid）は path2 のフィルタから除外されるので復活しない
   //   （会計済みは上の checkDeviceLockedByPayment で先に paidScreen 表示済み）
-  // ※ Firestore からのテーブル逆引き（path 2）は共有端末で他人のセッションを拾うリスクがあるため使わない（localOnly=true）
+  // ・path2 には 12時間の鮮度ガードを入れ、別日の古い未払い注文を拾わないようにしている
   try {
-    const recovered = await attemptSessionRecovery(true);
-    console.log('[recovery] localStorage-only recovery result:', recovered);
+    const recovered = await attemptSessionRecovery(false);
+    console.log('[recovery] recovery result:', recovered);
   } catch(e){
     console.warn('[recovery] recovery error:', e);
   }
@@ -1807,9 +1823,13 @@ async function attemptSessionRecovery(localOnly){
     const snap = await window.FB.getDocs(q);
     // JS側で status と createdAt の絞り込み・ソート
     const candidates = [];
+    const nowMs = Date.now();
     snap.forEach(d => {
       const data = d.data();
       if (['pending','preparing','served'].includes(data.status)) {
+        // 鮮度ガード：12時間より古い未払い注文は別日の残骸とみなして拾わない
+        const cMs = (data.createdAt && data.createdAt.toMillis) ? data.createdAt.toMillis() : 0;
+        if (cMs && (nowMs - cMs) > SESSION_MAX_AGE_MS) return;
         candidates.push(data);
       }
     });
@@ -1876,8 +1896,14 @@ function restoreSession(sid, langR, visitR){
   showScreen('menuScreen');
   updateCartBar();
   if(isAdminMode) $('adminFab').classList.add('show');
+  // 復元時はまず注文履歴を表示し、その上に確認カードを出す
+  try { switchBottomNav('history'); showRecoveryConfirm(); } catch(e){ console.warn('[recovery] confirm card skipped:', e); }
   return true;
 }
+
+function showRecoveryConfirm(){ const ov = document.getElementById('recoveryConfirmOverlay'); if (ov) ov.style.display = 'flex'; }
+function closeRecoveryConfirm(){ const ov = document.getElementById('recoveryConfirmOverlay'); if (ov) ov.style.display = 'none'; }
+window.closeRecoveryConfirm = closeRecoveryConfirm;
 
 function leaveMenu(){
   if(unsubOrders){ unsubOrders(); unsubOrders=null; }

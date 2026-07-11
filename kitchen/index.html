@@ -4892,7 +4892,7 @@ ${(paidCash > 0 || paidCard > 0) ? `<div style="display:flex;gap:8px;padding:8px
 </div>` : ''}
 <div style="overflow-y:auto;flex:1" data-betsu-scroll>${logHtml}${itemsHtml}</div>
 ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
-<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+<div style="display:flex;justify-content:flex-end;align-items:baseline;gap:14px;margin-bottom:10px">
 <span style="font-size:13px;color:#e8e8e8;font-weight:700">${personLabel} 小計</span>
 <span style="font-family:'Oswald',sans-serif;font-size:34px;color:${selected.length>0?'#e74c3c':'#666'};font-weight:700">¥${selectedTotal.toLocaleString()}</span>
 </div>
@@ -4921,7 +4921,7 @@ if (newScrollArea) newScrollArea.scrollTop = scrollTop;
 const overlay = document.createElement('div');
 overlay.id = 'betsuOverlay';
 overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;display:flex;align-items:flex-end;';
-overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:92vh;display:flex;flex-direction:column;animation:slideUp 0.3s ease">${cardInnerHtml}</div>`;
+overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;height:82vh;max-height:92vh;display:flex;flex-direction:column;animation:slideUp 0.3s ease">${cardInnerHtml}</div>`;
 document.body.appendChild(overlay);
 }
 }
@@ -5401,22 +5401,24 @@ const otherOptions = otherTables.length ? otherTables.map(t => `<label style="di
 </div>
 <span style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--accent)">¥${t.total.toLocaleString()}</span>
 </label>`).join('') : `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">合算できる他のテーブルがありません</div>`;
-overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:85vh;overflow-y:auto;padding:0 0 40px;animation:slideUp 0.3s ease">
-<div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:16px auto 0"></div>
-<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;height:82vh;max-height:92vh;display:flex;flex-direction:column;animation:slideUp 0.3s ease">
+<div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:16px auto 0;flex-shrink:0"></div>
+<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
 <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent2)">合算会計</div>
 <div style="font-size:12px;color:var(--muted)">${selectedTable} ¥${currentTotal.toLocaleString()}</div>
 </div>
+<div style="flex:1;overflow-y:auto">
 <div style="padding:12px 20px 4px;font-size:12px;color:var(--muted)">合算するテーブルを選択してください</div>
 <div style="padding:0 20px">${otherOptions}</div>
-<div style="padding:14px 20px 0;border-top:1px solid var(--border);margin-top:12px">
+</div>
+<div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
 <span style="font-size:14px;font-weight:700;color:#fff">合計</span>
 <span style="font-family:'Oswald',sans-serif;font-size:26px;color:var(--accent2);font-weight:900" id="mergeTotal">¥${currentTotal.toLocaleString()}</span>
 </div>
 <div style="display:flex;gap:10px">
-<button onclick="confirmMerge()" style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--accent2);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">合算して会計完了</button>
-<button onclick="document.getElementById('mergeOverlay').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif">閉じる</button>
+<button onclick="document.getElementById('mergeOverlay').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ 戻る</button>
+<button onclick="confirmMerge()" style="flex:2;padding:14px;border-radius:12px;border:none;background:var(--accent2);color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">合算して会計完了</button>
 </div>
 </div>
 </div>`;
