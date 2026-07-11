@@ -394,19 +394,19 @@ body.dark-bg{background:#111}
   <div id="historyList"></div>
 </div>
 
-<!-- Recovery Confirmation Card (セッション復元時に履歴の上に表示) -->
-<div id="recoveryConfirmOverlay" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:18px;max-width:420px;width:100%;max-height:82vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.35)">
-    <div style="padding:22px 22px 8px;text-align:center">
-      <div style="font-size:34px;line-height:1;margin-bottom:10px">🧾</div>
-      <div style="font-size:15px;font-weight:900;color:#1a1a1a;line-height:1.5;margin-bottom:4px">こちらの注文履歴で間違いないですか？<br><span style="font-weight:700;color:#c0392b">もし誤りならスタッフをお呼びください</span></div>
+<!-- Recovery Confirmation Card (セッション復元時に履歴の上・画面最下部に表示。上部に履歴が少し見える) -->
+<div id="recoveryConfirmOverlay" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.15);align-items:flex-end;justify-content:center;padding:0">
+  <div style="background:#fff;border-radius:18px 18px 0 0;max-width:480px;width:100%;max-height:66vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.35)">
+    <div style="padding:14px 20px 4px;text-align:center">
+      <div style="font-size:26px;line-height:1;margin-bottom:4px">🧾</div>
+      <div style="font-size:14px;font-weight:900;color:#1a1a1a;line-height:1.45">こちらの注文履歴で間違いないですか？<br><span style="font-weight:700;color:#c0392b">もし誤りならスタッフをお呼びください</span></div>
     </div>
-    <div style="padding:4px 22px 8px;border-top:1px solid #eee;margin-top:12px">
-      <div style="padding:12px 0;border-bottom:1px solid #f0f0f0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:3px">ENGLISH</div><div style="font-size:13px;color:#333;line-height:1.5">Is this your order history? If anything looks wrong, please call our staff.</div></div>
-      <div style="padding:12px 0;border-bottom:1px solid #f0f0f0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:3px">中文</div><div style="font-size:13px;color:#333;line-height:1.5">这是您的订单记录吗？如有错误，请呼叫店员。</div></div>
-      <div style="padding:12px 0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:3px">한국어</div><div style="font-size:13px;color:#333;line-height:1.5">이 주문 내역이 맞으신가요? 잘못된 경우 직원을 불러 주세요.</div></div>
+    <div style="padding:2px 20px 4px;border-top:1px solid #eee;margin-top:8px">
+      <div style="padding:8px 0;border-bottom:1px solid #f0f0f0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:2px">ENGLISH</div><div style="font-size:12.5px;color:#333;line-height:1.45">Is this your order history? If anything looks wrong, please call our staff.</div></div>
+      <div style="padding:8px 0;border-bottom:1px solid #f0f0f0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:2px">中文</div><div style="font-size:12.5px;color:#333;line-height:1.45">这是您的订单记录吗？如有错误，请呼叫店员。</div></div>
+      <div style="padding:8px 0"><div style="font-size:10px;letter-spacing:1px;color:#999;font-weight:700;margin-bottom:2px">한국어</div><div style="font-size:12.5px;color:#333;line-height:1.45">이 주문 내역이 맞으신가요? 잘못된 경우 직원을 불러 주세요.</div></div>
     </div>
-    <div style="padding:14px 22px 22px"><button onclick="closeRecoveryConfirm()" style="width:100%;padding:14px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ CLOSE</button></div>
+    <div style="padding:10px 20px 16px"><button onclick="closeRecoveryConfirm()" style="width:100%;padding:13px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ CLOSE</button></div>
   </div>
 </div>
 
@@ -1736,39 +1736,8 @@ function checkDeviceLockedByPayment() {
   } catch(e) { return false; }
 }
 
-// ── 復元診断トレース（モバイルで原因を目視できるように画面に出す） ──
-window._recoveryTrace = [];
-function rtrace(msg){
-  const line = `${new Date().toLocaleTimeString()} ${msg}`;
-  window._recoveryTrace.push(line);
-  console.log('[recovery-trace]', msg);
-}
-function showRecoveryDebugBanner(){
-  try {
-    // メニュー画面に遷移済み（＝復元成功 or 通常フロー進行中）なら出さない
-    if ($('menuScreen') && $('menuScreen').classList.contains('active')) return;
-    let el = document.getElementById('recoveryDebugBanner');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'recoveryDebugBanner';
-      el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:2000;background:rgba(20,20,20,0.92);color:#eee;font-size:10px;line-height:1.45;padding:8px 10px;border-radius:8px;font-family:monospace;max-height:38vh;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)';
-      el.addEventListener('click', () => el.remove());
-      document.body.appendChild(el);
-    }
-    el.innerHTML = '<b style="color:#ffca28">🔍 復元診断（タップで消える）</b><br>' +
-      window._recoveryTrace.map(l => l.replace(/</g,'&lt;')).join('<br>');
-  } catch(_){}
-}
-// 認証やfbが永遠に来ない等で復元が完了しないケースでも、7秒後に診断を表示する保険
-setTimeout(() => {
-  try {
-    if ($('menuScreen') && $('menuScreen').classList.contains('active')) return; // 復元/通常進行OK
-    if (!window._recoveryTrace || window._recoveryTrace.length === 0) {
-      rtrace(`7秒経過も復元未実行 fbReady=${typeof fbReady!=='undefined'?fbReady:'?'} user=${typeof currentUser!=='undefined'?!!currentUser:'?'} table=${typeof tableNum!=='undefined'?tableNum:'?'}`);
-    }
-    showRecoveryDebugBanner();
-  } catch(_){}
-}, 7000);
+// 復元トレース（コンソールのみ。本番のお客様には何も表示しない）
+function rtrace(msg){ try { console.log('[recovery-trace]', msg); } catch(_){} }
 
 let _recoveryAttempted = false;
 async function tryStartRecovery(){
@@ -1803,10 +1772,8 @@ async function tryStartRecovery(){
   try {
     const recovered = await attemptSessionRecovery(false);
     rtrace(`recovery result = ${recovered}`);
-    if (!recovered) showRecoveryDebugBanner();
   } catch(e){
     rtrace('recovery error: ' + (e && e.message ? e.message : e));
-    showRecoveryDebugBanner();
   }
 }
 
