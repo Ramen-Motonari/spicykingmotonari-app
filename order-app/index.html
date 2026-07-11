@@ -1882,7 +1882,7 @@ async function hasUnpaidOrdersForSession(sid){
   } catch(e){ return true; /* 不明なら復元側に倒す */ }
 }
 
-function restoreSession(sid, langR, visitR){
+async function restoreSession(sid, langR, visitR){
   sessionId = sid;
   lang = langR;
   window._currentVisitType = visitR;
@@ -1896,8 +1896,20 @@ function restoreSession(sid, langR, visitR){
   showScreen('menuScreen');
   updateCartBar();
   if(isAdminMode) $('adminFab').classList.add('show');
-  // 復元時はまず注文履歴を表示し、その上に確認カードを出す
-  try { switchBottomNav('history'); showRecoveryConfirm(); } catch(e){ console.warn('[recovery] confirm card skipped:', e); }
+  // 復元時はまず注文履歴を「データが入った状態で」表示し、その上に確認カードを出す。
+  //   subscribeOrders() は onSnapshot の初回反映まで時間差があり、そのまま履歴を開くと
+  //   空表示になる → ここで getDocs による直接取得(manualFetchOrders)を await して履歴を先に埋める。
+  try {
+    await manualFetchOrders();   // orderHistory を同期的に埋める（履歴の空表示を防ぐ）
+  } catch(e){ console.warn('[recovery] history prefetch failed:', e); }
+  try {
+    switchBottomNav('history');  // 履歴タブを開く（内部で renderHistory 実行）
+    renderHistory();             // 念のため再描画
+  } catch(e){ console.warn('[recovery] open history skipped:', e); }
+  // カードは履歴描画の後に必ず前面へ。再描画で隠れる事故に備えて数回押し出す。
+  showRecoveryConfirm();
+  setTimeout(showRecoveryConfirm, 300);
+  setTimeout(showRecoveryConfirm, 900);
   return true;
 }
 
