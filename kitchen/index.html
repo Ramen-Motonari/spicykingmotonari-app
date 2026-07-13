@@ -5623,15 +5623,15 @@ if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件
 else badge.style.display = 'none';
 const num = document.getElementById('kitchenCountNum');
 if (num) num.textContent = count;
-// ── 替え玉注文アラート（事前注文済は除外） ──
-// 実際に注文された替え玉（isPendingKaedamaOrder）で、事前注文済(isPrepaidKaedamaRequest)
-// 以外の未提供アイテムがあればアラート表示。全て提供完了(served)で消える。
+// ── 替え玉注文アラート ──
+// 実際に注文（権利行使）された替え玉オーダー（isPendingKaedamaOrder）に未提供があれば表示。
+// 事前注文（＝購入済みの待機権利）は親ラーメンに紐づくだけで isPendingKaedamaOrder に
+// ならないため、この条件だけで自然に除外される。全アイテム提供完了(served)で消える。
 let alertCount = 0;
 orders.forEach(o => {
   if (o.status === 'paid') return; // paid は除外
   if (o.paymentType === 'cancelled_by_edit') return;
-  if (o.isPendingKaedamaOrder && Array.isArray(o.items) &&
-      o.items.some(i => !i.served && i.isPrepaidKaedamaRequest !== true)) {
+  if (o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served)) {
     alertCount++;
   }
 });
