@@ -241,13 +241,13 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ramen-group-card .rg-check{width:38px;height:38px;border-radius:50%;border:2px solid #c8860a;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.2s;margin-top:4px;background:#fff}
 .ramen-group-card.served .rg-check{background:#22c55e;border-color:#22c55e}
 .ramen-group-card.served .rg-check::after{content:'✓';color:#fff;font-size:20px;font-weight:900}
-/* 伝票の商品左の大きい○は非表示にし、商品名の表示幅を最大化する */
-.ramen-group-card .rg-check,.ticket-item .item-check{display:none}
+/* ○はラーメン/定食名の横（ヘッダー行）に表示。個別アイテムの○は非表示のまま */
+.ticket-item .item-check{display:none}
 .rg-content{flex:1;min-width:0}
 /* 各セクションの区切り線 */
 .rg-sec{padding:6px 0}
 .rg-sec + .rg-sec{border-top:1.5px solid #e8d9b8}
-.rg-sec-header{padding-top:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.rg-sec-header{padding-top:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .rg-main-name{font-size:30px;font-weight:900;line-height:1.1;font-family:'Oswald','Noto Sans JP',sans-serif;letter-spacing:1px;color:#1a1008;flex:1;word-break:break-word}
 .rg-main-qty{font-family:'Oswald',sans-serif;font-size:24px;color:#c8860a;font-weight:700;margin-left:6px}
 .rg-spice{font-size:24px;font-weight:900;color:#e74c3c;font-family:'Oswald','Noto Sans JP',sans-serif;flex-shrink:0}
@@ -527,7 +527,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 <div class="app-screen active" id="kitchenScreen">
 <div id="kitchenCountBar">
   <span class="kcb-group"><span class="kcb-icon">🍜</span>注文件数 <span id="kitchenCountNum">0</span> 件</span>
-  <span class="kcb-group" id="kaedamaWaitingGroup" style="margin-left:16px;display:none"><span class="kcb-icon">🍝</span>替え玉待機 <span id="kaedamaWaitingNum">0</span> 件<span id="kaedamaAlertBadge" style="display:none;margin-left:8px;background:#e74c3c;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:900;letter-spacing:0.5px;animation:flashRed 1.4s ease infinite">注文あり</span></span>
+  <span class="kcb-group" id="kaedamaWaitingGroup" style="margin-left:16px;display:none;background:#e74c3c;color:#fff;border-radius:10px;padding:3px 12px;font-weight:900;letter-spacing:0.5px;animation:flashRed 1.4s ease infinite"><span class="kcb-icon">🍝</span>替え玉注文（事前注文は除外）が入りました</span>
   <button id="pastTicketBtn" onclick="openPastTicketPanel()" style="margin-left:auto;background:rgba(200,134,10,0.18);border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.5px">📜 過去の伝票</button>
 </div>
 <div id="kitchenNavBar"></div>
@@ -2938,6 +2938,7 @@ function renderRamenGroupCard(orderId, grp) {
   }
   // ━━━ Section 1: 名前 + 替え玉バッジ + 辛さ ━━━
   const headerHtml = `<div class="rg-sec rg-sec-header">
+    <div class="rg-check"></div>
     <span class="rg-main-name">${mainName}${main.qty > 1 ? `<span class="rg-main-qty">×${main.qty}</span>` : ''}</span>
     ${kaedamaRightBadge}
     ${p.spice ? `<span class="rg-spice ${p.spice==='0辛'?'zero':''}">${p.spice}</span>` : ''}
@@ -3042,7 +3043,6 @@ function renderRamenGroupCard(orderId, grp) {
   </div>` : '';
 
   return `<div class="ramen-group-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
-<div class="rg-check"></div>
 <div class="rg-content">
 ${headerHtml}
 ${noodleHtml}
@@ -5623,31 +5623,20 @@ if (count > 0) { badge.style.display = 'block'; badge.textContent = count + '件
 else badge.style.display = 'none';
 const num = document.getElementById('kitchenCountNum');
 if (num) num.textContent = count;
-// ── 替え玉待機件数（無料 + 有料 両方をカウント） ──
-// 「待機」= 未会計の卓で、お客様がまだ替え玉ご注文権利を行使していない状態
-let waitingCount = 0;
+// ── 替え玉注文アラート（事前注文済は除外） ──
+// 実際に注文された替え玉（isPendingKaedamaOrder）で、事前注文済(isPrepaidKaedamaRequest)
+// 以外の未提供アイテムがあればアラート表示。全て提供完了(served)で消える。
 let alertCount = 0;
 orders.forEach(o => {
   if (o.status === 'paid') return; // paid は除外
   if (o.paymentType === 'cancelled_by_edit') return;
-  (o.items || []).forEach(it => {
-    if (it.pendingKaedamaRight && !it.pendingKaedamaRight.requested) waitingCount++;
-    if (it.pendingStudentKaedamaRight && !it.pendingStudentKaedamaRight.requested) waitingCount++;
-    if (Array.isArray(it.pendingKaedamaRightsPaid)) {
-      it.pendingKaedamaRightsPaid.forEach(r => { if (r && !r.requested) waitingCount++; });
-    }
-  });
-  // 替え玉注文（実際に注文された替え玉）の未提供あり → アラート
-  if (o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served)) {
+  if (o.isPendingKaedamaOrder && Array.isArray(o.items) &&
+      o.items.some(i => !i.served && i.isPrepaidKaedamaRequest !== true)) {
     alertCount++;
   }
 });
 const wGroup = document.getElementById('kaedamaWaitingGroup');
-const wNum = document.getElementById('kaedamaWaitingNum');
-const aBadge = document.getElementById('kaedamaAlertBadge');
-if (wGroup) wGroup.style.display = (waitingCount > 0 || alertCount > 0) ? 'inline-flex' : 'none';
-if (wNum) wNum.textContent = waitingCount;
-if (aBadge) aBadge.style.display = alertCount > 0 ? 'inline-block' : 'none';
+if (wGroup) wGroup.style.display = alertCount > 0 ? 'inline-flex' : 'none';
 }
 function showToast(msg) {
 const el = document.getElementById('toast');
