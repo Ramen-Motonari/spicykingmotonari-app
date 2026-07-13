@@ -5624,16 +5624,21 @@ else badge.style.display = 'none';
 const num = document.getElementById('kitchenCountNum');
 if (num) num.textContent = count;
 // ── 替え玉注文アラート ──
-// 実際に注文（権利行使）された替え玉オーダー（isPendingKaedamaOrder）に未提供があれば表示。
-// 事前注文（＝購入済みの待機権利）は親ラーメンに紐づくだけで isPendingKaedamaOrder に
-// ならないため、この条件だけで自然に除外される。全アイテム提供完了(served)で消える。
+// 表示①: 事前注文していた替え玉を権利行使した時（isPendingKaedamaOrder のオーダー）
+// 表示②: ラーメン提供後にトッピングカテゴリーから替え玉注文した時（isKaedamaOrder のオーダー）
+// 非表示③: ラーメン選択画面での事前注文（待機バッジ）。有料は isPendingKaedamaPaid、
+//          無料は親ラーメンの pendingKaedamaRight として届き、独立した替え玉アイテムを
+//          持たないため下記の条件で自然に除外される。全アイテム提供完了(served)で消える。
 let alertCount = 0;
 orders.forEach(o => {
   if (o.status === 'paid') return; // paid は除外
   if (o.paymentType === 'cancelled_by_edit') return;
-  if (o.isPendingKaedamaOrder && Array.isArray(o.items) && o.items.some(i => !i.served)) {
-    alertCount++;
-  }
+  const items = Array.isArray(o.items) ? o.items : [];
+  const hasActiveKaedama = items.some(i =>
+    (i.itemId === 40 || i.itemId === 41 || i.isKaedama === true) &&
+    !i.served && i.isPendingKaedamaPaid !== true && i._doneByEdit !== true
+  );
+  if (hasActiveKaedama) alertCount++;
 });
 const wGroup = document.getElementById('kaedamaWaitingGroup');
 if (wGroup) wGroup.style.display = alertCount > 0 ? 'inline-flex' : 'none';
