@@ -710,7 +710,8 @@ body.register-mode #mergeOverlay>div{
 <div class="detail-total-price" id="detailTotal">¥0</div>
 </div>
 <div class="detail-actions">
-<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')" style="background:var(--accent2)"><span data-regI18n="btnProceedPay">会計に進む</span></button>
+<button class="btn-complete" id="btnComplete" onclick="completePayment('normal')" style="background:var(--accent2)"><span data-regI18n="btnProceedPay">会計完了</span></button>
+<button class="btn-complete" id="btnChangeCalc" onclick="openChangeCalculator()" style="background:var(--surface3);border:1px solid var(--green);color:var(--green)"><span data-regI18n="btnChangeCalc">🧮 お釣り計算</span></button>
 <button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnSeparate">別会計</span></button>
 <button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnMerge">他テーブルと合算</span></button>
 <button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnEdit">注文変更</span></button>
@@ -984,7 +985,7 @@ const REG_I18N = {
     paySelectTitle: 'お支払い方法を選択', paySelectAfterMsg: '⚠️ お会計終了後にタップ',
     payCash: '現金', payCard: 'クレジットカード', cancel: 'キャンセル',
     statusEmpty: '空席', statusOrdering: '注文中', statusPayment: '🔔 会計リクエスト',
-    btnProceedPay: '会計に進む', btnSeparate: '別会計', btnMerge: '他テーブルと合算',
+    btnProceedPay: '会計完了', btnChangeCalc: '🧮 お釣り計算', btnSeparate: '別会計', btnMerge: '他テーブルと合算',
     btnEdit: '注文変更', btnService: 'サービス（全額無料）', closeBtn: '閉じる',
     headerRegister: 'レジ', back: '戻る', confirm: '確定', total: '合計',
     servedAll: '✓ 全て提供済み', servedPartial: '🍳 未提供あり'
@@ -994,7 +995,7 @@ const REG_I18N = {
     paySelectTitle: 'Select Payment Method', paySelectAfterMsg: '⚠️ Tap AFTER payment completed',
     payCash: 'Cash', payCard: 'Credit Card', cancel: 'Cancel',
     statusEmpty: 'Empty', statusOrdering: 'Ordering', statusPayment: '🔔 Payment Request',
-    btnProceedPay: 'Proceed to Payment', btnSeparate: 'Split Bill', btnMerge: 'Merge with Other Tables',
+    btnProceedPay: 'Complete Payment', btnChangeCalc: '🧮 Change Calc', btnSeparate: 'Split Bill', btnMerge: 'Merge with Other Tables',
     btnEdit: 'Edit Order', btnService: 'Service (Free)', closeBtn: 'Close',
     headerRegister: 'Register', back: 'Back', confirm: 'Confirm', total: 'Total',
     servedAll: '✓ All Served', servedPartial: '🍳 Unserved'
@@ -3845,47 +3846,6 @@ document.getElementById('historyFullPage').style.display = 'block';
 function closeHistoryPage() { document.getElementById('historyFullPage').style.display = 'none'; }
 
 // 履歴グループを論理削除（同一会計のすべての注文を一括削除）
-// 支払い方法を変更（現金 ⇄ カード）
-// 注文履歴の同じお会計グループ（複数orderId）に対して一括で paymentMethod を更新
-// 管理APP・キッチンAPPは同じ paymentMethod を参照しているため、データ同時更新となる
-async function changePaymentMethod(orderIdsCsv, fromPm, toPm, tableLabel) {
-  const fromLabel = fromPm === 'cash' ? '💴 現金' : '💳 カード';
-  const toLabel = toPm === 'cash' ? '💴 現金' : '💳 カード';
-  if (!confirm(`${tableLabel} の支払い方法を変更しますか？\n\n${fromLabel} → ${toLabel}\n\n※ 売上集計（管理APP）にも即時反映されます`)) return;
-  const ids = orderIdsCsv.split(',').filter(x => x);
-  if (!ids.length) return;
-  try {
-    const { doc, updateDoc, serverTimestamp } = window.fbApi;
-    const updates = [];
-    ids.forEach(id => {
-      const order = paidOrders.find(o => o.id === id) || orders.find(o => o.id === id);
-      if (!order) return;
-      const updateData = {
-        paymentMethod: toPm,
-        updatedAt: serverTimestamp()
-      };
-      // 別会計の場合、paymentBreakdown も更新（旧現金→カード、旧カード→現金）
-      if (order.paymentType === 'separate' && order.paymentBreakdown) {
-        const pb = order.paymentBreakdown || {};
-        const cashAmt = pb.cash || 0;
-        const cardAmt = pb.card || 0;
-        // 全額を新メソッドへ移し替え
-        if (toPm === 'cash') {
-          updateData.paymentBreakdown = { cash: cashAmt + cardAmt, card: 0 };
-        } else {
-          updateData.paymentBreakdown = { cash: 0, card: cashAmt + cardAmt };
-        }
-      }
-      updates.push(updateDoc(doc(window.fb.db, 'orders', id), updateData));
-    });
-    await Promise.all(updates);
-    showToast(`✅ ${tableLabel} を ${toLabel} に変更（${ids.length}件）`);
-  } catch(e) {
-    console.error(e);
-    showToast('変更に失敗しました', true);
-  }
-}
-
 async function deleteHistoryGroup(orderIdsCsv, tableLabel, total) {
   if (!confirm(`${tableLabel} の履歴を削除しますか？\n金額：¥${(total||0).toLocaleString()}\n\n※ 「削除済みを表示」から復元可能です。`)) return;
   try {
@@ -4204,8 +4164,6 @@ paymentGroups.forEach(g => {
 
 const methodLabel = {normal:'通常', separate:'別会計', merge:'合算'};
 const methodColor = {normal:'var(--green)', separate:'var(--blue)', merge:'var(--purple)'};
-const payLabel = {cash:'💴 現金', card:'💳 カード'};
-const payColor = {cash:'var(--green)', card:'var(--blue)'};
 
 list.innerHTML = Object.entries(byDate).map(([date, entries]) => {
 const dayTotal = entries.reduce((s,g) => s + (g.total||0), 0);
@@ -4216,25 +4174,9 @@ const m = g.paymentType || 'normal';
 const dispLabel = (m === 'merge' && g.tableLabels.length > 1)
   ? g.tableLabels.join('＋')
   : g.tableLabel;
-// 支払い方法表示（別会計で複数混在時は内訳）
-const pbKeys = Object.keys(g.paymentBreakdown);
-let pmHtml = '';
+// 支払い方法の表示は廃止（現金/クレジットの区別なし）
+const pmHtml = '';
 const orderIdsCsv = g.orderIds.join(',');
-if (pbKeys.length > 1) {
-  // 複数method混在 → 内訳表示（変更不可）
-  pmHtml = pbKeys.map(pm =>
-    `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${payColor[pm]||'#555'};color:${payColor[pm]||'#555'}">${payLabel[pm]||pm} ¥${g.paymentBreakdown[pm].total.toLocaleString()}</span>`
-  ).join('');
-} else if (pbKeys.length === 1) {
-  const pm = pbKeys[0];
-  // 支払方法バッジ＋変更ボタン（単一支払いのみ変更可能）
-  const otherPm = pm === 'cash' ? 'card' : 'cash';
-  const otherLabel = pm === 'cash' ? '💳 カード' : '💴 現金';
-  pmHtml = `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${payColor[pm]||'#555'};color:${payColor[pm]||'#555'}">${payLabel[pm]||''}</span>` +
-    (_showDeletedHistory ? '' :
-      `<button onclick="changePaymentMethod('${orderIdsCsv}','${pm}','${otherPm}','${(dispLabel||'').replace(/'/g,"\\'")}')" style="background:transparent;border:1px dashed ${payColor[otherPm]||'#888'};color:${payColor[otherPm]||'#888'};font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:0.3px" title="${otherLabel}に変更">→ ${otherLabel}</button>`
-    );
-}
 const actionBtns = _showDeletedHistory
   ? `<button onclick="restoreHistoryGroup('${orderIdsCsv}','${dispLabel}')" style="background:rgba(34,197,94,0.15);border:1px solid var(--green);color:var(--green);font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif" title="復元">↩️ 復元</button>
      <button onclick="permanentlyDeleteGroup('${orderIdsCsv}','${dispLabel}')" style="background:rgba(192,57,43,0.15);border:1px solid var(--accent2);color:var(--accent2);font-size:14px;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;line-height:1" title="完全削除（取消不可）">⚠️</button>`
@@ -4287,48 +4229,11 @@ ${itemsHtml}
 }).join('');
 }
 
-// 支払いモーダル
-function openPaymentMethodModal(type, mergeData) {
-const existing = document.getElementById('payMethodOverlay');
-if (existing) existing.remove();
-let total = 0, tableDisp = '';
-if (type === 'merge' && mergeData) { total = mergeData.total; tableDisp = mergeData.labels; }
-else if (selectedTable) { total = tables[selectedTable].total; tableDisp = selectedTable; }
-// 会計対象オーダーIDをこの時点で固定（提示額に含まれない後発注文を paid 化しないため）
-if (type === 'merge' && mergeData && Array.isArray(mergeData.orderIds)) {
-  window._paySnapshotOrderIds = mergeData.orderIds.slice();
-} else if (selectedTable) {
-  window._paySnapshotOrderIds = orders.filter(o => o.table === selectedTable && o.status !== 'paid').map(o => o.id);
-} else {
-  window._paySnapshotOrderIds = [];
-}
-const overlay = document.createElement('div');
-overlay.id = 'payMethodOverlay';
-overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:600;display:flex;align-items:center;justify-content:center;padding:24px;';
-overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;width:100%;max-width:360px;padding:24px 20px;text-align:center">
-<div style="font-size:13px;color:var(--muted);margin-bottom:10px">${tableDisp}</div>
-<div style="background:#fff;border-radius:16px;padding:20px 24px;margin-bottom:18px;display:flex;flex-direction:column;align-items:center;gap:6px">
-  <div style="font-size:13px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase">合計金額（税込）</div>
-  <div style="font-family:'Oswald',sans-serif;font-size:48px;color:#e74c3c;line-height:1;font-weight:700;letter-spacing:2px">¥${total.toLocaleString()}</div>
-</div>
-<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#111;margin-bottom:14px">お支払い方法を選択</div>
-<div style="display:flex;flex-direction:column;gap:12px">
-<button onclick="openCashCalculator('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCash">現金</span></button>
-<button onclick="openSquareInputConfirm('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCard">クレジットカード</span></button>
-<button onclick="document.getElementById('payMethodOverlay').remove()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px" data-regI18n="cancel">キャンセル</button>
-</div>
-</div>`;
-if (mergeData) window._pendingMergeData = mergeData;
-document.body.appendChild(overlay);
-applyRegI18n();
-}
+// 支払い方法選択モーダルは廃止（現金/クレジットの区別なし）。
 
-// 現金会計用 電卓モーダル
+// お釣り計算用 電卓モーダル（支払い方法は記録しない）
 let _cashCalcState = { total: 0, received: 0, type: null, mergeFlag: null, callback: null, title: '' };
 function openCashCalculator(type, total, mergeFlag, opts) {
-  // 既存の支払い方法選択モーダルを閉じる
-  const pm = document.getElementById('payMethodOverlay');
-  if (pm) pm.remove();
   // mergeFlag は '__merge__' 文字列 or null
   // opts: { callback?: 関数, title?: 文字列 }
   //   callback が指定された場合、確定時に finalizePayment ではなく callback() を呼ぶ（別会計などで使用）
@@ -4338,7 +4243,7 @@ function openCashCalculator(type, total, mergeFlag, opts) {
     type,
     mergeFlag: (mergeFlag === '__merge__' ? '__merge__' : null),
     callback: (opts && typeof opts.callback === 'function') ? opts.callback : null,
-    title: (opts && opts.title) || '現金会計'
+    title: (opts && opts.title) || 'お釣り計算'
   };
   const old = document.getElementById('cashCalcOverlay');
   if (old) old.remove();
@@ -4556,7 +4461,8 @@ async function confirmCashPayment() {
     // 別会計など：finalizePaymentは呼ばずコールバックに委譲
     try { callback(); } catch(e) { console.error('cashCalc callback err:', e); }
   } else {
-    await finalizePayment(type, 'cash', mergeFlag);
+    // お釣り計算経由でも支払い方法は記録しない
+    await finalizePayment(type, null, mergeFlag);
   }
 }
 
@@ -4605,8 +4511,8 @@ async function finalizePayment(type, payMethod, mergeFlag) {
 // 電卓経由（現金）/スクエア確認経由（カード）で呼ばれた場合は既に削除済みなので、安全に取得して remove
 const _pmOverlay = document.getElementById('payMethodOverlay');
 if (_pmOverlay) _pmOverlay.remove();
-const payLabel = payMethod === 'cash' ? '現金' : 'クレジット';
-const payIcon = payMethod === 'cash' ? '💴' : '💳';
+// 支払い方法は記録しない運用。method指定があればラベルを付けるが、通常は空。
+const paySuffix = payMethod === 'cash' ? '💴現金 ' : payMethod === 'card' ? '💳クレジット ' : '';
 const { doc, updateDoc, serverTimestamp } = window.fbApi;
 // 会計対象オーダーID（モーダル表示時に固定したスナップショット）。
 // これに含まれないオーダー（モーダル表示後の追加注文）は paid 化しない。
@@ -4627,7 +4533,7 @@ status:'paid', paymentMethod:payMethod, paymentType:'merge', paymentRequested:fa
 await Promise.all(updates);
 const m = document.getElementById('mergeOverlay'); if (m) m.remove();
 closeDetail();
-showToast(`${md.labels} 合算 ¥${md.total.toLocaleString()} ${payIcon}${payLabel} 会計完了！`);
+showToast(`${md.labels} 合算 ¥${md.total.toLocaleString()} ${paySuffix}会計完了！`);
 } catch(e) { console.error(e); showToast('エラー: 会計失敗'); }
 window._pendingMergeData = null;
 window._paySnapshotOrderIds = null;
@@ -4639,13 +4545,26 @@ const tableOrders = orders.filter(o => o.table === selectedTable && o.status !==
 await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db,'orders',o.id), {
 status:'paid', paymentMethod:payMethod, paymentType:type||'normal', paymentRequested:false, updatedAt:serverTimestamp()
 })));
-showToast(`${selectedTable} ${payIcon}${payLabel} 会計完了！`);
+showToast(`${selectedTable} ${paySuffix}会計完了！`);
 closeDetail();
 } catch(e) { console.error(e); showToast('エラー: 会計失敗'); }
 window._paySnapshotOrderIds = null;
 }
 
-function completePayment(type) { if (selectedTable) openPaymentMethodModal(type, null); }
+function completePayment(type) {
+  if (!selectedTable) return;
+  // 支払い方法の選択は廃止。この画面が最終完了画面。押下で即会計完了（method記録なし）。
+  window._paySnapshotOrderIds = orders.filter(o => o.table === selectedTable && o.status !== 'paid').map(o => o.id);
+  finalizePayment(type, null, null);
+}
+
+// お釣り計算（任意）：電卓を開くが支払い方法は記録しない。確定で会計完了。
+function openChangeCalculator() {
+  if (!selectedTable) return;
+  const total = (tables[selectedTable] && tables[selectedTable].total) || 0;
+  window._paySnapshotOrderIds = orders.filter(o => o.table === selectedTable && o.status !== 'paid').map(o => o.id);
+  openCashCalculator('normal', total, null, { title: 'お釣り計算' });
+}
 
 // ────── サービス会計（全額無料・通常集計に含まれない） ──────
 async function completeService() {
@@ -4888,7 +4807,7 @@ function _buildBetsuUnits(tableOrders) {
   return units;
 }
 
-// 別会計（再設計版）：各人ごとに「商品選択 → 現金/カード」の流れ
+// 別会計（再設計版）：各人ごとに「商品選択 → 会計完了」の流れ（支払い方法の区別なし）
 // 各人の支払いをログに記録し、最後にFirestoreへ反映
 function openSeparatePayment() {
 if (!selectedTable) return;
@@ -4911,19 +4830,17 @@ const labels = ['1人目','2人目','3人目','4人目','5人目','6人目','7�
 const personLabel = labels[personNum-1] || `${personNum}人目`;
 const paidLog = window._betsuPaidLog;
 
-// 既にお支払い済の合計（現金/カード）
-const paidCash = paidLog.filter(p=>p.payMethod==='cash').reduce((s,p)=>s+p.total,0);
-const paidCard = paidLog.filter(p=>p.payMethod==='card').reduce((s,p)=>s+p.total,0);
+// 既にお支払い済の合計
+const paidSum = paidLog.reduce((s,p)=>s+p.total,0);
 
 let logHtml = '';
 if (paidLog.length) {
 logHtml = `<div style="padding:10px 18px 4px;background:rgba(34,197,94,0.04);border-bottom:1px solid var(--border)"><div style="font-size:10px;color:var(--green);font-weight:700;letter-spacing:1.5px;margin-bottom:6px">✓ お支払い済</div>`;
 paidLog.forEach(log => {
-const icon = log.payMethod === 'cash' ? '💴' : '💳';
-const methodColor = log.payMethod === 'cash' ? 'var(--green)' : 'var(--blue)';
+const methodColor = 'var(--green)';
 logHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px">
 <div style="display:flex;align-items:center;gap:6px">
-<span style="font-size:14px">${icon}</span>
+<span style="font-size:14px">✓</span>
 <span style="color:#333;font-weight:700">${log.person}</span>
 <span style="color:var(--muted);font-size:11px">${log.items.length}点</span>
 </div>
@@ -4965,9 +4882,8 @@ const cardInnerHtml = `
 <div style="font-size:12px;color:#444;font-weight:700">完了 <span style="font-family:'Oswald',sans-serif;color:#111;font-size:15px">${paidLog.length}</span>人</div>
 </div>
 </div>
-${(paidCash > 0 || paidCard > 0) ? `<div style="display:flex;gap:8px;padding:8px 20px;background:rgba(0,0,0,0.05);border-bottom:1px solid var(--border);font-size:11px">
-<div style="flex:1;display:flex;justify-content:space-between"><span style="color:var(--green)">💴 現金</span><span style="font-family:'Oswald',sans-serif;color:var(--green)">¥${paidCash.toLocaleString()}</span></div>
-<div style="flex:1;display:flex;justify-content:space-between"><span style="color:var(--blue)">💳 カード</span><span style="font-family:'Oswald',sans-serif;color:var(--blue)">¥${paidCard.toLocaleString()}</span></div>
+${paidSum > 0 ? `<div style="display:flex;gap:8px;padding:8px 20px;background:rgba(0,0,0,0.05);border-bottom:1px solid var(--border);font-size:11px">
+<div style="flex:1;display:flex;justify-content:space-between"><span style="color:var(--green)">✓ お支払い済 合計</span><span style="font-family:'Oswald',sans-serif;color:var(--green)">¥${paidSum.toLocaleString()}</span></div>
 </div>` : ''}
 <div style="overflow-y:auto;flex:1" data-betsu-scroll>${logHtml}${itemsHtml}</div>
 ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -4975,10 +4891,10 @@ ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--bord
 <span style="font-size:13px;color:#333;font-weight:700">${personLabel} 小計</span>
 <span style="font-family:'Oswald',sans-serif;font-size:34px;color:${selected.length>0?'#e74c3c':'#666'};font-weight:700">¥${selectedTotal.toLocaleString()}</span>
 </div>
-<div style="font-size:11px;color:${selected.length>0?'var(--accent)':'var(--muted)'};font-weight:700;letter-spacing:1px;margin-bottom:6px">${selected.length>0?'お支払い方法を選択':'まず商品を選んでください'}</div>
+<div style="font-size:11px;color:${selected.length>0?'var(--accent)':'var(--muted)'};font-weight:700;letter-spacing:1px;margin-bottom:6px">${selected.length>0?'この人の会計を確定':'まず商品を選んでください'}</div>
 <div style="display:flex;gap:8px">
-<button onclick="confirmOnePersonPay('cash')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">現金で会計</button>
-<button onclick="confirmOnePersonPay('card')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--blue)':'#333'};background:${selected.length>0?'#0d2240':'#1a1a1a'};color:${selected.length>0?'var(--blue)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">カードで会計</button>
+<button onclick="confirmOnePersonPay()" ${selected.length===0?'disabled':''} style="flex:2;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">会計完了</button>
+<button onclick="openBetsuChangeCalc()" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--accent)':'#333'};background:${selected.length>0?'rgba(200,134,10,0.12)':'#1a1a1a'};color:${selected.length>0?'var(--accent)':'#666'};font-size:14px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">🧮 お釣り</button>
 </div>
 <button onclick="document.getElementById('betsuOverlay').remove()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#333;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">‹ 戻る</button>
 </div>` : `<div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -5012,46 +4928,39 @@ item._selected = !item._selected;
 renderBetsuUI();
 }
 
-function confirmOnePersonPay(payMethod) {
+function confirmOnePersonPay() {
 const selected = window._betsuItems.filter(i => i._selected);
 if (!selected.length) return;
 const labels = ['1人目','2人目','3人目','4人目','5人目','6人目','7人目','8人目'];
 const personLabel = labels[window._betsuPersonNum-1] || `${window._betsuPersonNum}人目`;
 const total = selected.reduce((s,i) => s + i.unitPrice, 0);
-
-if (payMethod === 'cash') {
-  // 現金会計は電卓を表示 → お預かり金額入力 → 確定時にこの人の会計を完了
-  openCashCalculator('separate', total, null, {
-    title: `別会計 ${personLabel}`,
-    callback: () => _completeOnePersonPay(selected, total, personLabel, 'cash')
-  });
-} else if (payMethod === 'card') {
-  // カード会計：Square 入力確認モーダル → 完了時にこの人の会計を完了
-  openSquareInputConfirm('separate', total, null, {
-    title: `別会計 ${personLabel}`,
-    callback: () => _completeOnePersonPay(selected, total, personLabel, 'card')
-  });
-} else {
-  _completeOnePersonPay(selected, total, personLabel, payMethod);
+// 支払い方法の区別なし。この人の会計を即確定。
+_completeOnePersonPay(selected, total, personLabel, null);
 }
+
+// 別会計：お釣り計算（任意）。電卓を開くが支払い方法は記録しない。
+function openBetsuChangeCalc() {
+const selected = window._betsuItems.filter(i => i._selected);
+if (!selected.length) return;
+const labels = ['1人目','2人目','3人目','4人目','5人目','6人目','7人目','8人目'];
+const personLabel = labels[window._betsuPersonNum-1] || `${window._betsuPersonNum}人目`;
+const total = selected.reduce((s,i) => s + i.unitPrice, 0);
+openCashCalculator('separate', total, null, {
+  title: `お釣り計算 ${personLabel}`,
+  callback: () => _completeOnePersonPay(selected, total, personLabel, null)
+});
 }
 
 function _completeOnePersonPay(selected, total, personLabel, payMethod) {
 selected.forEach(i => { i._paid = true; i._selected = false; i.payMethod = payMethod; });
 window._betsuPaidLog.push({person: personLabel, items: selected, total, payMethod});
 window._betsuPersonNum++;
-const icon = payMethod === 'cash' ? '💴' : '💳';
-showToast(`${personLabel} ${icon} ¥${total.toLocaleString()} 会計完了`);
+showToast(`${personLabel} ✓ ¥${total.toLocaleString()} 会計完了`);
 renderBetsuUI();
 }
 
 async function finishAllBetsu() {
-// 全テーブル分の支払い内訳を集計してFirestoreに反映
-const log = window._betsuPaidLog || [];
-const cashTotal = log.filter(p=>p.payMethod==='cash').reduce((s,p)=>s+p.total,0);
-const cardTotal = log.filter(p=>p.payMethod==='card').reduce((s,p)=>s+p.total,0);
-const dominantMethod = cashTotal >= cardTotal ? 'cash' : 'card';
-
+// 別会計を確定してFirestoreに反映（支払い方法は記録しない）
 document.getElementById('betsuOverlay').remove();
 if (!selectedTable) return;
 try {
@@ -5062,14 +4971,12 @@ try {
   const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid' && (!useSnap || snapIds.includes(o.id)));
   await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db,'orders',o.id), {
     status:'paid',
-    paymentMethod: dominantMethod,
-    paymentBreakdown: { cash: cashTotal, card: cardTotal },
+    paymentMethod: null,
     paymentType: 'separate',
     paymentRequested: false,
     updatedAt: serverTimestamp()
   })));
-  const breakdownText = `現金¥${cashTotal.toLocaleString()} / カード¥${cardTotal.toLocaleString()}`;
-  showToast(`${selectedTable} 別会計完了！${breakdownText}`);
+  showToast(`${selectedTable} 別会計完了！`);
   closeDetail();
   window._betsuOrderIds = null;
 } catch(e) { console.error(e); showToast('エラー: 会計失敗'); }
@@ -5640,7 +5547,10 @@ const mergedOrderIds = mergedTables.flatMap(label =>
 orders.filter(o => o.table === label && o.status !== 'paid').map(o => o.id)
 );
 document.getElementById('mergeOverlay').style.display = 'none';
-openPaymentMethodModal('merge', { mergedTables, total, labels: labelStr, allItems: allMergedItems, orderIds: mergedOrderIds });
+// 支払い方法選択は廃止。合算即会計完了（method記録なし）。
+window._pendingMergeData = { mergedTables, total, labels: labelStr, allItems: allMergedItems, orderIds: mergedOrderIds };
+window._paySnapshotOrderIds = mergedOrderIds.slice();
+finalizePayment('merge', null, '__merge__');
 }
 
 function closeDetail() { document.getElementById('detailOverlay').classList.remove('open'); selectedTable = null; }
@@ -5915,6 +5825,7 @@ window.openTable = openTable; window.filterReg = filterReg;
 window.editCustomerCount = editCustomerCount;
 window.editHistoryCustomerCount = editHistoryCustomerCount;
 window.completePayment = completePayment; window.finalizePayment = finalizePayment;
+window.openChangeCalculator = openChangeCalculator; window.openBetsuChangeCalc = openBetsuChangeCalc;
 window.openSquareInputConfirm = openSquareInputConfirm;
 window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
 window.completeService = completeService;

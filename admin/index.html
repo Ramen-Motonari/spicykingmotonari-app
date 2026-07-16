@@ -536,10 +536,6 @@ window.adminLogout = adminLogout;
           <div style="background:var(--surface2);border-radius:10px;padding:12px;border-left:3px solid var(--green)"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">ランチ売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--green)" id="all-lunch-sales">¥0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px;border-left:3px solid var(--purple)"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">夜営業売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--purple)" id="all-dinner-sales">¥0</div></div>
         </div>
-        <div style="margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">💴 支払い方法別（一日合算）</div>
-          <div id="all-pay-breakdown"></div>
-        </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント（一日合算）</div>
         <div id="all-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
       </div>
@@ -550,10 +546,6 @@ window.adminLogout = adminLogout;
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="lunch-customers">0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="lunch-avg">¥0</div></div>
         </div>
-        <div style="margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">💴 支払い方法別</div>
-          <div id="lunch-pay-breakdown"></div>
-        </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
         <div id="lunch-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
       </div>
@@ -563,10 +555,6 @@ window.adminLogout = adminLogout;
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="dinner-sales-notax">¥0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="dinner-customers">0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="dinner-avg">¥0</div></div>
-        </div>
-        <div style="margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">💴 支払い方法別</div>
-          <div id="dinner-pay-breakdown"></div>
         </div>
         <div class="manual-input-section">
           <div class="section-label">🏪 店舗情報</div>
@@ -3256,7 +3244,6 @@ function renderDailyReport() {
   document.getElementById('all-sales-notax').textContent = '¥' + all.salesNoTax.toLocaleString();
   document.getElementById('all-customers').textContent = all.customers + '人';
   document.getElementById('all-avg').textContent = '¥' + all.avg.toLocaleString();
-  document.getElementById('all-pay-breakdown').innerHTML = renderPayBreakdownHTML(all.payBreakdown);
   document.getElementById('all-menu-count').innerHTML = renderMenuCountHTML(all.counts, DINNER_SECTIONS);
 
   const lunch = calcReportFor('lunch');
@@ -3266,7 +3253,6 @@ function renderDailyReport() {
   document.getElementById('lunch-sales-notax').textContent = '¥' + lunch.salesNoTax.toLocaleString();
   document.getElementById('lunch-customers').textContent = lunch.customers + '人';
   document.getElementById('lunch-avg').textContent = '¥' + lunch.avg.toLocaleString();
-  document.getElementById('lunch-pay-breakdown').innerHTML = renderPayBreakdownHTML(lunch.payBreakdown);
   document.getElementById('lunch-menu-count').innerHTML = renderMenuCountHTML(lunch.counts, LUNCH_SECTIONS);
 
   const dinner = calcReportFor('dinner');
@@ -3275,7 +3261,6 @@ function renderDailyReport() {
   document.getElementById('dinner-sales-notax').textContent = '¥' + dinner.salesNoTax.toLocaleString();
   document.getElementById('dinner-customers').textContent = dinner.customers + '人';
   document.getElementById('dinner-avg').textContent = '¥' + dinner.avg.toLocaleString();
-  document.getElementById('dinner-pay-breakdown').innerHTML = renderPayBreakdownHTML(dinner.payBreakdown);
   document.getElementById('dinner-menu-count').innerHTML = renderMenuCountHTML(dinner.counts, DINNER_SECTIONS);
   // 麺サイズ・替え玉カウント
   const noc = calcNoodleOptionCounts(dinner.orders);
@@ -3375,10 +3360,6 @@ function buildReportText(session) {
     const r = calcReportFor('lunch');
     const mtdAll = calcMonthToDate('all');
     const carry = getCarryoverForCurrentMonth();
-    const pb = r.payBreakdown;
-    const cashTotal = pb.cash?.total || 0;
-    const cardCount = pb.card?.count || 0;
-    const cardTotal = pb.card?.total || 0;
     const mtdSales = mtdAll.salesNoTax + carry.salesNoTax;
     const mtdCustomers = mtdAll.customers + carry.customers;
     const mtdAvg = mtdCustomers > 0 ? Math.round(mtdSales / mtdCustomers) : 0;
@@ -3403,10 +3384,6 @@ function buildReportText(session) {
     txt += `累計客単価　¥${mtdAvg.toLocaleString()}\n`;
     txt += `累計新規率　${mtdAll.visitRate.rate}%\n`;
     txt += `累計外国人率　${mtdAll.foreignRate.rate}%\n`;
-    txt += `\n`;
-    txt += `●詳細\n`;
-    txt += `現金売上　¥${cashTotal.toLocaleString()}(税込) \n`;
-    txt += ` カード　×${cardCount}件　¥${cardTotal.toLocaleString()}(税込)\n`;
     return txt;
   }
 
@@ -3414,10 +3391,6 @@ function buildReportText(session) {
   const r = calcReportFor('all');
   const mtdAll = calcMonthToDate('all');
   const carry = getCarryoverForCurrentMonth();
-  const pb = r.payBreakdown;
-  const cashTotal = pb.cash?.total || 0;
-  const cardCount = pb.card?.count || 0;
-  const cardTotal = pb.card?.total || 0;
   const weather = document.getElementById('dinner-weather')?.value || '晴';
   const purchToday = parseInt(document.getElementById('dinner-purchase-today')?.value || '0') || 0;
   const purchCum = parseInt(document.getElementById('dinner-purchase-cumulative')?.value || '0') || 0;
@@ -3444,12 +3417,6 @@ function buildReportText(session) {
   txt += `客数　　${r.customers}名\n`;
   txt += `当日新規率　${r.visitRate.rate}%\n`;
   txt += `当日外国人率　${r.foreignRate.rate}%\n`;
-  txt += `\n`;
-  txt += `${SEP}\n`;
-  txt += `\n`;
-  txt += `●詳細\n`;
-  txt += `現金売上　¥${cashTotal.toLocaleString()}（税込）\n`;
-  txt += `カード　×${cardCount}件　¥${cardTotal.toLocaleString()}（税込）\n`;
   txt += `\n`;
   txt += `${SEP}\n`;
   txt += `\n`;
