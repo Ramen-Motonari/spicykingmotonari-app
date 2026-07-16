@@ -4247,9 +4247,23 @@ async function submitPendingKaedamaOrder() {
       }
     });
     for (const [orderFbId, entry] of Object.entries(byOrder)) {
-      const orig = orderHistory.find(o => o.fbId === orderFbId);
-      if (!orig) continue;
-      const newItems = (orig.items || []).map((it, j) => {
+      // ⚠️ 提供済み状態の巻き戻し防止:
+      //   下の updateDoc は items 配列を丸ごと上書きする。ローカルの orderHistory が
+      //   古い（onSnapshot 切断中に厨房が付けた served=true を取りこぼした）状態だと、
+      //   served=false で上書きしてしまい提供済み商品が伝票に再表示されてしまう。
+      //   これを防ぐため、書き込み直前に必ず最新ドキュメントを取得し、その items を土台にする。
+      const ref = window.FB.doc(window.FB.db, 'orders', orderFbId);
+      let baseItems = null;
+      try {
+        const freshSnap = await window.FB.getDoc(ref);
+        if (freshSnap.exists()) baseItems = freshSnap.data().items;
+      } catch(_) { /* オフライン等はローカルの値にフォールバック */ }
+      if (!Array.isArray(baseItems)) {
+        const orig = orderHistory.find(o => o.fbId === orderFbId);
+        baseItems = (orig && orig.items) || null;
+      }
+      if (!Array.isArray(baseItems)) continue;
+      const newItems = baseItems.map((it, j) => {
         let next = it;
         // 無料権利の更新
         if (entry.freeIdxs.has(j) && it.pendingKaedamaRight) {
@@ -4270,7 +4284,7 @@ async function submitPendingKaedamaOrder() {
         return next;
       });
       await window.FB.updateDoc(
-        window.FB.doc(window.FB.db, 'orders', orderFbId),
+        ref,
         { items: newItems, updatedAt: window.FB.serverTimestamp() }
       );
     }

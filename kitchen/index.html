@@ -474,6 +474,41 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 /* 電卓ボタン押下時の即時視覚フィードバック（タップ感度の体感向上） */
 .calc-btn:active{transform:scale(0.92);filter:brightness(0.85)}
 .calc-btn{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+
+/* ============================================================
+   レジ機能：白背景・黒文字ベース
+   register-mode 時のヘッダー / レジ画面 / 会計詳細モーダル を明るいテーマへ。
+   スコープ内で配色変数を再定義し、var() ベースの色を一括で明色化。
+   ハードコードされた白文字だけ個別に上書き。キッチン画面には影響しない。
+   ============================================================ */
+body.register-mode .staff-header,
+#registerScreen,
+#detailOverlay .detail-modal{
+  --bg:#ffffff;--surface:#ffffff;--surface2:#f4f4f5;--surface3:#ececef;
+  --text:#111111;--muted:#5a5a5a;--border:#d9d9de;
+}
+/* ヘッダー（レジモード時のみ） */
+body.register-mode .staff-header{background:#ffffff;border-bottom-color:#d9d9de}
+body.register-mode .staff-header .header-title{color:#111111}
+/* レジ画面本体 */
+#registerScreen{background:#ffffff;color:#111111}
+#registerScreen .table-card{background:#ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.10)}
+#registerScreen .table-num{color:#111111}
+#registerScreen .status-empty{color:#8a8a8a}
+/* 会計詳細モーダル */
+#detailOverlay .detail-modal{background:#ffffff;color:#111111}
+#detailOverlay .detail-table-num{color:#111111}
+#detailOverlay .detail-visit{color:#444444}
+#detailOverlay .order-block-time{color:#444444}
+#detailOverlay .order-line-name{color:#111111}
+#detailOverlay .order-line-sub{color:#5a5a5a}
+/* 会計詳細の副ボタン（インラインで color:#fff & surface3 背景 → 明色地に白文字で不可視になるため上書き） */
+#detailOverlay #btnSeparate,
+#detailOverlay #btnMerge,
+#detailOverlay #btnEdit,
+#detailOverlay #btnService{
+  background:#f0f0f2 !important;color:#111111 !important;border-color:#c9c9cf !important;
+}
 </style>
 </head>
 <body>
@@ -1391,6 +1426,8 @@ if (sub) sub.textContent = count > 0 ? `売り切れ管理（${count}品）` : '
 
 // 並び替えボタンはキッチン専用（伝票並び替え）。レジ画面では非表示にする
 function _applyModeHeaderButtons(mode) {
+  // レジモード時のみ body に register-mode を付与（白背景・黒文字テーマのスコープ用）
+  document.body.classList.toggle('register-mode', mode === 'register');
   const reorderBtn = document.getElementById('reorderToggleBtn');
   if (reorderBtn) reorderBtn.style.display = (mode === 'register') ? 'none' : '';
   // ベルはキッチン画面のみ表示（レジでは非表示＋パネルも閉じる）
