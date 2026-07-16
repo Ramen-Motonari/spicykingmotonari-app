@@ -2871,25 +2871,62 @@ function renderTodayRanking(todayOrders) {
 }
 
 // ────── Daily report ──────
-// レポートに表示する商品リスト（カノニカルID）
-const LUNCH_SECTIONS = [
-  { label: '🍜 ラーメン', ids: [1,2,3,99,16,5,4,12,6,7,8,9,10,11,13,14,15] },
-  { label: '🥟 サイド・トッピング', ids: [40,43,44,45,46,47,48,49,62,63,89,65,29,24,25,26,27,28,66,67,64,22,21,20] },
-  { label: '🥢 つけ麺・定食', ids: [70] },
-  { label: '🍺 ドリンク', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] }
-];
-// 夜営業報告の表示順序：
-//   ラーメン類（豚骨 → カレー → 醤油 → 定食）→ 追加トッピング → サイド → ドリンク
-const DINNER_SECTIONS = [
-  { label: '🍜 ラーメン - 豚骨', key: 'tonkotsu', ids: [1,2,3,12,99] },
-  { label: '🍛 ラーメン - カレー', key: 'curry', ids: [16,5,4] },
-  { label: '🍜 ラーメン - 醤油', key: 'shouyu', ids: [6,7,8,9,10,11,13,14,15] },
-  { label: '🥢 つけ麺・定食', key: 'teishoku', ids: [70] },
-  { label: '🥄 追加トッピング', key: 'topping', ids: [40,43,44,45,46,47,48,49,62,63] },
-  { label: '🥟 サイド', key: 'side', ids: [89,29,24,25,26,27,28,66,67,65,64,22,21,20,80,81,82,83,84,85,86,87,88] },
-  { label: '🍺 ドリンク', key: 'drink', ids: [50,51,52,53,54,55,56,57,58,59,60,61,91,92] },
-  { label: '🛍️ グッズ', key: 'goods', ids: [] }
-];
+// レポート／売上分析に表示する商品リストは「登録商品」から動的生成する。
+//   ・固定のカノニカルIDリストを廃止し、getMergedMenu()（商品管理・表示順序ページと同じ
+//     並び順ロジック。override適用済み・完全削除除外）を基準にする。
+//   ・これにより、管理APPで登録・変更した商品（ウイスキー等のアルコール、炒飯シリーズ、
+//     カスタム商品）が日次報告・売上分析・CSVに自動で反映される。
+//   ・非表示(_hidden)・テイクアウト(cat:'takeout')は従来通り集計対象外。
+//   ・スパイシーつけ麺(#10014 / #10012+変更)は疑似ID '10012s' に集約（#10012の直後に挿入）。
+//   ・集計(数量・売上)ロジックは一切変更せず、表示する商品行の生成元だけを登録商品に切替える。
+function buildMenuSections(mode) {
+  const items = getMergedMenu().filter(m => !m._hidden && m.cat !== 'takeout');
+  let defs, mapKey;
+  if (mode === 'lunch') {
+    defs = [
+      { key: 'ramen',    label: '🍜 ラーメン' },
+      { key: 'teishoku', label: '🥢 つけ麺・定食' },
+      { key: 'sidetop',  label: '🥟 サイド・トッピング' },
+      { key: 'drink',    label: '🍺 ドリンク' },
+      { key: 'goods',    label: '🛍️ グッズ' }
+    ];
+    mapKey = (m) => {
+      const k = getDinnerSectionKey(m);
+      if (k === 'tonkotsu' || k === 'curry' || k === 'shouyu') return 'ramen';
+      if (k === 'side' || k === 'topping') return 'sidetop';
+      return (k === 'teishoku' || k === 'drink' || k === 'goods') ? k : null;
+    };
+  } else {
+    // 夜営業／合算／売上分析：ラーメン(豚骨→カレー→醤油)→定食→トッピング→サイド→ドリンク→グッズ
+    defs = [
+      { key: 'tonkotsu', label: '🍜 ラーメン - 豚骨' },
+      { key: 'curry',    label: '🍛 ラーメン - カレー' },
+      { key: 'shouyu',   label: '🍜 ラーメン - 醤油' },
+      { key: 'teishoku', label: '🥢 つけ麺・定食' },
+      { key: 'topping',  label: '🥄 追加トッピング' },
+      { key: 'side',     label: '🥟 サイド' },
+      { key: 'drink',    label: '🍺 ドリンク' },
+      { key: 'goods',    label: '🛍️ グッズ' }
+    ];
+    mapKey = (m) => getDinnerSectionKey(m);
+  }
+  const buckets = {};
+  defs.forEach(d => buckets[d.key] = []);
+  const seen = new Set();
+  items.forEach(m => {
+    if (seen.has(m.id)) return;
+    // スパイシーつけ麺(#10014)は #10012 の疑似行に集約するため独立表示しない
+    if (m.id === 10014) { seen.add(m.id); return; }
+    const k = mapKey(m);
+    if (!k || !buckets[k]) return;
+    buckets[k].push({ id: m.id, name: (m.name && m.name.ja) || getCurrentItemName(m.id) || ('#' + m.id) });
+    seen.add(m.id);
+    // 冷やし！SKつけ麺(#10012)の直後にスパイシーつけ麺(疑似ID '10012s')を挿入
+    if (m.id === 10012) buckets[k].push({ id: '10012s', name: 'スパイシーつけ麺' });
+  });
+  return defs.map(d => ({ label: d.label, key: d.key, entries: buckets[d.key] }))
+             .filter(s => s.entries.length);
+}
 
 // 麺サイズ・替え玉オプションの集計（夜営業報告の末尾用）
 //   - 替え玉: id 40、ランチタイム無料は除外
@@ -3168,50 +3205,20 @@ function calcReportFor(session) {
   return { salesTax, salesNoTax, customers, avg, counts, orders, payBreakdown, visitRate, foreignRate };
 }
 
+// sections は buildMenuSections() が返す [{label, entries:[{id,name}]}]（登録商品から動的生成）。
+// counts は {itemId: 販売数, '10012s': スパイシーつけ麺}。
 function renderMenuCountHTML(counts, sections) {
   let html = '';
-  // 既にどのセクションで表示したかを記録（重複防止）
-  const shownIds = new Set();
-  sections.forEach(sec => {
-    // canonical IDs から
-    const items = [];
-    (sec.ids || []).forEach(id => {
-      const m = MOTONARI.getMenuById(id);
-      if (!m) return;
-      const ov = (typeof menuOverrides !== 'undefined') ? (menuOverrides[String(id)] || {}) : {};
-      if (ov.deleted) return; // 完全削除は除外
-      items.push({ id, name: getCurrentItemName(id) || m.name.ja, count: counts[id] || 0, _sort: ov.sortOrder || 0 });
-      shownIds.add(id);
-    });
-    // custom items のうち同セクションに該当するもの
-    if (sec.key && typeof customMenuItems !== 'undefined') {
-      customMenuItems.forEach(c => {
-        if (c.hidden) return;
-        if (shownIds.has(c.id)) return;
-        // #10014（スパイシーつけ麺）は #10012 直後の '10012s' 行に集約表示するため
-        // 独立した行としては描画しない（カウントの二重表示防止）
-        if (c.id === 10014) { shownIds.add(c.id); return; }
-        const key = getDinnerSectionKey({ cat: c.cat, name: c.name });
-        if (key === sec.key) {
-          const baseSort = c.sortOrder || 9999;
-          items.push({ id: c.id, name: (c.name && c.name.ja) || '(無名)', count: counts[c.id] || 0, _sort: baseSort, _isCustom: true });
-          shownIds.add(c.id);
-          // 冷やし！SKつけ麺（id:10012）の直後にスパイシーつけ麺を別商品として表示
-          //   '10012s' は #10012+変更 と #10014 を合算したカウント
-          if (c.id === 10012) {
-            items.push({ id: '10012s', name: 'スパイシーつけ麺', count: counts['10012s'] || 0, _sort: baseSort + 0.5, _isCustom: true });
-          }
-        }
-      });
-    }
-    items.sort((a,b) => (a._sort||0) - (b._sort||0));
-    if (!items.length) return;
+  (sections || []).forEach(sec => {
+    const entries = sec.entries || [];
+    if (!entries.length) return;
     html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-top:12px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${sec.label}</div>`;
-    items.forEach(item => {
-      const isZero = item.count === 0;
+    entries.forEach(item => {
+      const count = counts[item.id] || 0;
+      const isZero = count === 0;
       html += `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;font-size:12px;${isZero?'opacity:0.4':''}">
         <span style="color:#ccc">${item.name}</span>
-        <span style="font-family:'Oswald',sans-serif;color:${isZero?'var(--muted)':'var(--accent)'};font-weight:700">${item.count}</span>
+        <span style="font-family:'Oswald',sans-serif;color:${isZero?'var(--muted)':'var(--accent)'};font-weight:700">${count}</span>
       </div>`;
     });
   });
@@ -3244,7 +3251,7 @@ function renderDailyReport() {
   document.getElementById('all-sales-notax').textContent = '¥' + all.salesNoTax.toLocaleString();
   document.getElementById('all-customers').textContent = all.customers + '人';
   document.getElementById('all-avg').textContent = '¥' + all.avg.toLocaleString();
-  document.getElementById('all-menu-count').innerHTML = renderMenuCountHTML(all.counts, DINNER_SECTIONS);
+  document.getElementById('all-menu-count').innerHTML = renderMenuCountHTML(all.counts, buildMenuSections('dinner'));
 
   const lunch = calcReportFor('lunch');
   // ランチ・夜の小計を合算セクションに表示
@@ -3253,7 +3260,7 @@ function renderDailyReport() {
   document.getElementById('lunch-sales-notax').textContent = '¥' + lunch.salesNoTax.toLocaleString();
   document.getElementById('lunch-customers').textContent = lunch.customers + '人';
   document.getElementById('lunch-avg').textContent = '¥' + lunch.avg.toLocaleString();
-  document.getElementById('lunch-menu-count').innerHTML = renderMenuCountHTML(lunch.counts, LUNCH_SECTIONS);
+  document.getElementById('lunch-menu-count').innerHTML = renderMenuCountHTML(lunch.counts, buildMenuSections('lunch'));
 
   const dinner = calcReportFor('dinner');
   document.getElementById('all-dinner-sales').textContent = '¥' + dinner.salesTax.toLocaleString();
@@ -3261,7 +3268,7 @@ function renderDailyReport() {
   document.getElementById('dinner-sales-notax').textContent = '¥' + dinner.salesNoTax.toLocaleString();
   document.getElementById('dinner-customers').textContent = dinner.customers + '人';
   document.getElementById('dinner-avg').textContent = '¥' + dinner.avg.toLocaleString();
-  document.getElementById('dinner-menu-count').innerHTML = renderMenuCountHTML(dinner.counts, DINNER_SECTIONS);
+  document.getElementById('dinner-menu-count').innerHTML = renderMenuCountHTML(dinner.counts, buildMenuSections('dinner'));
   // 麺サイズ・替え玉カウント
   const noc = calcNoodleOptionCounts(dinner.orders);
   document.getElementById('dinner-noodle-count').innerHTML = renderNoodleCountHTML(noc);
@@ -3847,26 +3854,17 @@ function exportAnalyticsCSV() {
   csv += '"アルコールコース",' + (hh.alcohol || 0) + '\n';
   csv += '"ソフドリコース",' + (hh.soft || 0) + '\n';
   csv += '\n';
-  // ⑤ 全メニューカウント
+  // ⑤ 全メニューカウント（登録商品と連携：getMergedMenu の最新名・override適用・非表示/完全削除除外）
+  //   canonical＋custom を一元的に列挙するため、旧来の二重ループ（MENU_ITEMS＋customMenuItems）を置換。
   csv += '"■ 全メニュー カウント一覧"\n';
   csv += '"商品ID","商品名","カウント","売上(税込)"\n';
-  MOTONARI.MENU_ITEMS.forEach(m => {
+  getMergedMenu().filter(m => !m._hidden).forEach(m => {
     const s = a.itemStats[m.id];
     const qty = s ? s.qty : 0;
     const total = s ? s.total : 0;
-    csv += m.id + ',"' + (m.name.ja || '').replace(/"/g, '""') + '",' + qty + ',' + total + '\n';
+    const nm = (m.name && m.name.ja) || getCurrentItemName(m.id) || ('#' + m.id);
+    csv += m.id + ',"' + String(nm).replace(/"/g, '""') + '",' + qty + ',' + total + '\n';
   });
-  // カスタムメニュー（グッズ等）も全メニューカウントに含める
-  if (typeof customMenuItems !== 'undefined') {
-    customMenuItems.forEach(c => {
-      if (c.hidden || c.deleted) return;
-      const s = a.itemStats[c.id];
-      const qty = s ? s.qty : 0;
-      const total = s ? s.total : 0;
-      const cname = (c.name && c.name.ja) || '(無名)';
-      csv += c.id + ',"' + cname.replace(/"/g, '""') + '",' + qty + ',' + total + '\n';
-    });
-  }
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -3883,9 +3881,9 @@ function renderAllMenuCount(counts, orders) {
   if (!el) return;
   // 替え玉(40)・半替え玉(41) は「替え玉など」セクションへ集約するため、
   // 追加トッピングからは除外したセクション定義で描画する
-  const sections = DINNER_SECTIONS.map(sec => {
+  const sections = buildMenuSections('dinner').map(sec => {
     if (sec.key === 'topping') {
-      return Object.assign({}, sec, { ids: (sec.ids || []).filter(id => id !== 40 && id !== 41) });
+      return Object.assign({}, sec, { entries: (sec.entries || []).filter(e => e.id !== 40 && e.id !== 41) });
     }
     return sec;
   });
