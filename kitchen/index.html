@@ -711,7 +711,6 @@ body.register-mode #mergeOverlay>div{
 </div>
 <div class="detail-actions">
 <button class="btn-complete" id="btnComplete" onclick="completePayment('normal')" style="background:var(--accent2)"><span data-regI18n="btnProceedPay">会計完了</span></button>
-<button class="btn-complete" id="btnChangeCalc" onclick="openChangeCalculator()" style="background:var(--surface3);border:1px solid var(--green);color:var(--green)"><span data-regI18n="btnChangeCalc">🧮 お釣り計算</span></button>
 <button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnSeparate">別会計</span></button>
 <button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnMerge">他テーブルと合算</span></button>
 <button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnEdit">注文変更</span></button>
@@ -985,7 +984,7 @@ const REG_I18N = {
     paySelectTitle: 'お支払い方法を選択', paySelectAfterMsg: '⚠️ お会計終了後にタップ',
     payCash: '現金', payCard: 'クレジットカード', cancel: 'キャンセル',
     statusEmpty: '空席', statusOrdering: '注文中', statusPayment: '🔔 会計リクエスト',
-    btnProceedPay: '会計完了', btnChangeCalc: '🧮 お釣り計算', btnSeparate: '別会計', btnMerge: '他テーブルと合算',
+    btnProceedPay: '会計完了', btnSeparate: '別会計', btnMerge: '他テーブルと合算',
     btnEdit: '注文変更', btnService: 'サービス（全額無料）', closeBtn: '閉じる',
     headerRegister: 'レジ', back: '戻る', confirm: '確定', total: '合計',
     servedAll: '✓ 全て提供済み', servedPartial: '🍳 未提供あり'
@@ -995,7 +994,7 @@ const REG_I18N = {
     paySelectTitle: 'Select Payment Method', paySelectAfterMsg: '⚠️ Tap AFTER payment completed',
     payCash: 'Cash', payCard: 'Credit Card', cancel: 'Cancel',
     statusEmpty: 'Empty', statusOrdering: 'Ordering', statusPayment: '🔔 Payment Request',
-    btnProceedPay: 'Complete Payment', btnChangeCalc: '🧮 Change Calc', btnSeparate: 'Split Bill', btnMerge: 'Merge with Other Tables',
+    btnProceedPay: 'Complete Payment', btnSeparate: 'Split Bill', btnMerge: 'Merge with Other Tables',
     btnEdit: 'Edit Order', btnService: 'Service (Free)', closeBtn: 'Close',
     headerRegister: 'Register', back: 'Back', confirm: 'Confirm', total: 'Total',
     servedAll: '✓ All Served', servedPartial: '🍳 Unserved'
@@ -4558,14 +4557,6 @@ function completePayment(type) {
   finalizePayment(type, null, null);
 }
 
-// お釣り計算（任意）：電卓を開くが支払い方法は記録しない。確定で会計完了。
-function openChangeCalculator() {
-  if (!selectedTable) return;
-  const total = (tables[selectedTable] && tables[selectedTable].total) || 0;
-  window._paySnapshotOrderIds = orders.filter(o => o.table === selectedTable && o.status !== 'paid').map(o => o.id);
-  openCashCalculator('normal', total, null, { title: 'お釣り計算' });
-}
-
 // ────── サービス会計（全額無料・通常集計に含まれない） ──────
 async function completeService() {
   if (!selectedTable) return;
@@ -4893,8 +4884,7 @@ ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--bord
 </div>
 <div style="font-size:11px;color:${selected.length>0?'var(--accent)':'var(--muted)'};font-weight:700;letter-spacing:1px;margin-bottom:6px">${selected.length>0?'この人の会計を確定':'まず商品を選んでください'}</div>
 <div style="display:flex;gap:8px">
-<button onclick="confirmOnePersonPay()" ${selected.length===0?'disabled':''} style="flex:2;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">会計完了</button>
-<button onclick="openBetsuChangeCalc()" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--accent)':'#333'};background:${selected.length>0?'rgba(200,134,10,0.12)':'#1a1a1a'};color:${selected.length>0?'var(--accent)':'#666'};font-size:14px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">🧮 お釣り</button>
+<button onclick="confirmOnePersonPay()" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">会計完了</button>
 </div>
 <button onclick="document.getElementById('betsuOverlay').remove()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#333;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">‹ 戻る</button>
 </div>` : `<div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -4936,19 +4926,6 @@ const personLabel = labels[window._betsuPersonNum-1] || `${window._betsuPersonNu
 const total = selected.reduce((s,i) => s + i.unitPrice, 0);
 // 支払い方法の区別なし。この人の会計を即確定。
 _completeOnePersonPay(selected, total, personLabel, null);
-}
-
-// 別会計：お釣り計算（任意）。電卓を開くが支払い方法は記録しない。
-function openBetsuChangeCalc() {
-const selected = window._betsuItems.filter(i => i._selected);
-if (!selected.length) return;
-const labels = ['1人目','2人目','3人目','4人目','5人目','6人目','7人目','8人目'];
-const personLabel = labels[window._betsuPersonNum-1] || `${window._betsuPersonNum}人目`;
-const total = selected.reduce((s,i) => s + i.unitPrice, 0);
-openCashCalculator('separate', total, null, {
-  title: `お釣り計算 ${personLabel}`,
-  callback: () => _completeOnePersonPay(selected, total, personLabel, null)
-});
 }
 
 function _completeOnePersonPay(selected, total, personLabel, payMethod) {
@@ -5825,7 +5802,6 @@ window.openTable = openTable; window.filterReg = filterReg;
 window.editCustomerCount = editCustomerCount;
 window.editHistoryCustomerCount = editHistoryCustomerCount;
 window.completePayment = completePayment; window.finalizePayment = finalizePayment;
-window.openChangeCalculator = openChangeCalculator; window.openBetsuChangeCalc = openBetsuChangeCalc;
 window.openSquareInputConfirm = openSquareInputConfirm;
 window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
 window.completeService = completeService;
