@@ -509,6 +509,36 @@ body.register-mode .staff-header .header-title{color:#111111}
 #detailOverlay #btnService{
   background:#f0f0f2 !important;color:#111111 !important;border-color:#c9c9cf !important;
 }
+/* 会計詳細モーダルをフル1ページ表示に（上の余白を排除） */
+body.register-mode #detailOverlay.detail-overlay{align-items:stretch;background:#ffffff}
+body.register-mode #detailOverlay .detail-modal{
+  max-height:100%;height:100%;border-radius:0;padding-bottom:24px
+}
+/* レジ サブ画面オーバーレイ（body直下に動的生成）を明色テーマへ。
+   配色変数を再定義して var() ベースの面・文字・境界を一括で明色化し、
+   黒いバックドロップを明色に差し替える。ハードコードの白文字だけ後段JSで個別修正。 */
+body.register-mode #lineItemEditOverlay,
+body.register-mode #payMethodOverlay,
+body.register-mode #cashCalcOverlay,
+body.register-mode #squareInputOverlay,
+body.register-mode #undoPayOverlay,
+body.register-mode #betsuOverlay,
+body.register-mode #editOverlay,
+body.register-mode #mergeOverlay{
+  --bg:#ffffff;--surface:#ffffff;--surface2:#f4f4f5;--surface3:#ececef;
+  --text:#111111;--muted:#5a5a5a;--border:#d9d9de;
+  background:#ececef !important;
+}
+/* 中央／ボトムシートのカードに影を付けて明色背景と区別（editは全画面構造のため除外） */
+body.register-mode #lineItemEditOverlay>div,
+body.register-mode #payMethodOverlay>div,
+body.register-mode #cashCalcOverlay>div,
+body.register-mode #squareInputOverlay>div,
+body.register-mode #undoPayOverlay>div,
+body.register-mode #betsuOverlay>div,
+body.register-mode #mergeOverlay>div{
+  box-shadow:0 6px 30px rgba(0,0,0,0.18);
+}
 </style>
 </head>
 <body>
@@ -3646,7 +3676,7 @@ function editLineItemPrice(orderId, itemIdx) {
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:6px">1個あたりの金額（円）</div>
-        <input id="lineItemNewPrice" type="number" min="0" value="${currentUnit}" style="width:100%;background:var(--surface2);border:1.5px solid var(--accent);border-radius:10px;padding:14px 16px;color:#fff;font-size:22px;font-family:'Oswald',sans-serif;outline:none;text-align:right" oninput="updateLineItemPreview(${qty})">
+        <input id="lineItemNewPrice" type="number" min="0" value="${currentUnit}" style="width:100%;background:var(--surface2);border:1.5px solid var(--accent);border-radius:10px;padding:14px 16px;color:#111;font-size:22px;font-family:'Oswald',sans-serif;outline:none;text-align:right" oninput="updateLineItemPreview(${qty})">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:0 4px">
           <span style="font-size:11px;color:var(--muted)">小計（${qty}個分）</span>
           <span id="lineItemPreviewTotal" style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--accent);font-weight:900">¥${(currentUnit*qty).toLocaleString()}</span>
@@ -4281,7 +4311,7 @@ overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px;wi
   <div style="font-size:13px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase">合計金額（税込）</div>
   <div style="font-family:'Oswald',sans-serif;font-size:48px;color:#e74c3c;line-height:1;font-weight:700;letter-spacing:2px">¥${total.toLocaleString()}</div>
 </div>
-<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:14px">お支払い方法を選択</div>
+<div data-regI18n="paySelectTitle" style="font-size:13px;font-weight:700;color:#111;margin-bottom:14px">お支払い方法を選択</div>
 <div style="display:flex;flex-direction:column;gap:12px">
 <button onclick="openCashCalculator('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--green);background:#1a3a1a;color:var(--green);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCash">現金</span></button>
 <button onclick="openSquareInputConfirm('${type}',${total},${mergeData?`'__merge__'`:'null'})" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span data-regI18n="payCard">クレジットカード</span></button>
@@ -4551,7 +4581,7 @@ function openSquareInputConfirm(type, total, mergeFlag, opts) {
       <div style="font-size:13px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase">合計金額（税込）</div>
       <div style="font-family:'Oswald',sans-serif;font-size:48px;color:#e74c3c;line-height:1;font-weight:700;letter-spacing:2px">¥${Number(total).toLocaleString()}</div>
     </div>
-    <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:20px;line-height:1.5">合計金額をスクエアに入力</div>
+    <div style="font-size:16px;font-weight:900;color:#111;margin-bottom:20px;line-height:1.5">合計金額をスクエアに入力</div>
     <button id="squareInputDoneBtn" style="width:100%;padding:18px;border-radius:14px;border:2px solid var(--blue);background:#0d2240;color:var(--blue);font-size:18px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">完了</button>
     <button id="squareInputCancelBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:10px">キャンセル</button>
   </div>`;
@@ -4681,7 +4711,7 @@ async function openUndoPayment() {
     const minsAgo = Math.floor((now - g.latest) / 60000);
     const secsAgo = Math.floor((now - g.latest) / 1000);
     const timeLabel = minsAgo > 0 ? `${minsAgo}分前` : `${secsAgo}秒前`;
-    html += `<button onclick="undoPaymentForTable('${g.label}')" style="display:block;width:100%;padding:14px 16px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:#fff;margin-bottom:8px;text-align:left;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
+    html += `<button onclick="undoPaymentForTable('${g.label}')" style="display:block;width:100%;padding:14px 16px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:#111;margin-bottom:8px;text-align:left;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent);font-weight:900">${g.label}</div>
@@ -4743,7 +4773,7 @@ async function undoPaymentForTable(tableLabel) {
 
 // 別会計カード用の小タグ
 function _betsuTag(txt, bg, col) {
-  return `<span style="display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:7px;background:${bg||'rgba(255,255,255,0.07)'};color:${col||'#e8e8e8'};margin:4px 5px 0 0;white-space:nowrap">${txt}</span>`;
+  return `<span style="display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:7px;background:${bg||'rgba(0,0,0,0.06)'};color:${col||'#333'};margin:4px 5px 0 0;white-space:nowrap">${txt}</span>`;
 }
 // ラーメン名（日本語）を取得
 function _betsuNameJa(item) {
@@ -4765,7 +4795,7 @@ function _betsuRamenCardHtml(main, addons, groupTotal) {
   if (isTsukemen) opts = opts.filter(o => !/^0\s*(辛|Spicy|辣|매움)/i.test(String(o)) && !/^Mild\s*\(?0\)?$/i.test(String(o)));
   const p = parseRamenOpts(opts, main);
   let tags = '';
-  if (p.spice) tags += _betsuTag('🌶 ' + p.spice, 'rgba(231,76,60,0.20)', '#ffb4a8');
+  if (p.spice) tags += _betsuTag('🌶 ' + p.spice, 'rgba(231,76,60,0.20)', '#c0392b');
   const noodleBits = [];
   if (p.noodleType && p.noodleChanged) noodleBits.push(p.noodleType + '変更');
   else if (p.noodleType) noodleBits.push(p.noodleType);
@@ -4773,19 +4803,19 @@ function _betsuRamenCardHtml(main, addons, groupTotal) {
   if (p.tsukemenSize) noodleBits.push(p.tsukemenSize);
   if (p.natto) noodleBits.push(p.natto);
   if (p.firmness) noodleBits.push(p.firmness);
-  noodleBits.forEach(b => tags += _betsuTag('🍜 ' + b, 'rgba(200,134,10,0.20)', '#ffd98a'));
-  if (p.riceChange) tags += _betsuTag('🍚 ' + p.riceChange, 'rgba(200,134,10,0.14)', '#ffd98a');
-  else if (p.rice) tags += _betsuTag('🍚 ライス' + p.rice, 'rgba(200,134,10,0.14)', '#ffd98a');
-  if (p.chashu) tags += _betsuTag('チャーシュー' + p.chashu, 'rgba(255,255,255,0.08)');
-  if (p.curryTopping) tags += _betsuTag(p.curryTopping, 'rgba(255,255,255,0.08)');
+  noodleBits.forEach(b => tags += _betsuTag('🍜 ' + b, 'rgba(200,134,10,0.20)', '#8a5a00'));
+  if (p.riceChange) tags += _betsuTag('🍚 ' + p.riceChange, 'rgba(200,134,10,0.14)', '#8a5a00');
+  else if (p.rice) tags += _betsuTag('🍚 ライス' + p.rice, 'rgba(200,134,10,0.14)', '#8a5a00');
+  if (p.chashu) tags += _betsuTag('チャーシュー' + p.chashu, 'rgba(0,0,0,0.06)');
+  if (p.curryTopping) tags += _betsuTag(p.curryTopping, 'rgba(0,0,0,0.06)');
   (addons || []).forEach(a => {
     const aq = (a.qty || 1) > 1 ? ` ×${a.qty}` : '';
-    tags += _betsuTag('＋' + _betsuNameJa(a) + aq, 'rgba(59,130,246,0.18)', '#bcd6ff');
+    tags += _betsuTag('＋' + _betsuNameJa(a) + aq, 'rgba(59,130,246,0.18)', '#1e4fa3');
   });
   (p.other || []).forEach(o => { tags += _betsuTag(o); });
   return `<div style="display:flex;flex-direction:column;gap:3px">
 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-<span style="font-size:16px;color:#fff;font-weight:800;line-height:1.2">${nameJa}${qty > 1 ? `<span style="font-family:'Oswald',sans-serif;color:var(--accent);font-size:14px;margin-left:6px">×${qty}</span>` : ''}</span>
+<span style="font-size:16px;color:#111;font-weight:800;line-height:1.2">${nameJa}${qty > 1 ? `<span style="font-family:'Oswald',sans-serif;color:var(--accent);font-size:14px;margin-left:6px">×${qty}</span>` : ''}</span>
 <span style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:#e74c3c;white-space:nowrap">¥${groupTotal.toLocaleString()}</span>
 </div>
 ${tags ? `<div style="display:flex;flex-wrap:wrap;align-items:center">${tags}</div>` : ''}
@@ -4797,14 +4827,14 @@ function _betsuSimpleCardHtml(it, unitPrice, prefix) {
   const optTags = (Array.isArray(it.opts) ? it.opts : [])
     .map(o => stripOptPrice(String(o)).trim())
     .filter(o => o && !/^(並|Regular)$/i.test(o))
-    .map(o => _betsuTag(o, 'rgba(255,255,255,0.07)', '#cfcfcf'))
+    .map(o => _betsuTag(o, 'rgba(0,0,0,0.06)', '#333'))
     .join('');
   // ハッピーアワー無料ドリンクは目印を付ける（¥0）
   const hhPrefix = it.hhFree ? '🍻 ' : '';
   return `<div style="display:flex;flex-direction:column;gap:3px">
 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-<span style="font-size:15px;color:#f0f0f0;font-weight:700;line-height:1.2">${prefix || ''}${hhPrefix}${nameJa}</span>
-<span style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:#d8d8d8;white-space:nowrap">¥${unitPrice.toLocaleString()}</span>
+<span style="font-size:15px;color:#111;font-weight:700;line-height:1.2">${prefix || ''}${hhPrefix}${nameJa}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:#444;white-space:nowrap">¥${unitPrice.toLocaleString()}</span>
 </div>
 ${optTags ? `<div style="display:flex;flex-wrap:wrap">${optTags}</div>` : ''}
 </div>`;
@@ -4894,7 +4924,7 @@ const methodColor = log.payMethod === 'cash' ? 'var(--green)' : 'var(--blue)';
 logHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px">
 <div style="display:flex;align-items:center;gap:6px">
 <span style="font-size:14px">${icon}</span>
-<span style="color:#ccc;font-weight:700">${log.person}</span>
+<span style="color:#333;font-weight:700">${log.person}</span>
 <span style="color:var(--muted);font-size:11px">${log.items.length}点</span>
 </div>
 <span style="font-family:'Oswald',sans-serif;font-size:14px;color:${methodColor};font-weight:700">¥${log.total.toLocaleString()}</span>
@@ -4911,13 +4941,13 @@ itemsHtml = `<div style="text-align:center;padding:40px 20px;color:var(--green);
 } else {
 itemsHtml = `<div style="padding:14px 18px 6px;background:linear-gradient(180deg,rgba(59,130,246,0.08),transparent)">
 <div style="font-size:11px;color:var(--blue);font-weight:700;letter-spacing:1px;margin-bottom:4px">STEP 1</div>
-<div style="font-size:14px;color:#fff;font-weight:700">${personLabel}が注文した商品を選択 👇</div>
+<div style="font-size:14px;color:#111;font-weight:700">${personLabel}が注文した商品を選択 👇</div>
 </div>`;
 remaining.forEach(item => {
 const isSel = item._selected;
 itemsHtml += `<div onclick="toggleBetsuItem(${item._idx})" style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'rgba(59,130,246,0.12)':'transparent'};transition:background 0.15s">
 <div style="width:24px;height:24px;border-radius:50%;border:2px solid ${isSel?'var(--blue)':'#888'};background:${isSel?'var(--blue)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isSel?'<span style="color:#fff;font-size:13px;font-weight:900">✓</span>':''}</div>
-<div style="flex:1;min-width:0;border-radius:9px;border:1px solid ${isSel?'var(--blue)':'var(--border)'};background:rgba(255,255,255,0.03);padding:7px 11px">${item.cardHtml}</div>
+<div style="flex:1;min-width:0;border-radius:9px;border:1px solid ${isSel?'var(--blue)':'var(--border)'};background:rgba(0,0,0,0.03);padding:7px 11px">${item.cardHtml}</div>
 </div>`;
 });
 }
@@ -4928,21 +4958,21 @@ const cardInnerHtml = `
 <div style="padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
 <div>
 <div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent2)">別会計</div>
-<div style="font-size:13px;color:#e8e8e8;margin-top:2px;font-weight:700">${selectedTable} ${allDone?'— 完了':`— ${personLabel}`}</div>
+<div style="font-size:13px;color:#333;margin-top:2px;font-weight:700">${selectedTable} ${allDone?'— 完了':`— ${personLabel}`}</div>
 </div>
 <div style="text-align:right">
-<div style="font-size:12px;color:#d8d8d8;font-weight:700">残り <span style="font-family:'Oswald',sans-serif;color:#fff;font-size:15px">${remaining.length}</span>点</div>
-<div style="font-size:12px;color:#d8d8d8;font-weight:700">完了 <span style="font-family:'Oswald',sans-serif;color:#fff;font-size:15px">${paidLog.length}</span>人</div>
+<div style="font-size:12px;color:#444;font-weight:700">残り <span style="font-family:'Oswald',sans-serif;color:#111;font-size:15px">${remaining.length}</span>点</div>
+<div style="font-size:12px;color:#444;font-weight:700">完了 <span style="font-family:'Oswald',sans-serif;color:#111;font-size:15px">${paidLog.length}</span>人</div>
 </div>
 </div>
-${(paidCash > 0 || paidCard > 0) ? `<div style="display:flex;gap:8px;padding:8px 20px;background:rgba(0,0,0,0.3);border-bottom:1px solid var(--border);font-size:11px">
+${(paidCash > 0 || paidCard > 0) ? `<div style="display:flex;gap:8px;padding:8px 20px;background:rgba(0,0,0,0.05);border-bottom:1px solid var(--border);font-size:11px">
 <div style="flex:1;display:flex;justify-content:space-between"><span style="color:var(--green)">💴 現金</span><span style="font-family:'Oswald',sans-serif;color:var(--green)">¥${paidCash.toLocaleString()}</span></div>
 <div style="flex:1;display:flex;justify-content:space-between"><span style="color:var(--blue)">💳 カード</span><span style="font-family:'Oswald',sans-serif;color:var(--blue)">¥${paidCard.toLocaleString()}</span></div>
 </div>` : ''}
 <div style="overflow-y:auto;flex:1" data-betsu-scroll>${logHtml}${itemsHtml}</div>
 ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:14px;margin-bottom:10px">
-<span style="font-size:13px;color:#e8e8e8;font-weight:700">${personLabel} 小計</span>
+<span style="font-size:13px;color:#333;font-weight:700">${personLabel} 小計</span>
 <span style="font-family:'Oswald',sans-serif;font-size:34px;color:${selected.length>0?'#e74c3c':'#666'};font-weight:700">¥${selectedTotal.toLocaleString()}</span>
 </div>
 <div style="font-size:11px;color:${selected.length>0?'var(--accent)':'var(--muted)'};font-weight:700;letter-spacing:1px;margin-bottom:6px">${selected.length>0?'お支払い方法を選択':'まず商品を選んでください'}</div>
@@ -4950,7 +4980,7 @@ ${!allDone ? `<div style="padding:12px 20px 14px;border-top:1px solid var(--bord
 <button onclick="confirmOnePersonPay('cash')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--green)':'#333'};background:${selected.length>0?'#1a3a1a':'#1a1a1a'};color:${selected.length>0?'var(--green)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">現金で会計</button>
 <button onclick="confirmOnePersonPay('card')" ${selected.length===0?'disabled':''} style="flex:1;padding:16px 8px;border-radius:12px;border:2px solid ${selected.length>0?'var(--blue)':'#333'};background:${selected.length>0?'#0d2240':'#1a1a1a'};color:${selected.length>0?'var(--blue)':'#666'};font-size:15px;font-weight:900;cursor:${selected.length>0?'pointer':'default'};font-family:'Noto Sans JP',sans-serif">カードで会計</button>
 </div>
-<button onclick="document.getElementById('betsuOverlay').remove()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">‹ 戻る</button>
+<button onclick="document.getElementById('betsuOverlay').remove()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#333;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:8px">‹ 戻る</button>
 </div>` : `<div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <button onclick="finishAllBetsu()" style="width:100%;padding:18px;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">全員会計完了 — オーダーを確定</button>
 </div>`}
@@ -5071,14 +5101,14 @@ overlay.innerHTML = `<div style="background:var(--surface);border-bottom:1px sol
 <button onclick="closeOrderEdit()" style="background:none;border:none;color:var(--muted);font-size:28px;cursor:pointer;line-height:1;padding:0">×</button>
 </div>
 <div style="background:var(--surface2);padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-<div style="font-size:16px;color:#ffffff;font-weight:900;letter-spacing:1.5px;margin-bottom:10px">現在の注文</div>
+<div style="font-size:16px;color:#111111;font-weight:900;letter-spacing:1.5px;margin-bottom:10px">現在の注文</div>
 <div id="editCurrentList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
 </div>
 <div style="display:flex;overflow-x:auto;padding:10px 16px 8px;gap:6px;flex-shrink:0;scrollbar-width:none;border-bottom:1px solid var(--border)" id="editCatTabs"></div>
 <div style="flex:1;overflow-y:auto;padding:8px 16px 160px" id="editMenuList"></div>
 <div style="position:fixed;bottom:0;left:0;right:0;padding:12px 16px 32px;background:var(--surface);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
 <button onclick="saveOrderEdit()" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--accent2);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">変更を保存する</button>
-<button onclick="closeOrderEdit()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ 戻る</button>
+<button onclick="closeOrderEdit()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#333;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ 戻る</button>
 </div>`;
 document.body.appendChild(overlay);
 
@@ -5133,7 +5163,7 @@ function renderEditCurrentList() {
 const el = document.getElementById('editCurrentList');
 if (!el) return;
 const items = window._editItems;
-if (!items.length) { el.innerHTML = `<span style="font-size:14px;color:#d8d8d8;font-weight:700">注文なし</span>`; return; }
+if (!items.length) { el.innerHTML = `<span style="font-size:14px;color:#444;font-weight:700">注文なし</span>`; return; }
 // ラーメンは1杯ごとに別エントリ。+/- ボタンは出さず、削除のみ可能
 //   既存ラーメンは _origCat / canonical 由来から判定
 const isRamenEntry = (it) => {
@@ -5148,16 +5178,16 @@ el.innerHTML = items.map(item => {
   if (ramen) {
     // ラーメン：qty 固定表示・+/- は非表示・削除のみ
     return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
-      <span style="font-size:14px;color:#fff;font-weight:700">🍜 ${dispName}</span>
+      <span style="font-size:14px;color:#111;font-weight:700">🍜 ${dispName}</span>
       <button onclick="removeEditItem(${item._eid})" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
     </div>`;
   }
   return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
-    <span style="font-size:14px;color:#fff;font-weight:700">${dispName}</span>
+    <span style="font-size:14px;color:#111;font-weight:700">${dispName}</span>
     <div style="display:flex;align-items:center;gap:4px">
-      <button onclick="changeEditQty(${item._eid},-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+      <button onclick="changeEditQty(${item._eid},-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#111;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
       <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);min-width:16px;text-align:center">${item.qty}</span>
-      <button onclick="changeEditQty(${item._eid},1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">＋</button>
+      <button onclick="changeEditQty(${item._eid},1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#111;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">＋</button>
     </div>
     <button onclick="removeEditItem(${item._eid})" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
   </div>`;
@@ -5175,18 +5205,18 @@ const spicyAdds = [
   {l:'6辛',p:270},{l:'7辛',p:320},{l:'8辛',p:370},{l:'9辛',p:420},{l:'10辛',p:470}
 ];
 const spicyBtnsHtml = spicyAdds.map(s =>
-  `<button onclick="addQuickEditItem('辛さ追加 ${s.l}',${s.p})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid #e74c3c;background:rgba(231,76,60,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
+  `<button onclick="addQuickEditItem('辛さ追加 ${s.l}',${s.p})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid #e74c3c;background:rgba(231,76,60,0.12);color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
     <span style="font-size:14px;font-weight:900;color:#e74c3c">${s.l}</span>
-    <span style="font-family:'Oswald',sans-serif;font-size:12px;color:#fff;margin-top:2px">+¥${s.p}</span>
+    <span style="font-family:'Oswald',sans-serif;font-size:12px;color:#333;margin-top:2px">+¥${s.p}</span>
   </button>`
 ).join('');
 el.innerHTML = `<div style="padding:16px 0">
 <!-- 定型追加（メニュー外の麺変更・大盛り） -->
 <div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-bottom:8px">⚡ 定型追加（タップで即追加）</div>
 <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:14px">
-<button onclick="addQuickEditItem('大盛り',100)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍜 大盛り</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥100</span></button>
-<button onclick="addQuickEditItem('平打ち麺変更',150)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍝 平打ち麺変更</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥150</span></button>
-<button onclick="addQuickEditItem('平打ち麺変更大盛り',250)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍝 平打ち麺変更（大盛り）</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥250</span></button>
+<button onclick="addQuickEditItem('大盛り',100)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍜 大盛り</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥100</span></button>
+<button onclick="addQuickEditItem('平打ち麺変更',150)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍝 平打ち麺変更</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥150</span></button>
+<button onclick="addQuickEditItem('平打ち麺変更大盛り',250)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(200,134,10,0.12);color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif"><span style="font-size:14px;font-weight:700">🍝 平打ち麺変更（大盛り）</span><span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent);font-weight:900">+¥250</span></button>
 </div>
 <!-- 辛さ追加（1辛〜10辛） — 5列×2行で表示 -->
 <div style="font-size:11px;color:#e74c3c;font-weight:700;letter-spacing:1px;margin-bottom:8px">🌶 辛さ追加（タップで即追加）</div>
@@ -5197,14 +5227,14 @@ ${spicyBtnsHtml}
 <div style="font-size:12px;color:var(--muted);margin-bottom:14px">または品名と金額を入力して追加</div>
 <div style="display:flex;flex-direction:column;gap:10px">
 <div><div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:6px">品名</div>
-<input id="otherItemName" type="text" placeholder="例：物品販売、サービス料など" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:#fff;font-size:14px;font-family:'Noto Sans JP',sans-serif;outline:none"></div>
+<input id="otherItemName" type="text" placeholder="例：物品販売、サービス料など" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:#111;font-size:14px;font-family:'Noto Sans JP',sans-serif;outline:none"></div>
 <div><div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:6px">金額（円）</div>
-<input id="otherItemPrice" type="number" placeholder="0" min="0" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:#fff;font-size:18px;font-family:'Oswald',sans-serif;outline:none" oninput="updateOtherPreview()"></div>
+<input id="otherItemPrice" type="number" placeholder="0" min="0" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:#111;font-size:18px;font-family:'Oswald',sans-serif;outline:none" oninput="updateOtherPreview()"></div>
 <div><div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:6px">数量</div>
 <div style="display:flex;align-items:center;gap:14px">
-<button onclick="changeOtherQty(-1)" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
-<span id="otherQtyDisplay" style="font-family:'Oswald',sans-serif;font-size:24px;color:#fff;min-width:30px;text-align:center">1</span>
-<button onclick="changeOtherQty(1)" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">＋</button>
+<button onclick="changeOtherQty(-1)" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#111;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+<span id="otherQtyDisplay" style="font-family:'Oswald',sans-serif;font-size:24px;color:#111;min-width:30px;text-align:center">1</span>
+<button onclick="changeOtherQty(1)" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:#111;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">＋</button>
 <span id="otherPreviewPrice" style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent);margin-left:8px">¥0</span>
 </div>
 </div>
@@ -5225,9 +5255,9 @@ const beerPrice = getKitchenItemPrice(HH_EDIT_BEER_ID);
 // アルコールコース：全ドリンクから無料1杯を選ぶ（タップでビール＋無料ドリンクを同時追加）
 const alcoholBtns = drinks.map(m => {
   const p = getKitchenItemPrice(m.id);
-  return `<button onclick="addHHAlcoholCourse(${m.id})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid #e65100;background:rgba(230,81,0,0.10);color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;gap:2px">
+  return `<button onclick="addHHAlcoholCourse(${m.id})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid #e65100;background:rgba(230,81,0,0.10);color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif;gap:2px">
     <span style="font-size:12px;font-weight:700;line-height:1.2">${m.name}</span>
-    <span style="font-family:'Oswald',sans-serif;font-size:11px;color:#ffb27a">通常¥${p.toLocaleString()}→無料</span>
+    <span style="font-family:'Oswald',sans-serif;font-size:11px;color:#c2410c">通常¥${p.toLocaleString()}→無料</span>
   </button>`;
 }).join('');
 // ソフドリコース：ソフト2杯を選択（安い方無料）。ステージング state で2杯選ばせる
@@ -5235,26 +5265,26 @@ const picks = window._hhSoftPicks || [];
 const softBtns = softDrinks.map(m => {
   const p = getKitchenItemPrice(m.id);
   const cnt = picks.filter(x => x === m.id).length;
-  return `<button onclick="stageHHSoftPick(${m.id})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid ${cnt?'#2e7d32':'#4a4a4a'};background:${cnt?'rgba(46,125,50,0.18)':'var(--surface2)'};color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;gap:2px">
+  return `<button onclick="stageHHSoftPick(${m.id})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid ${cnt?'#2e7d32':'#4a4a4a'};background:${cnt?'rgba(46,125,50,0.18)':'var(--surface2)'};color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif;gap:2px">
     <span style="font-size:12px;font-weight:700;line-height:1.2">${m.name}${cnt?' ✓'.repeat(cnt):''}</span>
     <span style="font-family:'Oswald',sans-serif;font-size:12px;color:var(--accent)">¥${p.toLocaleString()}</span>
   </button>`;
 }).join('');
 const pickNames = picks.map(id => { const m = drinks.find(x=>x.id===id); return m?m.name:''; }).filter(Boolean).join('　＋　');
 const softStagedHtml = picks.length ? `<div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap">
-  <span style="font-size:12px;color:#fff;font-weight:700">選択中(${picks.length}/2)：${pickNames}</span>
-  <button onclick="clearHHSoftPicks()" style="background:none;border:1px solid #888;border-radius:8px;color:#e8e8e8;font-size:11px;padding:3px 8px;cursor:pointer">クリア</button>
+  <span style="font-size:12px;color:#111;font-weight:700">選択中(${picks.length}/2)：${pickNames}</span>
+  <button onclick="clearHHSoftPicks()" style="background:none;border:1px solid #888;border-radius:8px;color:#333;font-size:11px;padding:3px 8px;cursor:pointer">クリア</button>
 </div>` : '';
 const softConfirmHtml = picks.length === 2 ? `<button onclick="commitHHSoftCourse()" style="width:100%;padding:13px;border-radius:12px;border:none;background:#2e7d32;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:6px">＋ 追加する（安い方を無料に）</button>` : `<div style="font-size:11px;color:var(--muted);margin-top:6px">ソフトドリンクを2杯タップしてください</div>`;
 el.innerHTML = `<div style="padding:12px 0">
-<div style="font-size:12px;color:#ffb27a;margin-bottom:12px;line-height:1.5">🍻 ハッピーアワーのコースを手動で追加します。<br>無料ドリンクは ¥0 で追加され、レジ・集計に反映されます。</div>
+<div style="font-size:12px;color:#c2410c;margin-bottom:12px;line-height:1.5">🍻 ハッピーアワーのコースを手動で追加します。<br>無料ドリンクは ¥0 で追加され、レジ・集計に反映されます。</div>
 <div style="border:1px solid #e65100;border-radius:12px;padding:12px;margin-bottom:16px;background:rgba(230,81,0,0.05)">
 <div style="font-size:14px;color:#e65100;font-weight:900;margin-bottom:4px">🍺 アルコールコース</div>
 <div style="font-size:11px;color:var(--muted);margin-bottom:10px">オリオンビール（小）¥${beerPrice.toLocaleString()} ＋ お好きなドリンク1杯無料。<br>下から<b>無料にする1杯</b>を選ぶとビールと一緒に追加されます。</div>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${alcoholBtns}</div>
 </div>
 <div style="border:1px solid #2e7d32;border-radius:12px;padding:12px;background:rgba(46,125,50,0.05)">
-<div style="font-size:14px;color:#66bb6a;font-weight:900;margin-bottom:4px">🥤 ソフドリコース</div>
+<div style="font-size:14px;color:#2e7d32;font-weight:900;margin-bottom:4px">🥤 ソフドリコース</div>
 <div style="font-size:11px;color:var(--muted);margin-bottom:10px">ソフトドリンクを2杯選ぶと、<b>安い方が無料</b>になります。</div>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${softBtns}</div>
 ${softStagedHtml}
@@ -5551,7 +5581,7 @@ const currentTotal = tables[selectedTable].total;
 const otherOptions = otherTables.length ? otherTables.map(t => `<label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
 <div style="display:flex;align-items:center;gap:10px">
 <input type="checkbox" data-merge-label="${t.label}" style="width:18px;height:18px;accent-color:var(--accent2)">
-<span style="font-family:'Oswald',sans-serif;font-size:18px;color:#fff">${t.label}</span>
+<span style="font-family:'Oswald',sans-serif;font-size:18px;color:#111">${t.label}</span>
 </div>
 <span style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--accent)">¥${t.total.toLocaleString()}</span>
 </label>`).join('') : `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">合算できる他のテーブルがありません</div>`;
@@ -5567,11 +5597,11 @@ overlay.innerHTML = `<div style="background:var(--surface);border-radius:20px 20
 </div>
 <div style="padding:14px 20px 32px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-<span style="font-size:14px;font-weight:700;color:#fff">合計</span>
+<span style="font-size:14px;font-weight:700;color:#111">合計</span>
 <span style="font-family:'Oswald',sans-serif;font-size:26px;color:var(--accent2);font-weight:900" id="mergeTotal">¥${currentTotal.toLocaleString()}</span>
 </div>
 <div style="display:flex;gap:10px">
-<button onclick="document.getElementById('mergeOverlay').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#e8e8e8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ 戻る</button>
+<button onclick="document.getElementById('mergeOverlay').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #888;background:transparent;color:#333;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">‹ 戻る</button>
 <button onclick="confirmMerge()" style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--accent2);color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">合算して会計完了</button>
 </div>
 </div>
