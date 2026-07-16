@@ -466,7 +466,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .btn-restore-small{padding:6px 14px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
 .switch-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s}
 .switch-btn.to-register{background:rgba(59,130,246,0.2);color:var(--blue);border:1px solid var(--blue)}
-.switch-btn.to-kitchen{background:rgba(200,134,10,0.2);color:var(--accent);border:1px solid var(--accent)}
+.switch-btn.to-kitchen{background:rgba(200,134,10,0.2);color:#111;border:1px solid var(--accent)}
 @keyframes bellPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:0.5}}
 @keyframes bellShake{0%,100%{transform:rotate(0deg)}15%{transform:rotate(-22deg)}30%{transform:rotate(22deg)}45%{transform:rotate(-14deg)}60%{transform:rotate(14deg)}75%{transform:rotate(-8deg)}90%{transform:rotate(8deg)}}
 @keyframes newOrderGlow{0%,100%{box-shadow:0 0 0px rgba(46,204,113,0)}50%{box-shadow:0 0 18px rgba(46,204,113,0.6)}}
@@ -490,6 +490,9 @@ body.register-mode .staff-header,
 /* ヘッダー（レジモード時のみ） */
 body.register-mode .staff-header{background:#ffffff;border-bottom-color:#d9d9de}
 body.register-mode .staff-header .header-title{color:#111111}
+/* レジモード時、共有ヘッダー内のラーメン/サイド一覧ボタンも黒文字に（キッチンモードの暗背景では従来の色を維持） */
+body.register-mode #ramenListBtn,
+body.register-mode #sideListBtn{color:#111111 !important}
 /* レジ画面本体 */
 #registerScreen{background:#ffffff;color:#111111}
 #registerScreen .table-card{background:#ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.10)}
@@ -538,6 +541,13 @@ body.register-mode #undoPayOverlay>div,
 body.register-mode #betsuOverlay>div,
 body.register-mode #mergeOverlay>div{
   box-shadow:0 6px 30px rgba(0,0,0,0.18);
+}
+/* 別会計・合算会計をフル1ページ表示に（ボトムシートの上部余白を排除） */
+body.register-mode #betsuOverlay,
+body.register-mode #mergeOverlay{align-items:stretch !important}
+body.register-mode #betsuOverlay>div,
+body.register-mode #mergeOverlay>div{
+  height:100% !important;max-height:100% !important;border-radius:0 !important;
 }
 </style>
 </head>
@@ -628,8 +638,7 @@ body.register-mode #mergeOverlay>div{
 </div>
 <div class="app-screen" id="registerScreen">
 <div class="reg-tabs">
-<button class="reg-tab" onclick="toggleRegLang()" id="regLangBtn" style="margin-left:auto;background:rgba(200,134,10,0.15);border-color:var(--accent);color:var(--accent);font-weight:900">🌐 EN</button>
-<button class="reg-tab" onclick="openUndoPayment()" style="background:rgba(192,57,43,0.15);border-color:var(--accent2);color:var(--accent2);font-weight:900" data-regI18n="undoPayment">↩️ 会計取消</button>
+<button class="reg-tab" onclick="openUndoPayment()" style="margin-left:auto;background:rgba(192,57,43,0.15);border-color:var(--accent2);color:var(--accent2);font-weight:900" data-regI18n="undoPayment">↩️ 会計取消</button>
 </div>
 <div class="table-grid" id="tableGrid"></div>
 </div>
@@ -695,7 +704,7 @@ body.register-mode #mergeOverlay>div{
   <span id="detailCustomerCount" style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--accent);font-weight:700">0</span>
   <span style="font-size:11px;color:var(--muted)">名</span>
   <span id="detailCustomerCountSource" style="font-size:10px;color:var(--muted);font-style:italic"></span>
-  <button onclick="editCustomerCount()" style="margin-left:auto;padding:5px 12px;border-radius:8px;border:1px solid var(--accent);background:rgba(200,134,10,0.12);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️ 客数変更</button>
+  <button onclick="editCustomerCount()" style="margin-left:auto;padding:5px 12px;border-radius:8px;border:1px solid var(--accent);background:rgba(200,134,10,0.12);color:#111;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️ 客数変更</button>
 </div>
 <div style="display:flex;gap:6px;padding:0 16px 8px;align-items:center;border-bottom:1px solid var(--border);margin-bottom:8px">
 <span style="font-size:10px;color:var(--muted);letter-spacing:1.5px;font-family:'Oswald',sans-serif;flex-shrink:0">LANG:</span>
