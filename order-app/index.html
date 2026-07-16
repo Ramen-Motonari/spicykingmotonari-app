@@ -2182,6 +2182,7 @@ function openItem(id){
     return;
   }
   curItem=item; curOpts={}; curQty=1;
+  chaahanSeriesOpen=false; // モーダルを開くたびに鉄板チャーハンシリーズは閉じた状態から
   studentSectionExpanded=false; // モーダルを開くたびに学生替え玉セクションは閉じた状態から
   addonAlcoholExpanded=false; // ドリンクの「その他アルコール」は毎回閉じた状態から
   renderModal();
@@ -2755,6 +2756,8 @@ function addonSection(key,label,cat,t,isFirstShown){
     : 'margin-top:16px;padding-top:16px;border-top:1px solid var(--border)';
   // ドリンクはアルコールのアコーディオン構成で表示（ソフトは常時表示）
   if(cat==='drink') return renderDrinkAddonSection(key,label,items,sepStyle);
+  // サイドは「鉄板チャーハンシリーズ」を1つのグループにまとめて表示（種類が増えたため）
+  if(cat==='side') return renderSideAddonSection(key,label,items,sepStyle);
   let h=`<div class="option-group" style="${sepStyle}">
     ${addonSectionLabel(label)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
@@ -2814,6 +2817,58 @@ function addonSection(key,label,cat,t,isFirstShown){
     }
   });
   h+=`</div></div>`;
+  return h;
+}
+
+// ── 鉄板チャーハンシリーズ（サイドアドオン） ──
+// ラーメン選択後のサイド一覧で、複数ある鉄板チャーハン系（canonical id 80〜84）を
+// 「鉄板チャーハンシリーズ」1枠にまとめ、タップで全種類を展開表示する。
+//   ・価格/名称/廃止は管理APP（Firestore override）で管理されるため、ここでは表示のみ。
+//     rebuildMenu が hidden/deleted を除外済みなので、在庫のある種類だけが並ぶ。
+//   ・カート/価格/厨房ロジックは既存の addonQty をそのまま使い一切変更しない。
+//   ・「サイドカテゴリー」（メニュー閲覧側）の表示は別描画なので影響なし。
+const CHAAHAN_SERIES_IDS = [80,81,82,83,84];
+let chaahanSeriesOpen = false;
+function toggleChaahanSeries(){ chaahanSeriesOpen = !chaahanSeriesOpen; renderModal(); }
+function sideAddonCardHTML(key,item){
+  const qty = (curOpts[key+'Items'] && curOpts[key+'Items'][item.id]) || 0;
+  return `<div style="display:flex;flex-direction:column;justify-content:space-between;padding:10px;border-radius:10px;border:1.5px solid ${qty>0?'var(--accent)':'var(--border)'};background:${qty>0?'rgba(200,134,10,.06)':'transparent'};min-height:96px">
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.3;word-break:break-word">${item.name[lang]}</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--accent);margin-top:4px">+¥${item.price.toLocaleString()}</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px">
+        <button onclick="addonQty('${key}',${item.id},-1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)">−</button>
+        <span style="font-family:'Oswald',sans-serif;font-size:16px;width:20px;text-align:center">${qty}</span>
+        <button onclick="addonQty('${key}',${item.id},1)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent)">＋</button>
+      </div>
+    </div>`;
+}
+function renderSideAddonSection(key,label,items,sepStyle){
+  // 鉄板チャーハンシリーズと、その他サイドに仕分け（シリーズは id 順で先頭が鉄板チャーハン）
+  const seriesItems = items.filter(m=>CHAAHAN_SERIES_IDS.includes(m.id))
+    .sort((a,b)=>CHAAHAN_SERIES_IDS.indexOf(a.id)-CHAAHAN_SERIES_IDS.indexOf(b.id));
+  const rest = items.filter(m=>!CHAAHAN_SERIES_IDS.includes(m.id));
+  let h=`<div class="option-group" style="${sepStyle}">${addonSectionLabel(label)}`;
+  if(seriesItems.length){
+    const seriesLabel = ({ja:'鉄板チャーハンシリーズ',en:'Teppan Fried Rice Series',zh:'铁板炒饭系列',ko:'철판볶음밥 시리즈'})[lang] || '鉄板チャーハンシリーズ';
+    const selCount = seriesItems.reduce((s,m)=>s+((curOpts[key+'Items'] && curOpts[key+'Items'][m.id])||0),0);
+    const open = chaahanSeriesOpen || selCount>0;
+    h+=`<div style="margin-bottom:8px">
+      <button type="button" onclick="toggleChaahanSeries()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:10px;border:1.5px solid ${selCount>0?'var(--accent)':'var(--border)'};background:${selCount>0?'rgba(200,134,10,.06)':'transparent'};cursor:pointer">
+        <span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;color:#1a1a1a">
+          <span style="font-size:18px">🍳</span>${seriesLabel}
+          ${selCount>0?`<span style="font-family:'Oswald',sans-serif;font-size:12px;color:#fff;background:var(--accent);border-radius:999px;padding:1px 8px">${selCount}</span>`:''}
+        </span>
+        <span style="font-size:14px;color:var(--muted);transform:rotate(${open?180:0}deg);transition:transform .2s">▾</span>
+      </button>
+      ${open?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">${seriesItems.map(m=>sideAddonCardHTML(key,m)).join('')}</div>`:''}
+    </div>`;
+  }
+  if(rest.length){
+    h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${rest.map(m=>sideAddonCardHTML(key,m)).join('')}</div>`;
+  }
+  h+=`</div>`;
   return h;
 }
 
@@ -4743,6 +4798,7 @@ function checkGhostPw(){
     const item=menu.find(m=>m.id===targetId);
     if(!item) return;
     curItem=item; curOpts={}; curQty=1;
+    chaahanSeriesOpen=false;
     renderModal();
     $('itemModal').classList.add('open');
     document.body.style.overflow='hidden';
