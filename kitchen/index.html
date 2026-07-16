@@ -1734,40 +1734,27 @@ function countCustomersFromOrders(orders) {
 }
 
 function updateKitchenStatsBar() {
-  // 「料理提供済の段階」の集計をリアルタイム表示
-  //   ・対象：今日の全注文（pending/preparing/served/paid）
-  //   ・カウント単位：item.served === true のアイテムだけ
-  //   ・isPendingKaedamaPaid（厨房で作らない先払い替え玉行）/ _doneByEdit / 取消は除外
+  // 管理APP（当日ダッシュボード）の数字と一致させる集計。
+  //   ・対象：本日の「会計済み」注文（status==='paid'）＝ 管理APP の paidOrders と同基準
+  //          サービス注文（isService / paymentType==='service'）・削除・取消は除外
+  //   ・売上：注文合計 o.total（税込）を合算 → 税抜換算（管理APPと同じく total ベース）
+  //   ・客数：countCustomersFromOrders（ラーメン＋定食の杯数、customerCountOverride 優先）
+  //   ※旧仕様（提供済アイテムのみ集計）から変更。提供進捗ではなく確定売上・客数を管理APPと揃えるため。
   const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
-  const todays = orders.filter(o => {
+  const todays = (paidOrders || []).filter(o => {
     if (!o) return false;
-    if (o.paymentType === 'cancelled_by_edit') return false;
-    if (o.status === 'cancelled') return false;
-    if (o.deleted) return false; // 履歴で削除された注文は売上集計から除外
+    if (o.deleted) return false; // 履歴で削除された注文は除外
+    if (o.isService === true || o.paymentType === 'service') return false; // サービス注文は通常集計から除外
     const ts = (o.updatedAt && o.updatedAt.toDate) ? o.updatedAt.toDate() : ((o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null);
     if (!ts) return false;
     const k = `${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')}`;
     return k === today;
   });
-  let salesTax = 0;
-  let servedRamenCount = 0; // 提供済ラーメン＋定食の杯数 = 客数
-  todays.forEach(o => {
-    (o.items || []).forEach(item => {
-      if (item._doneByEdit) return;
-      if (item.isPendingKaedamaPaid) return;
-      if (!item.served) return;
-      const qty = Number(item.qty) || 0;
-      if (qty <= 0) return;
-      // 提供済みアイテムの金額を加算（税込）
-      const unit = (typeof getItemUnitPrice === 'function') ? getItemUnitPrice(item) : (Number(item.price) || 0);
-      salesTax += unit * qty;
-      // ラーメン/定食なら客数として加算
-      const cat = (typeof getItemLogicalCat === 'function') ? getItemLogicalCat(item) : null;
-      if (cat === 'ramen' || cat === 'teishoku') servedRamenCount += qty;
-    });
-  });
+  // 売上（税込 total の合算 → 税抜換算）
+  const salesTax = todays.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const salesNoTax = Math.round(salesTax / 1.10);
-  const customers = servedRamenCount;
+  // 客数 = ラーメン杯数 + 定食数（customerCountOverride があれば優先）
+  const customers = countCustomersFromOrders(todays);
   const avg = customers > 0 ? Math.round(salesNoTax / customers) : 0;
   const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   setText('ksbSales', `¥${salesNoTax.toLocaleString()}`);
