@@ -4971,8 +4971,9 @@ if (!selected.length) return;
 const labels = ['1人目','2人目','3人目','4人目','5人目','6人目','7人目','8人目'];
 const personLabel = labels[window._betsuPersonNum-1] || `${window._betsuPersonNum}人目`;
 const total = selected.reduce((s,i) => s + i.unitPrice, 0);
-// 支払い方法の区別なし。この人の会計を即確定。
-_completeOnePersonPay(selected, total, personLabel, null);
+// 2タップ化：通常会計と同様に「完了しますか？」確認モーダルを挟んでからこの人の会計を確定する。
+// （betsuOverlay は残したまま。キャンセル時は選択状態のまま別会計画面に戻る）
+openPaymentConfirmModal({ label: `${selectedTable} ${personLabel}`, total, onConfirm: () => _completeOnePersonPay(selected, total, personLabel, null) });
 }
 
 function _completeOnePersonPay(selected, total, personLabel, payMethod) {
