@@ -4574,6 +4574,7 @@ let _hhPicks  = [];     // [{itemId, opt}]（無料/選択対象）
 
 // 現在がハッピーアワー時間帯か（端末ローカル時刻）
 function isHappyHourNow(){
+  return false; // ハッピーアワー一旦停止：客側カード／モーダルを非表示（復活時はこの行を削除）
   const d = new Date();
   const day = d.getDay();                       // 0=日, 6=土
   const mins = d.getHours()*60 + d.getMinutes();
