@@ -508,8 +508,7 @@ body.register-mode #sideListBtn{color:#111111 !important}
 /* 会計詳細の副ボタン（インラインで color:#fff & surface3 背景 → 明色地に白文字で不可視になるため上書き） */
 #detailOverlay #btnSeparate,
 #detailOverlay #btnMerge,
-#detailOverlay #btnEdit,
-#detailOverlay #btnService{
+#detailOverlay #btnEdit{
   background:#f0f0f2 !important;color:#111111 !important;border-color:#c9c9cf !important;
 }
 /* 会計詳細モーダルをフル1ページ表示に（上の余白を排除） */
@@ -723,7 +722,6 @@ body.register-mode #mergeOverlay>div{
 <button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnSeparate">別会計</span></button>
 <button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnMerge">他テーブルと合算</span></button>
 <button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnEdit">注文変更</span></button>
-<button class="btn-complete" id="btnService" onclick="completeService()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnService">🎁 サービス（全額無料）</span></button>
 <button class="btn-close-detail" onclick="closeDetail()" data-regI18n="closeBtn">閉じる</button>
 </div>
 </div>
@@ -994,7 +992,7 @@ const REG_I18N = {
     payCash: '現金', payCard: 'クレジットカード', cancel: 'キャンセル',
     statusEmpty: '空席', statusOrdering: '注文中', statusPayment: '🔔 会計リクエスト',
     btnProceedPay: '会計に進む', btnSeparate: '別会計', btnMerge: '他テーブルと合算',
-    btnEdit: '注文変更', btnService: 'サービス（全額無料）', closeBtn: '閉じる',
+    btnEdit: '注文変更', closeBtn: '閉じる',
     headerRegister: 'レジ', back: '戻る', confirm: '確定', total: '合計',
     servedAll: '✓ 全て提供済み', servedPartial: '🍳 未提供あり'
   },
@@ -1004,7 +1002,7 @@ const REG_I18N = {
     payCash: 'Cash', payCard: 'Credit Card', cancel: 'Cancel',
     statusEmpty: 'Empty', statusOrdering: 'Ordering', statusPayment: '🔔 Payment Request',
     btnProceedPay: 'Proceed to Payment', btnSeparate: 'Split Bill', btnMerge: 'Merge with Other Tables',
-    btnEdit: 'Edit Order', btnService: 'Service (Free)', closeBtn: 'Close',
+    btnEdit: 'Edit Order', closeBtn: 'Close',
     headerRegister: 'Register', back: 'Back', confirm: 'Confirm', total: 'Total',
     servedAll: '✓ All Served', servedPartial: '🍳 Unserved'
   }
@@ -1076,7 +1074,7 @@ snap.forEach(d => {
 const data = d.data();
 const o = { id: d.id, ...data };
 orders.push(o);
-if (o.status === 'paid' && o.paymentType !== 'cancelled_by_edit' && !o.deleted) paidOrders.push(o);
+if (o.status === 'paid' && o.paymentType !== 'cancelled_by_edit' && o.paymentType !== 'service' && o.isService !== true && !o.deleted) paidOrders.push(o);
 });
 isInitialOrdersLoad = false;
 rebuildTables();
@@ -4604,35 +4602,6 @@ function confirmCompletePayment() {
   if (typeof cb === 'function') { try { cb(); } catch(e) { console.error('payConfirm cb err:', e); } }
 }
 
-// ────── サービス会計（全額無料・通常集計に含まれない） ──────
-async function completeService() {
-  if (!selectedTable) return;
-  const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid');
-  if (tableOrders.length === 0) {
-    alert('対象の注文がありません');
-    return;
-  }
-  const totalAmount = tableOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-  if (!confirm(`${selectedTable} の注文をすべてサービス（全額無料）にしますか？\n\n対象金額：¥${totalAmount.toLocaleString()}\n\n※ 通常集計には含まれません。サービス集計に記録されます。`)) return;
-  try {
-    const { doc, updateDoc, serverTimestamp } = window.fbApi;
-    await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db,'orders',o.id), {
-      status: 'paid',
-      paymentMethod: 'service',
-      paymentType: 'service',
-      isService: true,            // 集計分離フラグ
-      serviceAmount: o.total || 0, // 元の金額を保存
-      paymentRequested: false,
-      updatedAt: serverTimestamp()
-    })));
-    showToast(`✅ ${selectedTable} 🎁 サービス完了（¥${totalAmount.toLocaleString()}）`);
-    closeDetail();
-  } catch(e) {
-    console.error('completeService failed:', e);
-    showToast('サービス処理に失敗しました', true);
-  }
-}
-
 // ────── 会計取消（直近5分以内の支払いを元に戻す） ──────
 async function openUndoPayment() {
   // 直近5分以内に paid になった注文を抽出
@@ -5860,7 +5829,6 @@ window.completePayment = completePayment; window.finalizePayment = finalizePayme
 window.openPaymentConfirmModal = openPaymentConfirmModal; window.confirmCompletePayment = confirmCompletePayment;
 window.openSquareInputConfirm = openSquareInputConfirm;
 window.openUndoPayment = openUndoPayment; window.undoPaymentForTable = undoPaymentForTable;
-window.completeService = completeService;
 window.openSeparatePayment = openSeparatePayment; window.toggleBetsuItem = toggleBetsuItem;
 window.confirmOnePersonPay = confirmOnePersonPay; window.finishAllBetsu = finishAllBetsu; window._doFinishAllBetsu = _doFinishAllBetsu;
 window.openOrderEdit = openOrderEdit; window.closeOrderEdit = closeOrderEdit;

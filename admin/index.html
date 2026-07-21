@@ -467,7 +467,6 @@ window.adminLogout = adminLogout;
     <div class="nav-item" onclick="switchPage('visits',this)"><span class="nav-icon">👥</span><span>来店分析</span></div>
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
     <div class="nav-item" onclick="switchPage('kanritable',this)"><span class="nav-icon">📋</span><span>管理表</span></div>
-    <div class="nav-item" onclick="switchPage('service',this)"><span class="nav-icon">🎁</span><span>サービス集計</span></div>
     <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
     <div class="nav-item" onclick="switchPage('itemorder',this)"><span class="nav-icon">🔀</span><span>表示順序</span></div>
     <div class="nav-item" onclick="switchPage('maintenance',this)"><span class="nav-icon">🛠️</span><span>メンテナンス</span></div>
@@ -792,40 +791,6 @@ window.adminLogout = adminLogout;
     <div class="kt-noprint" style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
       💡 セルをタップ/クリックして数値を直接編集できます。Enter または別のセルをクリックすると自動保存されます。<br>
       💡 グレー背景の列は APP 集計値・自動計算値（編集不可）。白背景の列は手入力項目。
-    </div>
-  </div>
-
-  <!-- サービス集計ページ -->
-  <div class="page" id="page-service">
-    <div class="page-title">🎁 サービス集計</div>
-    <div class="page-sub">サービス会計（全額無料）の集計。通常売上分析には含まれません。</div>
-    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-      <label style="font-size:13px;color:var(--muted)">対象月：</label>
-      <input type="month" id="serviceMonthFilter" class="form-input" style="width:160px" onchange="renderServicePage()">
-      <button onclick="document.getElementById('serviceMonthFilter').value=''; renderServicePage()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif">全期間</button>
-    </div>
-    <!-- 月次サマリ -->
-    <div class="card" style="margin-bottom:14px;border:1.5px solid #7c3aed">
-      <div class="card-title" style="color:#a855f7"><span id="serviceMonthLabel">🎁 月次サマリ</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:14px">
-        <div style="padding:14px;background:var(--surface2);border-radius:10px">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">サービス件数</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:#fff" id="serviceCount">0</div>
-        </div>
-        <div style="padding:14px;background:var(--surface2);border-radius:10px">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">月の合計金額</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:#a855f7" id="serviceMonthTotal">¥0</div>
-        </div>
-        <div style="padding:14px;background:rgba(124,58,237,0.12);border-radius:10px;border:1px solid #7c3aed">
-          <div style="font-size:11px;color:#c4b5fd;margin-bottom:4px">28% 相当額</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:#a855f7" id="service28Percent">¥0</div>
-        </div>
-      </div>
-    </div>
-    <!-- 個別履歴 -->
-    <div class="card">
-      <div class="card-title">📋 サービス履歴一覧</div>
-      <div id="serviceList" style="margin-top:10px"></div>
     </div>
   </div>
 
@@ -1790,7 +1755,6 @@ function rerenderActivePage() {
   if (document.getElementById('page-soup').classList.contains('active')) renderSoupRanking();
   if (document.getElementById('page-visits').classList.contains('active')) renderVisits();
   if (document.getElementById('page-menu').classList.contains('active')) renderMenuPage();
-  if (document.getElementById('page-service')?.classList.contains('active')) renderServicePage();
 }
 
 // ────── Page switching ──────
@@ -1812,7 +1776,6 @@ function switchPage(name, btn) {
   }
   if (name === 'kanritable') renderKanritable();
   if (name === 'maintenance') renderMaintenancePage();
-  if (name === 'service') renderServicePage();
 }
 
 // ────── 管理表ページ ──────
@@ -2273,74 +2236,6 @@ function exportKanritableCSV() {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('📥 CSV出力完了');
-}
-
-// ────── サービス集計ページ ──────
-function renderServicePage() {
-  const monthFilter = document.getElementById('serviceMonthFilter');
-  // 月フィルタ未指定なら今月をデフォルト
-  if (monthFilter && !monthFilter.value) {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth()+1).padStart(2,'0');
-    monthFilter.value = `${yyyy}-${mm}`;
-  }
-  const monthVal = monthFilter ? monthFilter.value : ''; // "YYYY-MM" or ""
-  // フィルタ適用
-  let filtered = serviceOrders.slice();
-  if (monthVal) {
-    filtered = filtered.filter(o => {
-      const d = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null;
-      if (!d) return false;
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      return `${yyyy}-${mm}` === monthVal;
-    });
-  }
-  // ソート（新しい順）
-  filtered.sort((a, b) => {
-    const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-    const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-    return tb - ta;
-  });
-  // 集計
-  const count = filtered.length;
-  const monthTotal = filtered.reduce((s, o) => s + (Number(o.serviceAmount || o.total) || 0), 0);
-  const percent28 = Math.round(monthTotal * 0.28);
-  // 月ラベル
-  const monthLabelEl = document.getElementById('serviceMonthLabel');
-  if (monthLabelEl) {
-    monthLabelEl.textContent = monthVal ? `🎁 ${monthVal.replace('-','年')}月 サマリ` : '🎁 全期間サマリ';
-  }
-  // サマリ更新
-  const cntEl = document.getElementById('serviceCount'); if (cntEl) cntEl.textContent = count;
-  const totEl = document.getElementById('serviceMonthTotal'); if (totEl) totEl.textContent = `¥${monthTotal.toLocaleString()}`;
-  const p28El = document.getElementById('service28Percent'); if (p28El) p28El.textContent = `¥${percent28.toLocaleString()}`;
-  // 一覧
-  const listEl = document.getElementById('serviceList');
-  if (!listEl) return;
-  if (count === 0) {
-    listEl.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px">該当するサービス会計がありません</div>`;
-    return;
-  }
-  listEl.innerHTML = filtered.map(o => {
-    const d = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null;
-    const dateStr = d ? `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '—';
-    const tLabel = o.tableLabel || o.table || '?';
-    const subtotal = Number(o.serviceAmount || o.total) || 0;
-    const items = Array.isArray(o.items) ? o.items : [];
-    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-family:'Oswald',sans-serif;font-size:18px;color:#fff">${tLabel}</span>
-          <span style="font-size:11px;color:var(--muted)">${dateStr}</span>
-          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,58,237,0.2);color:#a855f7">🎁 サービス</span>
-        </div>
-        <span style="font-family:'Oswald',sans-serif;font-size:18px;color:#a855f7;font-weight:700">¥${subtotal.toLocaleString()}</span>
-      </div>
-      <div style="font-size:11px;color:#aaa;line-height:1.6">${items.map(it => `${it.name}×${it.qty}`).join(' / ')}</div>
-    </div>`;
-  }).join('');
 }
 
 // ────── メンテナンスページ ──────
@@ -5782,7 +5677,6 @@ window.forceRefreshAndRender = async function() {
 };
 window.deleteAllOrders = deleteAllOrders;
 window.copyTestUrl = copyTestUrl;
-window.renderServicePage = renderServicePage;
 window.copyDailyReport = copyDailyReport;
 window.copyNightReport = copyNightReport;
 // 商品管理
