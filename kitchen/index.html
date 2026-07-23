@@ -1074,7 +1074,7 @@ snap.forEach(d => {
 const data = d.data();
 const o = { id: d.id, ...data };
 orders.push(o);
-if (o.status === 'paid' && o.paymentType !== 'cancelled_by_edit' && o.paymentType !== 'service' && o.isService !== true && !o.deleted) paidOrders.push(o);
+if (o.status === 'paid' && o.paymentType !== 'cancelled_by_edit' && o.paymentType !== 'service' && o.isService !== true && !o.deleted && o.testMode !== true && String(o.table || o.tableLabel || '').toUpperCase() !== 'TEST') paidOrders.push(o);
 });
 isInitialOrdersLoad = false;
 rebuildTables();
@@ -1742,6 +1742,9 @@ function updateKitchenStatsBar() {
     if (o.paymentType === 'cancelled_by_edit') return false;
     if (o.status === 'cancelled') return false;
     if (o.deleted) return false; // 履歴で削除された注文は売上集計から除外
+    // テスト注文は売上集計から除外（管理APPと同一判定：testModeフラグ or TESTテーブル）
+    if (o.testMode === true) return false;
+    if (String(o.table || o.tableLabel || '').toUpperCase() === 'TEST') return false;
     const ts = (o.updatedAt && o.updatedAt.toDate) ? o.updatedAt.toDate() : ((o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate() : null);
     if (!ts) return false;
     const k = `${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')}`;
