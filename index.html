@@ -264,7 +264,7 @@ body.dark-bg{background:#111}
 </script>
 
 <!-- Canonical menu data (3アプリ共通) -->
-<script src="./menu-canonical.js"></script>
+<script src="./menu-canonical.js?v=20260724"></script>
 
 <!-- Firebase status -->
 <div class="fb-status" id="fbStatus">
@@ -904,6 +904,8 @@ function rebuildMenu() {
     const ov = _menuOverrides[String(m.id)] || {};
     if (ov.deleted) return; // 完全削除済み（管理APP で「完全削除」されたもの）はオーダーAPPからも除外
     if (ov.hidden) return; // 非表示
+    // 販売終了（canonical discontinued）：オーダーAPPでは非表示。キッチン/管理APPは集計のため保持。
+    if (m.discontinued) return;
     let item = { ...m };
     // name override 反映
     if (ov.nameOverride) item.name = { ...m.name, ...ov.nameOverride };
@@ -914,7 +916,7 @@ function rebuildMenu() {
     if (typeof ov.priceOverride === 'number') item.price = ov.priceOverride;
     if (ov.imageUrl) item.img = ov.imageUrl;
     if (ov.descOverride && typeof ov.descOverride === 'object') item.desc = ov.descOverride;
-    item.subCat = ov.subCatOverride || '';
+    item.subCat = ov.subCatOverride || m.subCat || '';
     item._sortOrder = (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1);
     merged.push(wrapLunchFree(item));
   });
@@ -2094,7 +2096,13 @@ function renderMenu(){
       return;
     }
     // サブカテゴリでグループ化（管理APP「カテゴリ管理」の order に従う）
-    const registeredSubs = (_subCategories || []).filter(s => s.cat === cat).sort((a,b) => (a.order||0) - (b.order||0));
+    //   Firestore(_subCategories) を優先し、コード定義(MOTONARI.SUBCATEGORIES)で未登録分を補完。
+    const _fsSubs = (_subCategories || []).filter(s => s.cat === cat);
+    const _fsSubJa = new Set(_fsSubs.map(s => (typeof s.name === 'string' ? s.name : (s.name && s.name.ja)) || ''));
+    const _codeSubs = ((MOTONARI.SUBCATEGORIES && MOTONARI.SUBCATEGORIES[cat]) || [])
+      .filter(cs => !_fsSubJa.has(cs.ja))
+      .map(cs => ({ cat, name:{ ja:cs.ja, en:cs.en, zh:cs.zh, ko:cs.ko }, order: (typeof cs.order === 'number' ? cs.order : 100) }));
+    const registeredSubs = _fsSubs.concat(_codeSubs).sort((a,b) => (a.order||0) - (b.order||0));
     // 子カテゴリの表示名を多言語対応で取得
     const subNameFor = (s, langKey) => {
       if (!s || !s.name) return '';

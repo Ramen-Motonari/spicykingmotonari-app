@@ -72,6 +72,14 @@
     takeout:  { ja:'テイクアウト', en:'Takeout',  zh:'外带',     ko:'테이크아웃', icon:'🥡' }
   };
 
+  // ===== サブカテゴリ定義（コード側の既定。管理APPの subCategories が優先）=====
+  //   オーダーAPPは商品の subCat(ja) をキーに、ここ／Firestore の多言語名で見出しを表示する。
+  const SUBCATEGORIES = {
+    shouyu: [
+      { ja:'ナガサワくん', en:'Onion & Egg', zh:'洋葱和鸡蛋', ko:'양파와 계란', order:100 }
+    ]
+  };
+
   // ===== ステータス定義 =====
   const ORDER_STATUS = {
     pending:   { ja:'受付済',   en:'Received',   color:'#e65100' },
@@ -89,7 +97,11 @@
 
   // ===== メニュー本体 =====
   // schema: {id, cat, img, name:{ja,en,zh,ko}, price, spicy, night, pirikara, ghost,
-  //          lunchFreeBase, custom:{chashu, noodleSize, kata, karasaAdd, top, rice}}
+  //          lunchFreeBase, subCat, discontinued, custom:{chashu, noodleSize, kata, karasaAdd, top, rice}}
+  //   subCat: オーダーAPPのサブカテゴリ見出し(ja)。SUBCATEGORIES と対応。
+  //   discontinued: true でオーダーAPP非表示（キッチン/管理は集計のため保持）。
+  //   ※ desc:{ja,en,zh,ko}（商品説明）はコード定義には持たず、管理APP（menuOverrides.descOverride /
+  //     customMenuItems.desc）から付与される任意フィールド。未設定ならオーダー画面で非表示。
   const MENU_ITEMS = [
     // ── 豚骨 ──
     {id:1, cat:'tonkotsu', img:'🍜',
@@ -130,21 +142,37 @@
     {id:9, cat:'shouyu', img:'🍜',
      name:{ja:'スパイシー醤油スペシャル', en:'Spicy Shouyu Special', zh:'辣味酱油特别版', ko:'스파이시 쇼유 스페셜'},
      price:1600, spicy:true, night:false, custom:{chashu:1, noodleSize:1}},
+    // ── ネギ玉シリーズ（2026-07 販売終了 / 8月1日 完全削除予定）──
+    //   discontinued:true → オーダーAPPでは非表示。7月分の集計を残すためキッチン/管理APPでは保持。
     {id:10, cat:'shouyu', img:'🍜',
      name:{ja:'ネギ玉醤油', en:'Negi-tama Shouyu', zh:'葱玉酱油', ko:'네기타마 쇼유'},
-     price:1100, spicy:false, night:false, pirikara:true, custom:{chashu:1, noodleSize:1}},
+     price:1100, spicy:false, night:false, pirikara:true, discontinued:true, custom:{chashu:1, noodleSize:1}},
     {id:13, cat:'shouyu', img:'🍜',
      name:{ja:'ネギ玉ダブル（玉子2個）', en:'Negi-tama Double', zh:'葱玉双蛋', ko:'네기타마 더블'},
-     price:1200, spicy:false, night:false, pirikara:true, custom:{chashu:1, noodleSize:1}},
+     price:1200, spicy:false, night:false, pirikara:true, discontinued:true, custom:{chashu:1, noodleSize:1}},
     {id:11, cat:'shouyu', img:'🍜',
      name:{ja:'ネギ玉醤油スペシャル', en:'Negi-tama Shouyu Special', zh:'葱玉酱油特别版', ko:'네기타마 쇼유 스페셜'},
-     price:1550, spicy:false, night:false, pirikara:true, custom:{chashu:1, noodleSize:1}},
+     price:1550, spicy:false, night:false, pirikara:true, discontinued:true, custom:{chashu:1, noodleSize:1}},
     {id:14, cat:'shouyu', img:'🍜',
      name:{ja:'ネギ玉スパイシー醤油', en:'Negi-tama Spicy Shouyu', zh:'葱玉辣味酱油', ko:'네기타마 스파이시 쇼유'},
-     price:1250, spicy:true, night:false, custom:{chashu:1, noodleSize:1}},
+     price:1250, spicy:true, night:false, discontinued:true, custom:{chashu:1, noodleSize:1}},
     {id:15, cat:'shouyu', img:'🍜',
      name:{ja:'ネギ玉スパイシー醤油スペシャル', en:'Negi-tama Spicy Shouyu Special', zh:'葱玉辣味酱油特别版', ko:'네기타마 스파이시 쇼유 스페셜'},
-     price:1600, spicy:true, night:false, custom:{chashu:1, noodleSize:1}},
+     price:1600, spicy:true, night:false, discontinued:true, custom:{chashu:1, noodleSize:1}},
+
+    // ── ナガサワくん（Onion & Egg）── サブカテゴリ: ナガサワくん
+    {id:30, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
+     name:{ja:'ナガサワくん', en:'Nagasawa-kun', zh:'长泽君', ko:'나가사와군'},
+     price:1150, spicy:false, night:false, custom:{chashu:1, noodleSize:1}},
+    {id:31, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
+     name:{ja:'ナガサワくんスペシャル', en:'Nagasawa-kun Special', zh:'长泽君特别版', ko:'나가사와군 스페셜'},
+     price:1600, spicy:false, night:false, custom:{chashu:1, noodleSize:1}},
+    {id:32, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
+     name:{ja:'ワイルドナガサワくん', en:'Wild Nagasawa-kun', zh:'狂野长泽君', ko:'와일드 나가사와군'},
+     price:1300, spicy:true, night:false, custom:{chashu:1, noodleSize:1}},
+    {id:33, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
+     name:{ja:'ワイルドナガサワくんスペシャル', en:'Wild Nagasawa-kun Special', zh:'狂野长泽君特别版', ko:'와일드 나가사와군 스페셜'},
+     price:1750, spicy:true, night:false, custom:{chashu:1, noodleSize:1}},
 
     // ── 定食 ──
     {id:70, cat:'teishoku', img:'🥟',
@@ -386,7 +414,7 @@
   function classifyByName(name) {
     if (!name) return 'side';
     if (name.includes('定食')) return 'teishoku';
-    const ramenKw = ['SKSP','SK','SKC','カレー','チーズカレー','醤油','ネギ玉','スパイシー','イカスミ','ゴースト'];
+    const ramenKw = ['SKSP','SK','SKC','カレー','チーズカレー','醤油','ネギ玉','ナガサワ','スパイシー','イカスミ','ゴースト'];
     if (ramenKw.some(k => name.includes(k))) return 'ramen';
     const drinkKw = ['ビール','ハイボール','焼酎','サワー','ウーロン','コーラ','オレンジ','泡盛','緑茶','コーヒー','ジュース'];
     if (drinkKw.some(k => name.includes(k))) return 'drink';
@@ -397,7 +425,7 @@
   global.MOTONARI = {
     VERSION: '1.0.0',
     SEAT_LABELS, SEAT_ALIASES, normalizeTable,
-    CATEGORIES, ORDER_STATUS, SPICY_LEVELS, MENU_ITEMS,
+    CATEGORIES, SUBCATEGORIES, ORDER_STATUS, SPICY_LEVELS, MENU_ITEMS,
     getMenuById, getMenuByCategory, getNameJa, getName, getPrice,
     isLunchWeekday, isNightTime, isAvailable, extractSpicyLevel,
     statusLabel, getLogicalCategory, classifyByName

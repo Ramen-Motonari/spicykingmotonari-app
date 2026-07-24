@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 window.adminLogout = adminLogout;
 </script>
-<script src="./menu-canonical.js"></script>
+<script src="./menu-canonical.js?v=20260724"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <nav class="sidebar">
@@ -1341,8 +1341,9 @@ function getMergedMenu() {
       night: (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : m.night,
       pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : m.pirikara,
       imageUrl: ov.imageUrl || null,
-      subCat: ov.subCatOverride || '',
+      subCat: ov.subCatOverride || m.subCat || '',
       _hidden: !!ov.hidden,
+      _discontinued: !!m.discontinued,
       _isCanonical: true,
       _overridePrice: ov.priceOverride,
       _sortOrder: (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1)
@@ -4176,6 +4177,7 @@ function renderMenuPage() {
         <div class="menu-card-price">¥${displayPrice.toLocaleString()}${m.lunchFreeBase ? ' <span style="font-size:10px;color:var(--green)">(平日昼無料)</span>' : ''}</div>
         <div class="menu-card-meta">
           <span class="meta-tag tag-cat">${catLabel(m.cat)}</span>
+          ${m._discontinued ? '<span class="meta-tag" style="background:rgba(192,57,43,0.2);color:#c0392b;border:1px solid #c0392b">🛑 販売終了</span>' : ''}
           ${m.subCat ? `<span class="meta-tag" style="background:rgba(41,128,185,0.2);color:#2980b9;border:1px solid #2980b9">📁 ${m.subCat}</span>` : ''}
           ${m.spicy ? '<span class="meta-tag tag-spicy">🌶 SPICY</span>' : ''}
           ${m.night ? '<span class="meta-tag tag-night">🌙 夜限定</span>' : ''}
@@ -4514,7 +4516,7 @@ function openEditItemModal(editKey) {
       night: (typeof ov.nightOverride === 'boolean') ? ov.nightOverride : !!canon.night,
       pirikara: (typeof ov.pirikaraOverride === 'boolean') ? ov.pirikaraOverride : !!canon.pirikara,
       kitchenName: ov.kitchenName || '',
-      subCat: ov.subCatOverride || '',
+      subCat: ov.subCatOverride || canon.subCat || '',
       desc: (ov.descOverride && typeof ov.descOverride === 'object') ? { ja: ov.descOverride.ja||'', en: ov.descOverride.en||'', zh: ov.descOverride.zh||'', ko: ov.descOverride.ko||'' } : { ja:'', en:'', zh:'', ko:'' },
       lunchFreeBase: canon.lunchFreeBase
     };
