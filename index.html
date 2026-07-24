@@ -2903,19 +2903,25 @@ function sideAddonCardHTML(key,item){
     </div>`;
 }
 function renderSideAddonSection(key,label,items,sepStyle){
-  // 鉄板チャーハンシリーズと、その他サイドに仕分け（シリーズは id 順で先頭が鉄板チャーハン）
-  const seriesItems = items.filter(m=>CHAAHAN_SERIES_IDS.includes(m.id))
-    .sort((a,b)=>CHAAHAN_SERIES_IDS.indexOf(a.id)-CHAAHAN_SERIES_IDS.indexOf(b.id));
-  const rest = items.filter(m=>!CHAAHAN_SERIES_IDS.includes(m.id));
+  // 鉄板チャーハンシリーズと、その他サイドに仕分け。
+  //   チャーハン系は canonical id 80〜84 だけでなく、店舗がカスタム登録した
+  //   「〇〇チャーハン」（からあげ／餃子／チャーシュー／とんかつ 等）も名前判定でまとめて
+  //   アコーディオンに集約する。並び順は canonical(80〜84) を先頭に、その後にカスタムを続ける。
+  const seriesItems = items.filter(m=>isChaahanItem(m))
+    .sort((a,b)=>{
+      const ai=CHAAHAN_SERIES_IDS.indexOf(a.id), bi=CHAAHAN_SERIES_IDS.indexOf(b.id);
+      return (ai<0?999:ai)-(bi<0?999:bi);
+    });
+  const rest = items.filter(m=>!isChaahanItem(m));
   let h=`<div class="option-group" style="${sepStyle}">${addonSectionLabel(label)}`;
   if(seriesItems.length){
     const seriesLabel = ({ja:'鉄板チャーハンシリーズ',en:'Teppan Fried Rice Series',zh:'铁板炒饭系列',ko:'철판볶음밥 시리즈'})[lang] || '鉄板チャーハンシリーズ';
     const selCount = seriesItems.reduce((s,m)=>s+((curOpts[key+'Items'] && curOpts[key+'Items'][m.id])||0),0);
     const open = chaahanSeriesOpen || selCount>0;
     h+=`<div style="margin-bottom:8px">
-      <button type="button" onclick="toggleChaahanSeries()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:10px;border:1.5px solid ${selCount>0?'var(--accent)':'var(--border)'};background:${selCount>0?'rgba(200,134,10,.06)':'transparent'};cursor:pointer">
+      <button type="button" onclick="toggleChaahanSeries()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:10px;border:1.5px solid ${selCount>0?'var(--accent)':'var(--border)'};background:${selCount>0?'rgba(200,134,10,.06)':'transparent'};cursor:pointer">
         <span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;color:#1a1a1a">
-          <span style="font-size:18px">🍳</span>${seriesLabel}
+          <span style="font-size:16px">🍳</span>${seriesLabel}
           ${selCount>0?`<span style="font-family:'Oswald',sans-serif;font-size:12px;color:#fff;background:var(--accent);border-radius:999px;padding:1px 8px">${selCount}</span>`:''}
         </span>
         <span style="font-size:14px;color:var(--muted);transform:rotate(${open?180:0}deg);transition:transform .2s">▾</span>
