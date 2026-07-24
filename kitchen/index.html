@@ -8,13 +8,13 @@
 // ────── テーブル QR ガード ──────
 // キッチンAPP に「?table=...」付きでアクセスされた場合 = お客様がテーブルQRをスキャンしたが
 // 誤ってキッチンAPP のパスに来てしまったケース。
-// 「/order-app/」へ明示的に転送する（ルート / が他のアプリに置き換わっていても確実）
+// 店舗はルート / でオーダーAPP を運用しているため、ルート / へ転送する。
 (function(){
   try {
     var p = new URLSearchParams(location.search);
     if (p.get('table')) {
       var basePath = location.pathname.replace(/\/(kitchen|order-app)\/?.*$/, '/');
-      var dest = location.origin + basePath + 'order-app/' + location.search + location.hash;
+      var dest = location.origin + basePath + location.search + location.hash;
       if (dest !== location.href) {
         location.replace(dest);
       }

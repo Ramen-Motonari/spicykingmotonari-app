@@ -2226,10 +2226,8 @@ function exportKanritableCSV() {
 
 // ────── メンテナンスページ ──────
 function renderMaintenancePage() {
-  // オーダーAPPの URL は明示的に /order-app/ パスを指定する
-  //   ・ルート / が万が一別アプリ（kitchen 等）に置き換わっていても
-  //     order-app/ への直接リンクなら確実にオーダーAPP が起動する
-  let base = location.origin + location.pathname.replace(/\/(admin|kitchen|order-app)\/?.*$/, '/') + 'order-app/';
+  // 店舗はルート / でオーダーAPP を運用しているため、ルート / の URL を発行する
+  let base = location.origin + location.pathname.replace(/\/(admin|kitchen|order-app)\/?.*$/, '/');
   const normalUrl = base + '?table=T1';
   const testUrl = base + '?table=T1&test=1';
   const n = document.getElementById('testUrlNormal'); if (n) n.textContent = normalUrl;
