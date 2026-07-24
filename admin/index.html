@@ -1086,9 +1086,18 @@ function getItemLogicalCat(item) {
   return MOTONARI.classifyByName((item && item.name) || '');
 }
 
+// 営業日の締め時刻（時）。この時刻より前（深夜）の注文は「前日の営業」として集計する。
+//   例: 2 → 深夜0:00〜1:59 の注文は前日扱い。日付を跨いだ深夜営業を前日の日報に含める。
+const BUSINESS_DAY_CUTOFF_HOUR = 2;
+
+// 指定日時が属する「営業日」キー(YYYY-MM-DD)。締め時刻ぶん時刻を巻き戻してから日付を取る。
+function businessDateKey(d) {
+  const shifted = new Date(d.getTime() - BUSINESS_DAY_CUTOFF_HOUR * 3600 * 1000);
+  return `${shifted.getFullYear()}-${String(shifted.getMonth()+1).padStart(2,'0')}-${String(shifted.getDate()).padStart(2,'0')}`;
+}
 function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // 現在の「営業日」。深夜2時までは前日の営業日として扱う。
+  return businessDateKey(new Date());
 }
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1101,7 +1110,8 @@ function getOrderTimestamp(o) {
 }
 function getOrderDateKey(o) {
   const d = getOrderTimestamp(o);
-  return d ? dateKey(d) : '';
+  // 営業日ベース：深夜2時までの注文は前日の営業日として集計する。
+  return d ? businessDateKey(d) : '';
 }
 function getOrderHour(o) {
   const d = getOrderTimestamp(o);
@@ -1109,11 +1119,13 @@ function getOrderHour(o) {
 }
 
 // ランチ判定: 11:00〜14:59
-// 夜営業: 17:00〜23:59
+// 夜営業: 17:00〜翌2:00（深夜0:00〜1:59 は前日の夜営業として dinner 扱い）
 // 中間時間（15:00〜16:59）はランチ集計に含める（営業時間外注文として）
 function getSession(o) {
   const h = getOrderHour(o);
   if (h < 0) return null;
+  // 締め時刻前の深夜（0:00〜1:59）は前営業日の夜営業に含める
+  if (h < BUSINESS_DAY_CUTOFF_HOUR) return 'dinner';
   if (h >= 17) return 'dinner';
   return 'lunch';
 }
@@ -2617,7 +2629,7 @@ function renderDashboard() {
 
   // 前日比
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const yKey = dateKey(yesterday);
+  const yKey = businessDateKey(yesterday); // 前営業日（深夜2時締めベース）
   const yOrders = paidOrders.filter(o => {
     if (getOrderDateKey(o) !== yKey) return false;
     if (sess === 'all') return true;
