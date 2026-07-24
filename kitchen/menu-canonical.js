@@ -160,19 +160,12 @@
      name:{ja:'ネギ玉スパイシー醤油スペシャル', en:'Negi-tama Spicy Shouyu Special', zh:'葱玉辣味酱油特别版', ko:'네기타마 스파이시 쇼유 스페셜'},
      price:1600, spicy:true, night:false, discontinued:true, custom:{chashu:1, noodleSize:1}},
 
-    // ── ナガサワくん（Onion & Egg）── サブカテゴリ: ナガサワくん
-    {id:30, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
-     name:{ja:'ナガサワくん', en:'Nagasawa-kun', zh:'长泽君', ko:'나가사와군'},
-     price:1150, spicy:false, night:false, custom:{chashu:1, noodleSize:1}},
-    {id:31, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
-     name:{ja:'ナガサワくんスペシャル', en:'Nagasawa-kun Special', zh:'长泽君特别版', ko:'나가사와군 스페셜'},
-     price:1600, spicy:false, night:false, custom:{chashu:1, noodleSize:1}},
-    {id:32, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
-     name:{ja:'ワイルドナガサワくん', en:'Wild Nagasawa-kun', zh:'狂野长泽君', ko:'와일드 나가사와군'},
-     price:1300, spicy:true, night:false, custom:{chashu:1, noodleSize:1}},
-    {id:33, cat:'shouyu', img:'🍜', subCat:'ナガサワくん',
-     name:{ja:'ワイルドナガサワくんスペシャル', en:'Wild Nagasawa-kun Special', zh:'狂野长泽君特别版', ko:'와일드 나가사와군 스페셜'},
-     price:1750, spicy:true, night:false, custom:{chashu:1, noodleSize:1}},
+    // ── ナガサワくん（Onion & Egg）──
+    //   ※ 商品本体は店舗が管理APPで「カスタム商品」として手動登録済み（Firestore customMenuItems）。
+    //     コード側には商品定義を持たない（二重登録を避けるため）。
+    //     チャーシュー選択(豚/鶏) と ワイルド系のSPICYバッジは、オーダーAPPの rebuildMenu で
+    //     商品名パターン('ナガサワ' / 'ワイルドナガサワ')により動的付与する（下記 NAGASAWA 注入）。
+    //     サブカテゴリ見出しは上記 SUBCATEGORIES（コード既定）＋ Firestore subCategories で表示。
 
     // ── 定食 ──
     {id:70, cat:'teishoku', img:'🥟',

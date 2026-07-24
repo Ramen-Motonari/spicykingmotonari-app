@@ -3752,10 +3752,38 @@ const SOUP_GROUPS = {
   shouyu:    { ids: [7, 6],               chart: 'shouyu-count-chart',       total: 'shouyu-total' },
   spicySh:   { ids: [8, 9],               chart: 'spicy-shouyu-count-chart', total: 'spicySh-total' },
   negitama:  { ids: [10, 11, 13, 14, 15], chart: 'negitama-count-chart',     total: 'negitama-total' },
-  nagasawa:  { ids: [30, 31, 32, 33],     chart: 'nagasawa-count-chart',     total: 'nagasawa-total' },
+  // ナガサワくんシリーズは店舗が管理APPで手動登録したカスタム商品。
+  //   カスタムIDが店舗ごとに不定のため、注文に保存された商品名スナップショットのパターンで分類する。
+  nagasawa:  { rows: countNagasawaRows,     chart: 'nagasawa-count-chart',    total: 'nagasawa-total' },
   // つけ麺・定食：ぎょうざ定食 / SKつけ麺 / スパイシーつけ麺（明示的な行定義）
   gyoza:     { rows: countTsukemenTeishokuRows, chart: 'gyoza-count-chart',  total: 'gyoza-total' }
 };
+
+// ナガサワくんシリーズの内訳行（カスタム商品）。
+//   商品IDが不定のため、注文アイテムの name（多言語スナップショット）で4種を判定する。
+//   ・ナガサワくん / ナガサワくんスペシャル / ワイルドナガサワくん / ワイルドナガサワくんスペシャル
+function countNagasawaRows(filtered, includeBaseline) {
+  const isNagasawa = (nm) => /ナガサワ|nagasawa|长泽|長澤|나가사와/i.test(nm);
+  const isWild     = (nm) => /ワイルド|wild|狂野|와일드/i.test(nm);
+  const isSpecial  = (nm) => /スペシャル|special|特别|特別|스페셜/i.test(nm);
+  const counts = { plain: 0, special: 0, wild: 0, wildSpecial: 0 };
+  (filtered || []).forEach(o => (o.items || []).forEach(item => {
+    const nm = ((item.name || '') + '');
+    if (!isNagasawa(nm)) return;
+    const q = item.qty || 0;
+    const w = isWild(nm), s = isSpecial(nm);
+    if (w && s) counts.wildSpecial += q;
+    else if (w) counts.wild += q;
+    else if (s) counts.special += q;
+    else counts.plain += q;
+  }));
+  return [
+    { id: 'nagasawa-plain',       label: 'ナガサワくん',                 count: counts.plain },
+    { id: 'nagasawa-special',     label: 'ナガサワくんスペシャル',        count: counts.special },
+    { id: 'nagasawa-wild',        label: 'ワイルドナガサワくん',          count: counts.wild },
+    { id: 'nagasawa-wildSpecial', label: 'ワイルドナガサワくんスペシャル', count: counts.wildSpecial }
+  ];
+}
 
 // つけ麺・定食グループの内訳行（ぎょうざ定食 #70 / SKつけ麺 #10012 / スパイシーつけ麺）
 //   SKつけ麺はこれまでの全注文を集計。スパイシー変更分（isSpicyTsukemen）は別行にカウント。

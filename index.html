@@ -974,6 +974,21 @@ function rebuildMenu() {
   // カスタム商品（ラム酒等）にコード側の選択肢を付与（canonicalの drinkOpt は上書きしない）
   menu.forEach(it => { if (DRINK_OPT_BY_ID[it.id] && !it.drinkOpt) it.drinkOpt = DRINK_OPT_BY_ID[it.id]; });
 
+  // ナガサワくんシリーズ（店舗が管理APPで手動登録したカスタム商品）に、
+  // コード側からチャーシュー選択(豚/鶏 必須)と、ワイルド系のSPICYバッジを付与する。
+  //   ・カスタム商品IDは店舗ごとに異なるため、商品名(ja)のパターンで判定する。
+  //   ・'ナガサワ' を含む → custom.chashu=1（＋noodleSize=1で麺量選択）を注入。
+  //   ・'ワイルドナガサワ' を含む → spicy=true（🌶SPICYバッジ＋辛さ選択）を注入。
+  //   ・管理APPで既に該当フラグ/選択肢が付いている場合は上書きしない。
+  menu.forEach(it => {
+    const nm = (it.name && it.name.ja) || '';
+    if (nm.indexOf('ナガサワ') === -1) return;
+    it.custom = { ...(it.custom || {}) };
+    if (!it.custom.chashu)     it.custom.chashu = 1;
+    if (!it.custom.noodleSize) it.custom.noodleSize = 1;
+    if (nm.indexOf('ワイルドナガサワ') !== -1 && !it.spicy) it.spicy = true;
+  });
+
   // カテゴリラベル更新（カスタムカテゴリのラベルを反映）
   _customCategories.forEach(c => {
     if (c.key) {
