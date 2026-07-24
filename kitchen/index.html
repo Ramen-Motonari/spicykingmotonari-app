@@ -507,9 +507,13 @@ body.register-mode #sideListBtn{color:#111111 !important}
 #detailOverlay .order-line-sub{color:#5a5a5a}
 /* 会計詳細の副ボタン（インラインで color:#fff & surface3 背景 → 明色地に白文字で不可視になるため上書き） */
 #detailOverlay #btnSeparate,
-#detailOverlay #btnMerge,
-#detailOverlay #btnEdit{
+#detailOverlay #btnMerge{
   background:#f0f0f2 !important;color:#111111 !important;border-color:#c9c9cf !important;
+}
+/* 注文変更ボタン：注文一覧の上に配置・オレンジ地に白文字で目立たせる */
+#detailOverlay #btnEdit{
+  background:#ff6b00 !important;color:#ffffff !important;border-color:#ff6b00 !important;
+  width:100%;margin:0 0 10px;padding:14px;border-radius:12px;font-size:15px;font-weight:900;
 }
 /* 会計詳細モーダルをフル1ページ表示に（上の余白を排除） */
 body.register-mode #detailOverlay.detail-overlay{align-items:stretch;background:#ffffff}
@@ -712,6 +716,9 @@ body.register-mode #mergeOverlay>div{
 <button class="lang-btn" data-lang="zh" onclick="setDetailLang('zh')">中文</button>
 <button class="lang-btn" data-lang="ko" onclick="setDetailLang('ko')">한국어</button>
 </div>
+<div style="padding:4px 16px 0">
+<button class="btn-complete" id="btnEdit" onclick="openOrderEdit()"><span data-regI18n="btnEdit">注文変更</span></button>
+</div>
 <div class="order-history" id="orderHistory"></div>
 <div class="detail-total">
 <div class="detail-total-label">合計金額（税込）</div>
@@ -721,7 +728,6 @@ body.register-mode #mergeOverlay>div{
 <button class="btn-complete" id="btnComplete" onclick="completePayment('normal')" style="background:var(--accent2)"><span data-regI18n="btnProceedPay">会計に進む</span></button>
 <button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnSeparate">別会計</span></button>
 <button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnMerge">他テーブルと合算</span></button>
-<button class="btn-complete" id="btnEdit" onclick="openOrderEdit()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnEdit">注文変更</span></button>
 <button class="btn-close-detail" onclick="closeDetail()" data-regI18n="closeBtn">閉じる</button>
 </div>
 </div>
