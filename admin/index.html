@@ -601,8 +601,6 @@ window.adminLogout = adminLogout;
         <div id="dinner-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-top:14px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">麺サイズ・替え玉</div>
         <div id="dinner-noodle-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
-        <div style="font-size:11px;font-weight:700;color:#e65100;letter-spacing:1px;margin-top:14px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">🍻 ハッピーアワー</div>
-        <div id="dinner-hh-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
       </div>
     </div>
   </div>
@@ -682,18 +680,6 @@ window.adminLogout = adminLogout;
         <div class="an-kpi-label">ドリンク率</div>
         <div class="an-kpi-value" style="color:#7b1fa2" id="an-drink-rate">0%</div>
         <div class="an-kpi-prev">件数 <span id="an-drink-count">0</span></div>
-      </div>
-    </div>
-    <div class="an-kpi-grid an-kpi-cols-4" style="margin-top:14px">
-      <div class="an-kpi-card">
-        <div class="an-kpi-label">🍺 HHアルコールコース</div>
-        <div class="an-kpi-value" style="color:#e65100" id="an-hh-alcohol">0</div>
-        <div class="an-kpi-prev">件（無料1杯＝1件）</div>
-      </div>
-      <div class="an-kpi-card">
-        <div class="an-kpi-label">🥤 HHソフドリコース</div>
-        <div class="an-kpi-value" style="color:#0277bd" id="an-hh-soft">0</div>
-        <div class="an-kpi-prev">件（無料1杯＝1件）</div>
       </div>
     </div>
     <div class="card" style="margin-bottom:16px">
@@ -2901,40 +2887,6 @@ function calcNoodleOptionCounts(orders) {
   };
 }
 
-// ハッピーアワーのコース利用件数を集計。
-//   ・各コースは「無料ドリンク（hhFree:true）」を必ず1つ生む（アルコール=無料1杯 / ソフドリ=安い方1杯）。
-//     従って hhFree:true の件数 = そのコースの利用回数。
-//   ・alcoholFreeDrinks / softFreeDrinks は無料で提供したドリンク杯数（=コース件数と同じ）。
-function calcHappyHourCounts(orders) {
-  let alcohol = 0;   // アルコールコース件数
-  let soft = 0;      // ソフドリコース件数
-  (orders || []).forEach(o => {
-    (o.items || []).forEach(item => {
-      if (!item || !item.hhFree) return;
-      const qty = Number(item.qty) || 1;
-      if (item.hhCourse === 'alcohol') alcohol += qty;
-      else if (item.hhCourse === 'soft') soft += qty;
-    });
-  });
-  return { alcohol, soft, total: alcohol + soft };
-}
-
-// 日報用：ハッピーアワー件数の表示HTML
-function renderHappyHourCountHTML(hh) {
-  const row = (label, count) => {
-    const isZero = count === 0;
-    return `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;font-size:12px;${isZero?'opacity:0.4':''}">
-      <span style="color:#ccc">${label}</span>
-      <span style="font-family:'Oswald',sans-serif;color:${isZero?'var(--muted)':'#e65100'};font-weight:700">${count}</span>
-    </div>`;
-  };
-  let html = '';
-  html += row('🍺 アルコールコース', hh.alcohol);
-  html += row('🥤 ソフドリコース', hh.soft);
-  html += `<div style="font-size:10px;color:var(--muted);margin-top:2px;padding:2px 8px;font-style:italic">※コース利用回数（無料提供1杯＝1件）</div>`;
-  return html;
-}
-
 // サイド/トッピング/ドリンクのアテンドレート計算
 //   レート = アイテムqty合計 ÷ 客数 × 100（% 表記、小数1位）
 //   トッピングは替え玉(id=40)・半替え玉(id=41) を除外（別途集計のため）
@@ -3167,10 +3119,6 @@ function renderDailyReport() {
   // 麺サイズ・替え玉カウント
   const noc = calcNoodleOptionCounts(dinner.orders);
   document.getElementById('dinner-noodle-count').innerHTML = renderNoodleCountHTML(noc);
-  // ハッピーアワー件数（全セッション対象：土日ランチ帯14:00〜も含むため all で集計）
-  const hh = calcHappyHourCounts(all.orders);
-  const hhEl = document.getElementById('dinner-hh-count');
-  if (hhEl) hhEl.innerHTML = renderHappyHourCountHTML(hh);
 }
 
 function renderNoodleCountHTML(noc) {
@@ -3404,15 +3352,6 @@ function buildReportText(session) {
   txt += `当日ドリンク率 ${todayRates.drinkRate}%\n`;
   txt += `累計ドリンク率 ${mtdRates.drinkRate}%\n`;
 
-  // ハッピーアワー コース利用件数（当日分）
-  const hhCounts = calcHappyHourCounts(r.orders);
-  if (hhCounts.total > 0) {
-    txt += `\n`;
-    txt += `🍻ハッピーアワー\n`;
-    txt += `アルコールコース x ${hhCounts.alcohol}\n`;
-    txt += `ソフドリコース x ${hhCounts.soft}\n`;
-  }
-
   // 辛さレベル別集計（当日分のみ／辛さ選択可能なアイテムのみ）
   const spicyCounts = {};
   for (let i = 0; i <= 10; i++) spicyCounts[i] = 0;
@@ -3593,11 +3532,6 @@ function renderAnalytics() {
     // トッピング率：従来通り（客数ベース・ベースライン無し）
     $set('an-topping-rate',  rates.toppingRate.toFixed(1) + '%');
     $set('an-topping-count', rates.toppingCount.toLocaleString());
-
-    // ハッピーアワー コース利用件数
-    const hh = calcHappyHourCounts(allFiltered);
-    $set('an-hh-alcohol', hh.alcohol.toLocaleString());
-    $set('an-hh-soft',    hh.soft.toLocaleString());
   } catch(_) {}
 
   // 前年対比：dailyReports の prevYearSalesToday を集計して使用
@@ -3702,8 +3636,7 @@ function renderAnalytics() {
     newRate: visitRate.rate, foreignRate: foreignRate.rate,
     prevYearSales, hasPrevYearData,
     catSales, catLabels,
-    itemStats,
-    happyHour: calcHappyHourCounts(allFiltered)
+    itemStats
   };
 }
 
@@ -3743,13 +3676,7 @@ function exportAnalyticsCSV() {
   });
   if (!catRanked.length) csv += '"データなし"\n';
   csv += '\n';
-  // ④ ハッピーアワー（メニュー売上とは別行で集計）
-  const hh = a.happyHour || { alcohol: 0, soft: 0 };
-  csv += '"■ ハッピーアワー","コース件数"\n';
-  csv += '"アルコールコース",' + (hh.alcohol || 0) + '\n';
-  csv += '"ソフドリコース",' + (hh.soft || 0) + '\n';
-  csv += '\n';
-  // ⑤ 全メニューカウント（登録商品と連携：getMergedMenu の最新名・override適用・非表示/完全削除除外）
+  // ④ 全メニューカウント（登録商品と連携：getMergedMenu の最新名・override適用・非表示/完全削除除外）
   //   canonical＋custom を一元的に列挙するため、旧来の二重ループ（MENU_ITEMS＋customMenuItems）を置換。
   csv += '"■ 全メニュー カウント一覧"\n';
   csv += '"商品ID","商品名","カウント","売上(税込)"\n';

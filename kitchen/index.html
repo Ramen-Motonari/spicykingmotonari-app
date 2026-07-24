@@ -3517,14 +3517,11 @@ function renderSideListCard(order, item, itemIdx, unitIdx) {
   // オプション（温/冷・サイズ等）を補足表示
   const opts = Array.isArray(item.opts) ? item.opts.filter(o => o != null && String(o).trim() !== '') : [];
   const optsHtml = opts.length ? `<span class="rlist-info">${opts.map(o => `<span>${o}</span>`).join('')}</span>` : '';
-  // ハッピーアワー無料ドリンクの目印（¥0・提供のみ）
-  const hhHtml = item.hhFree ? `<span class="rlist-sep">/</span><span class="rlist-info" style="color:#e65100;font-weight:900">🍻無料</span>` : '';
   return `<div class="rlist-card ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','idx:${itemIdx}')">
     <div class="rlist-line1">
       <span class="rlist-table">${tLabel}</span>
       <span class="rlist-name">${name}</span>
       ${optsHtml ? `<span class="rlist-sep">/</span>${optsHtml}` : ''}
-      ${hhHtml}
     </div>
   </div>`;
 }
@@ -4767,11 +4764,9 @@ function _betsuSimpleCardHtml(it, unitPrice, prefix) {
     .filter(o => o && !/^(並|Regular)$/i.test(o))
     .map(o => _betsuTag(o, 'rgba(0,0,0,0.06)', '#333'))
     .join('');
-  // ハッピーアワー無料ドリンクは目印を付ける（¥0）
-  const hhPrefix = it.hhFree ? '🍻 ' : '';
   return `<div style="display:flex;flex-direction:column;gap:3px">
 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-<span style="font-size:15px;color:#111;font-weight:700;line-height:1.2">${prefix || ''}${hhPrefix}${nameJa}</span>
+<span style="font-size:15px;color:#111;font-weight:700;line-height:1.2">${prefix || ''}${nameJa}</span>
 <span style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:#444;white-space:nowrap">¥${unitPrice.toLocaleString()}</span>
 </div>
 ${optTags ? `<div style="display:flex;flex-wrap:wrap">${optTags}</div>` : ''}
@@ -4995,21 +4990,13 @@ try {
 }
 
 // 注文変更
-// ハッピーアワー一旦停止：'🍻HH' タブを外して手動追加を無効化（復活時は末尾に '🍻HH' を戻す）
 const ORDER_EDIT_CATS = ['豚骨','醤油','定食','テイクアウト','トッピング','サイド','夜限定','ドリンク','その他'];
-// ハッピーアワー（注文変更用）：order-app と同じ商品モデルで手動追加できるようにする
-const HH_EDIT_BEER_ID = 50; // オリオンビール（小）¥600
-// ソフトドリンクの id 集合（order-app は subCat で判定するがレジ側は subCat を持たないため id 固定）
-//   59:ウーロン茶 60:コーラ 61:オレンジ 91:アイスコーヒー 92:ソイミルクコーヒー
-const HH_EDIT_SOFT_IDS = new Set([59, 60, 61, 91, 92]);
-window._hhSoftPicks = [];
 
 function openOrderEdit() {
 if (!selectedTable) return;
 const ex = document.getElementById('editOverlay');
 if (ex) ex.remove();
 window._editCat = ORDER_EDIT_CATS[0];
-window._hhSoftPicks = [];
 const overlay = document.createElement('div');
 overlay.id = 'editOverlay';
 overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:500;display:flex;flex-direction:column;';
@@ -5054,8 +5041,6 @@ isMain: !!item.isMain,
 isAddon: !!item.isAddon,
 parentItemId: item.parentItemId || null,
 isKaedama: !!item.isKaedama,
-hhFree: !!item.hhFree,
-hhCourse: item.hhCourse || null,
 lunchFree: !!item.lunchFree,
 kaedamaPrepaid: !!item.kaedamaPrepaid,
 kaedamaWasPaid: !!item.kaedamaWasPaid,
@@ -5093,8 +5078,7 @@ const isRamenEntry = (it) => {
 };
 el.innerHTML = items.map(item => {
   const ramen = isRamenEntry(item);
-  const hhMark = item.hhFree ? '🍻' : (item.hhCourse ? '🍺' : '');
-  const dispName = (hhMark ? hhMark + ' ' : '') + (isSpicyTsukemenSelected(item) ? 'スパイシーつけ麺' : item.name);
+  const dispName = (isSpicyTsukemenSelected(item) ? 'スパイシーつけ麺' : item.name);
   if (ramen) {
     // ラーメン：qty 固定表示・+/- は非表示・削除のみ
     return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface3);border-radius:8px;padding:6px 10px;border:1px solid var(--border)">
@@ -5162,55 +5146,6 @@ ${spicyBtnsHtml}
 </div>
 </div>`;
 window._otherQty = 1;
-return;
-}
-if (cat === '🍻HH') {
-// ハッピーアワー：order-app と同じ商品モデルで手動追加
-const drinks = allMenuItems
-  .filter(m => (m._origCat === 'drink') && !m._hidden)
-  .slice()
-  .sort((a, b) => (a.id||0) - (b.id||0));
-const softDrinks = drinks.filter(m => HH_EDIT_SOFT_IDS.has(m.id));
-const beerPrice = getKitchenItemPrice(HH_EDIT_BEER_ID);
-// アルコールコース：全ドリンクから無料1杯を選ぶ（タップでビール＋無料ドリンクを同時追加）
-const alcoholBtns = drinks.map(m => {
-  const p = getKitchenItemPrice(m.id);
-  return `<button onclick="addHHAlcoholCourse(${m.id})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid #e65100;background:rgba(230,81,0,0.10);color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif;gap:2px">
-    <span style="font-size:12px;font-weight:700;line-height:1.2">${m.name}</span>
-    <span style="font-family:'Oswald',sans-serif;font-size:11px;color:#c2410c">通常¥${p.toLocaleString()}→無料</span>
-  </button>`;
-}).join('');
-// ソフドリコース：ソフト2杯を選択（安い方無料）。ステージング state で2杯選ばせる
-const picks = window._hhSoftPicks || [];
-const softBtns = softDrinks.map(m => {
-  const p = getKitchenItemPrice(m.id);
-  const cnt = picks.filter(x => x === m.id).length;
-  return `<button onclick="stageHHSoftPick(${m.id})" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:1.5px solid ${cnt?'#2e7d32':'#4a4a4a'};background:${cnt?'rgba(46,125,50,0.18)':'var(--surface2)'};color:#333;cursor:pointer;font-family:'Noto Sans JP',sans-serif;gap:2px">
-    <span style="font-size:12px;font-weight:700;line-height:1.2">${m.name}${cnt?' ✓'.repeat(cnt):''}</span>
-    <span style="font-family:'Oswald',sans-serif;font-size:12px;color:var(--accent)">¥${p.toLocaleString()}</span>
-  </button>`;
-}).join('');
-const pickNames = picks.map(id => { const m = drinks.find(x=>x.id===id); return m?m.name:''; }).filter(Boolean).join('　＋　');
-const softStagedHtml = picks.length ? `<div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap">
-  <span style="font-size:12px;color:#111;font-weight:700">選択中(${picks.length}/2)：${pickNames}</span>
-  <button onclick="clearHHSoftPicks()" style="background:none;border:1px solid #888;border-radius:8px;color:#333;font-size:11px;padding:3px 8px;cursor:pointer">クリア</button>
-</div>` : '';
-const softConfirmHtml = picks.length === 2 ? `<button onclick="commitHHSoftCourse()" style="width:100%;padding:13px;border-radius:12px;border:none;background:#2e7d32;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:6px">＋ 追加する（安い方を無料に）</button>` : `<div style="font-size:11px;color:var(--muted);margin-top:6px">ソフトドリンクを2杯タップしてください</div>`;
-el.innerHTML = `<div style="padding:12px 0">
-<div style="font-size:12px;color:#c2410c;margin-bottom:12px;line-height:1.5">🍻 ハッピーアワーのコースを手動で追加します。<br>無料ドリンクは ¥0 で追加され、レジ・集計に反映されます。</div>
-<div style="border:1px solid #e65100;border-radius:12px;padding:12px;margin-bottom:16px;background:rgba(230,81,0,0.05)">
-<div style="font-size:14px;color:#e65100;font-weight:900;margin-bottom:4px">🍺 アルコールコース</div>
-<div style="font-size:11px;color:var(--muted);margin-bottom:10px">オリオンビール（小）¥${beerPrice.toLocaleString()} ＋ お好きなドリンク1杯無料。<br>下から<b>無料にする1杯</b>を選ぶとビールと一緒に追加されます。</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${alcoholBtns}</div>
-</div>
-<div style="border:1px solid #2e7d32;border-radius:12px;padding:12px;background:rgba(46,125,50,0.05)">
-<div style="font-size:14px;color:#2e7d32;font-weight:900;margin-bottom:4px">🥤 ソフドリコース</div>
-<div style="font-size:11px;color:var(--muted);margin-bottom:10px">ソフトドリンクを2杯選ぶと、<b>安い方が無料</b>になります。</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${softBtns}</div>
-${softStagedHtml}
-${softConfirmHtml}
-</div>
-</div>`;
 return;
 }
 const items = allMenuItems
@@ -5314,49 +5249,6 @@ function addSpicyTsukemenEditItem() {
   renderEditCurrentList();
   showToast(`スパイシーつけ麺 +¥${price.toLocaleString()} を追加`);
 }
-// ハッピーアワー（注文変更）：コース商品を _editItems に追加。各杯は常に別エントリ
-function _hhEditPush(menuItem, price, free, course) {
-  if (!window._editItems) window._editItems = [];
-  const eid = window._editItems.length > 0 ? Math.max(...window._editItems.map(i=>i._eid))+1 : 0;
-  window._editItems.push({
-    name: menuItem.name, price: Number(price)||0, qty: 1, opts: [],
-    cat: menuItem.cat, _origCat: menuItem._origCat || 'drink',
-    itemId: menuItem.id, _eid: eid,
-    hhFree: !!free, hhCourse: course
-  });
-}
-function addHHAlcoholCourse(freeDrinkId) {
-  const beer = allMenuItems.find(m => m.id === HH_EDIT_BEER_ID);
-  const free = allMenuItems.find(m => m.id === freeDrinkId);
-  if (!beer || !free) { showToast('ドリンクが見つかりません'); return; }
-  _hhEditPush(beer, getKitchenItemPrice(HH_EDIT_BEER_ID), false, 'alcohol');
-  _hhEditPush(free, 0, true, 'alcohol');
-  renderEditCurrentList();
-  showToast(`🍺アルコールコース：ビール＋${free.name}(無料) を追加`);
-}
-function stageHHSoftPick(id) {
-  if (!window._hhSoftPicks) window._hhSoftPicks = [];
-  if (window._hhSoftPicks.length >= 2) { showToast('ソフトドリンクは2杯までです'); return; }
-  window._hhSoftPicks.push(id);
-  renderEditMenuList();
-}
-function clearHHSoftPicks() {
-  window._hhSoftPicks = [];
-  renderEditMenuList();
-}
-function commitHHSoftCourse() {
-  const picks = window._hhSoftPicks || [];
-  if (picks.length !== 2) { showToast('ソフトドリンクを2杯選んでください'); return; }
-  const items = picks.map(id => allMenuItems.find(m => m.id === id)).filter(Boolean);
-  if (items.length !== 2) { showToast('ドリンクが見つかりません'); return; }
-  const prices = items.map(m => getKitchenItemPrice(m.id));
-  const freeIdx = (prices[0] <= prices[1]) ? 0 : 1;
-  items.forEach((m, i) => _hhEditPush(m, i === freeIdx ? 0 : prices[i], i === freeIdx, 'soft'));
-  window._hhSoftPicks = [];
-  renderEditCurrentList();
-  renderEditMenuList();
-  showToast(`🥤ソフドリコース：${items[freeIdx].name}(無料) を追加`);
-}
 function addEditItem(menuId) {
 const m = allMenuItems.find(x => x.id === menuId);
 if (!m) return;
@@ -5417,9 +5309,6 @@ const itemsForFs = newItems.map((item, i) => {
     total: item.price * item.qty,
     cat: item.cat
   };
-  // ハッピーアワー：無料フラグ・コース種別を保持（レジ表示・管理集計で使用）
-  if (item.hhFree) base.hhFree = true;
-  if (item.hhCourse) base.hhCourse = item.hhCourse;
   if (item._isExisting) {
     base.served = !!item.served;
     base.servedIndices = Array.isArray(item.servedIndices) ? item.servedIndices.slice() : [];

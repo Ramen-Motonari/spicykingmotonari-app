@@ -90,6 +90,8 @@
   // ===== メニュー本体 =====
   // schema: {id, cat, img, name:{ja,en,zh,ko}, price, spicy, night, pirikara, ghost,
   //          lunchFreeBase, custom:{chashu, noodleSize, kata, karasaAdd, top, rice}}
+  //   ※ desc:{ja,en,zh,ko}（商品説明）はコード定義には持たず、管理APP（menuOverrides.descOverride /
+  //     customMenuItems.desc）から付与される任意フィールド。未設定ならオーダー画面で非表示。
   const MENU_ITEMS = [
     // ── 豚骨 ──
     {id:1, cat:'tonkotsu', img:'🍜',

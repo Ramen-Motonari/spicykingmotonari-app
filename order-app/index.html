@@ -363,24 +363,6 @@ body.dark-bg{background:#111}
   </div>
 </div>
 
-<!-- ハッピーアワー用モーダル（HH時間帯のみ おすすめ最上部から開く） -->
-<div id="happyHourOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:790;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;width:100%;max-width:440px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
-    <div style="padding:16px 18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff3e0,#ffe0b2)">
-      <div>
-        <div id="hhTitle" style="font-size:18px;font-weight:900;color:#e65100">🍻 ハッピーアワー</div>
-        <div id="hhSubtitle" style="font-size:11px;color:#666;margin-top:2px"></div>
-      </div>
-      <button onclick="closeHappyHour()" style="background:none;border:none;color:#666;font-size:22px;cursor:pointer">×</button>
-    </div>
-    <div id="hhBody" style="padding:14px 18px;overflow-y:auto;flex:1"></div>
-    <div style="padding:12px 18px;border-top:1px solid #eee;display:flex;gap:8px">
-      <button id="hhBackBtn" onclick="hhBack()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #ccc;background:#fff;color:#666;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">戻る</button>
-      <button id="hhConfirmBtn" onclick="hhConfirm()" disabled style="flex:2;padding:12px;border-radius:10px;border:none;background:#bbb;color:#fff;font-size:14px;font-weight:900;cursor:not-allowed;font-family:'Noto Sans JP',sans-serif">カートに追加</button>
-    </div>
-  </div>
-</div>
-
 <!-- Bottom Nav -->
 <div class="cart-bar" id="cartBar" style="display:none">
   <div class="bottom-nav">
@@ -2087,8 +2069,7 @@ function renderMenu(){
         .map(id => menu.find(m => m.id === id))
         .filter(Boolean);
       // 'all'表示の時は0件ならスキップ。'recommended'単独表示なら空状態を出す
-      //   ※ ハッピーアワー時間帯は、おすすめ0件でも HHカードを出すためスキップしない
-      if (!items.length && !isHappyHourNow()) {
+      if (!items.length) {
         if (currentCat === 'recommended') {
           const sec=document.createElement('div');
           const emptyMsg = ({ja:'おすすめ商品はまだ登録されていません',en:'No recommended items yet',zh:'暂无推荐商品',ko:'추천 메뉴가 없습니다'}[lang] || '');
@@ -2100,8 +2081,7 @@ function renderMenu(){
     } else {
       items = menu.filter(m=>m.cat===cat);
     }
-    // ハッピーアワー中は おすすめが0件でもセクションを描画する（HHカードを出すため）
-    if(!items.length && !(cat==='recommended' && isHappyHourNow())) return;
+    if(!items.length) return;
     const sec=document.createElement('div');
     sec.innerHTML=`<div class="section-title">${cl[cat] || cat}</div>`;
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
@@ -2109,8 +2089,6 @@ function renderMenu(){
 
     // おすすめカテゴリはサブカテゴリ機能を使わずフラット表示
     if (cat === 'recommended') {
-      // ハッピーアワー時間帯のみ、おすすめの一番上に special カードを固定表示
-      if (isHappyHourNow()) sec.appendChild(buildHappyHourCard());
       items.forEach(item => sec.appendChild(buildItemEl(item)));
       el.appendChild(sec);
       return;
@@ -3290,13 +3268,6 @@ function renderCart(){
       const label = lang==='en'?labelEn:(lang==='zh'?labelZh:(lang==='ko'?labelKo:labelJa));
       deferredTagHtml = `<div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:#e3f2fd;border:1px solid #90caf9;color:#0d47a1;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.3px">🕑 ${label}</div>`;
     }
-    // ハッピーアワー無料ドリンクのバッジ
-    let hhBadgeHtml = '';
-    if (i.hhFree) {
-      const hjJa='ハッピーアワー無料', hjEn='Happy Hour FREE', hjZh='欢乐时光免费', hjKo='해피아워 무료';
-      const hlabel = lang==='en'?hjEn:(lang==='zh'?hjZh:(lang==='ko'?hjKo:hjJa));
-      hhBadgeHtml = `<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#fff3e0;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">🍻 ${hlabel}</div>`;
-    }
     return `
     <div class="cart-row${sold?' soldout':''}">
       <div style="flex:1">
@@ -3304,7 +3275,6 @@ function renderCart(){
         ${i.opts.length?`<div class="cart-row-sub">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
         ${deferredTagHtml}
         ${kaedamaBadgeHtml}
-        ${hhBadgeHtml}
       </div>
       <div class="cart-row-price">¥${(Number(i.total)||0).toLocaleString()}</div>
       <button class="remove-btn" onclick="removeCart(${i.id})">${t.removeBtn}</button>
@@ -3406,10 +3376,7 @@ async function placeOrder(){
           kaedamaRequestedQty: i.kaedamaPrepaid ? (i.kaedamaRequestedQty || 0) : (i.qty || 1),
           parentItemId: i.parentItemId || null,
           // 有料替え玉：初回キッチン伝票で非表示にするフラグ（料金計算には影響しない）
-          isPendingKaedamaPaid: !!i.isPendingKaedamaPaid,
-          // ハッピーアワー：無料ドリンク（¥0）フラグとコース種別をレジ／キッチンへ引き継ぐ
-          hhFree: !!i.hhFree,
-          hhCourse: i.hhCourse || null
+          isPendingKaedamaPaid: !!i.isPendingKaedamaPaid
         };
         // 平日ランチ無料替え玉/半替え玉の「権利」を Firestore に必ず保存
         // （これがないとキッチンの待機件数や、お客様再来店時の権利検出が機能しない）
@@ -4528,263 +4495,6 @@ function checkStaffPw() {
 // グローバル公開（HTML onclick から呼ばれる）
 window.closeStaffLock = closeStaffLock;
 window.checkStaffPw = checkStaffPw;
-
-/* ========== ハッピーアワー（HAPPY HOUR） ========== */
-// 時間帯：平日 17:00〜19:00 / 土日 14:00〜19:00（端末のローカル時刻で判定・祝日は特別扱いしない）
-// アルコールコース：ビール（オリオン小瓶 ¥600）ご注文で 全ドリンクから1杯無料
-// ソフドリコース  ：ソフトドリンク2杯選択 → 安い方が無料（高い方を通常料金で課金）
-const T_HH = {
-  ja:{ title:'🍻 ハッピーアワー', cardName:'ハッピーアワー', cardSub:'お得なアルコール／ソフドリコース',
-    chooseCourse:'コースをお選びください',
-    alcoholCourse:'アルコールコース', alcoholDesc:'ビール（オリオン小瓶）ご注文で、お好きな1杯が無料！',
-    softCourse:'ソフドリコース', softDesc:'ソフトドリンク1杯ご注文で、もう1杯無料！',
-    beerFixed:'オリオンビール（小）', fixedTag:'確定', freePick:'無料のもう1杯をお選びください',
-    softPick:'ソフトドリンクを2杯お選びください', softNote:'※お安い方が無料になります',
-    addToCart:'カートに追加', back:'戻る', added:'ハッピーアワーをカートに追加しました',
-    pickMore:(n)=>`あと${n}杯お選びください`, noSoft:'選択できるソフトドリンクがありません' },
-  en:{ title:'🍻 Happy Hour', cardName:'Happy Hour', cardSub:'Alcohol / Soft-drink courses',
-    chooseCourse:'Choose a course',
-    alcoholCourse:'Alcohol Course', alcoholDesc:'Order a beer (Orion S) & get any 1 drink FREE!',
-    softCourse:'Soft-Drink Course', softDesc:'Order 1 soft drink & get 1 more FREE!',
-    beerFixed:'Orion Beer (S)', fixedTag:'Confirmed', freePick:'Choose your FREE drink',
-    softPick:'Choose 2 soft drinks', softNote:'*The cheaper one is free',
-    addToCart:'Add to Cart', back:'Back', added:'Happy Hour added to cart',
-    pickMore:(n)=>`Choose ${n} more`, noSoft:'No soft drinks available' },
-  zh:{ title:'🍻 欢乐时光', cardName:'欢乐时光', cardSub:'酒类／软饮套餐',
-    chooseCourse:'请选择套餐',
-    alcoholCourse:'酒类套餐', alcoholDesc:'点啤酒（奥里恩小瓶）即可任选1杯免费！',
-    softCourse:'软饮套餐', softDesc:'点1杯软饮，再送1杯！',
-    beerFixed:'奥里恩啤酒（小）', fixedTag:'已确定', freePick:'请选择免费的一杯',
-    softPick:'请选择2杯软饮', softNote:'※较便宜的一杯免费',
-    addToCart:'加入购物车', back:'返回', added:'已将欢乐时光加入购物车',
-    pickMore:(n)=>`还需选择${n}杯`, noSoft:'暂无可选软饮' },
-  ko:{ title:'🍻 해피아워', cardName:'해피아워', cardSub:'알코올／소프트드링크 코스',
-    chooseCourse:'코스를 선택해 주세요',
-    alcoholCourse:'알코올 코스', alcoholDesc:'맥주(오리온 소) 주문 시 원하는 1잔 무료!',
-    softCourse:'소프트드링크 코스', softDesc:'소프트드링크 1잔 주문 시 1잔 더 무료!',
-    beerFixed:'오리온 맥주(소)', fixedTag:'확정', freePick:'무료 1잔을 선택해 주세요',
-    softPick:'소프트드링크 2잔을 선택해 주세요', softNote:'※더 저렴한 쪽이 무료입니다',
-    addToCart:'장바구니에 추가', back:'뒤로', added:'해피아워를 장바구니에 추가했습니다',
-    pickMore:(n)=>`${n}잔 더 선택해 주세요`, noSoft:'선택 가능한 소프트드링크가 없습니다' }
-};
-
-const HH_BEER_ID = 50; // オリオンビール（小）
-let _hhCourse = null;   // 'alcohol' | 'soft'
-let _hhPicks  = [];     // [{itemId, opt}]（無料/選択対象）
-
-// 現在がハッピーアワー時間帯か（端末ローカル時刻）
-function isHappyHourNow(){
-  return false; // ハッピーアワー一旦停止：客側カード／モーダルを非表示（復活時はこの行を削除）
-  const d = new Date();
-  const day = d.getDay();                       // 0=日, 6=土
-  const mins = d.getHours()*60 + d.getMinutes();
-  if (day>=1 && day<=5) return mins>=17*60 && mins<19*60;  // 平日 17:00-19:00
-  return mins>=14*60 && mins<19*60;                        // 土日 14:00-19:00
-}
-// サブカテゴリに「ソフト」を含むドリンク＝ソフトドリンク（削除済み商品は menu に無いので自動除外）
-function isHappyHourSoftDrink(item){
-  return !!(item && item.cat==='drink' && typeof item.subCat==='string' && item.subCat.includes('ソフト'));
-}
-function hhAllDrinks(){ return menu.filter(m => m.cat==='drink' && !isItemSoldout(m.id)); }
-function hhSoftDrinks(){ return menu.filter(m => isHappyHourSoftDrink(m) && !isItemSoldout(m.id)); }
-function hhRequired(){ return _hhCourse==='alcohol' ? 1 : (_hhCourse==='soft' ? 2 : 0); }
-
-// おすすめ最上部に出す HH special カード
-function buildHappyHourCard(){
-  const th = (T_HH && T_HH[lang]) || T_HH.ja;
-  const d = document.createElement('div');
-  d.className = 'menu-item';
-  d.style.cssText = 'border:2px solid #ff9800;background:linear-gradient(135deg,#fff8e1,#ffe0b2)';
-  d.setAttribute('onclick', 'openHappyHour()');
-  d.setAttribute('role', 'button');
-  d.innerHTML = `
-    <div class="item-img" style="background:transparent">🍻</div>
-    <div class="item-info">
-      <div class="item-name" style="color:#e65100">${th.cardName}</div>
-      <div style="font-size:11px;color:#666;margin-top:2px">${th.cardSub}</div>
-    </div>
-    <div class="add-btn" aria-hidden="true">＋</div>`;
-  return d;
-}
-
-function openHappyHour(){
-  if(!sessionActive){ showPaidScreen(); return; }
-  _hhCourse=null; _hhPicks=[];
-  const th=(T_HH&&T_HH[lang])||T_HH.ja;
-  const tEl=document.getElementById('hhTitle'); if(tEl) tEl.textContent=th.title;
-  renderHappyHourBody();
-  document.getElementById('happyHourOverlay').style.display='flex';
-  document.body.style.overflow='hidden';
-}
-function closeHappyHour(){
-  const ov=document.getElementById('happyHourOverlay');
-  if(ov) ov.style.display='none';
-  document.body.style.overflow='';
-  _hhCourse=null; _hhPicks=[];
-}
-function hhBack(){
-  if(_hhCourse){ _hhCourse=null; _hhPicks=[]; renderHappyHourBody(); }
-  else closeHappyHour();
-}
-function hhSelectCourse(course){ _hhCourse=course; _hhPicks=[]; renderHappyHourBody(); }
-function hhPickDrink(itemId){
-  const req=hhRequired(); if(req<=0) return;
-  if(_hhCourse==='alcohol'){ _hhPicks=[{itemId, opt:null}]; }
-  else { if(_hhPicks.length>=req) return; _hhPicks.push({itemId, opt:null}); }
-  renderHappyHourBody();
-}
-function hhRemovePick(idx){ _hhPicks.splice(idx,1); renderHappyHourBody(); }
-function hhSetOpt(idx, opt){ if(_hhPicks[idx]){ _hhPicks[idx].opt=opt; renderHappyHourBody(); } }
-
-function renderHappyHourBody(){
-  const th=(T_HH&&T_HH[lang])||T_HH.ja;
-  const body=document.getElementById('hhBody');
-  const sub=document.getElementById('hhSubtitle');
-  const confirmBtn=document.getElementById('hhConfirmBtn');
-  const backBtn=document.getElementById('hhBackBtn');
-  if(!body) return;
-  const nm=(m)=> (m && m.name && (m.name[lang]||m.name.ja)) || '';
-  if(backBtn) backBtn.textContent=th.back;
-
-  // ステップ1：コース選択
-  if(!_hhCourse){
-    if(sub) sub.textContent=th.chooseCourse;
-    body.innerHTML=`
-      <button onclick="hhSelectCourse('alcohol')" style="width:100%;text-align:left;margin-bottom:12px;padding:16px;border-radius:12px;border:2px solid #ffb74d;background:#fff8e1;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
-        <div style="font-size:16px;font-weight:900;color:#e65100">🍺 ${th.alcoholCourse}</div>
-        <div style="font-size:12px;color:#666;margin-top:4px">${th.alcoholDesc}</div>
-      </button>
-      <button onclick="hhSelectCourse('soft')" style="width:100%;text-align:left;padding:16px;border-radius:12px;border:2px solid #4fc3f7;background:#e1f5fe;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
-        <div style="font-size:16px;font-weight:900;color:#0277bd">🥤 ${th.softCourse}</div>
-        <div style="font-size:12px;color:#666;margin-top:4px">${th.softDesc}</div>
-      </button>`;
-    if(confirmBtn){ confirmBtn.disabled=true; confirmBtn.style.background='#bbb'; confirmBtn.style.cursor='not-allowed'; confirmBtn.textContent=th.addToCart; }
-    return;
-  }
-
-  const req=hhRequired();
-  const cands = _hhCourse==='alcohol' ? hhAllDrinks() : hhSoftDrinks();
-  if(sub) sub.textContent = _hhCourse==='alcohol'?th.alcoholCourse:th.softCourse;
-
-  let html='';
-  if(_hhCourse==='alcohol'){
-    const beer=menu.find(m=>m.id===HH_BEER_ID);
-    const beerPrice=beer?(Number(beer.price)||600):600;
-    html+=`<div style="display:flex;align-items:center;gap:10px;background:#fff3e0;border:1.5px solid #ff9800;border-radius:10px;padding:10px 12px;margin-bottom:12px">
-      <span style="font-size:22px">🍺</span>
-      <div style="flex:1"><div style="font-size:13px;font-weight:900;color:#e65100">${th.beerFixed} ¥${beerPrice.toLocaleString()}</div>
-      <div style="font-size:11px;color:#666">${th.fixedTag}</div></div></div>`;
-    html+=`<div style="font-size:13px;font-weight:900;color:#333;margin-bottom:8px">${th.freePick}</div>`;
-  } else {
-    html+=`<div style="font-size:13px;font-weight:900;color:#333;margin-bottom:4px">${th.softPick}</div>`;
-    html+=`<div style="font-size:11px;color:#e65100;margin-bottom:10px">${th.softNote}</div>`;
-  }
-
-  // 選択済みチップ（drinkOpt があれば選択肢も表示）
-  if(_hhPicks.length){
-    _hhPicks.forEach((p,idx)=>{
-      const m=menu.find(x=>x.id===p.itemId);
-      if(!m) return;
-      html+=`<div style="display:flex;align-items:center;gap:8px;background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;padding:6px 10px;margin-bottom:${(m.drinkOpt)?'2px':'6px'}">
-        <span style="flex:1;font-size:13px;font-weight:700">${nm(m)}${p.opt?` <span style="color:#888">/ ${p.opt}</span>`:''}</span>
-        <button onclick="hhRemovePick(${idx})" style="background:none;border:none;color:#c0392b;font-size:16px;cursor:pointer">×</button>
-      </div>`;
-      if(m.drinkOpt){
-        html+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px 4px">`;
-        (m.drinkOpt.choices||[]).forEach(c=>{ const lbl=(c[lang]||c.ja); const on=p.opt===lbl;
-          html+=`<button onclick="hhSetOpt(${idx},'${lbl.replace(/'/g,"\\'")}')" style="padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ${on?'#e65100':'#ddd'};background:${on?'rgba(230,81,0,.12)':'#fff'};color:${on?'#e65100':'#333'}">${lbl}</button>`;
-        });
-        html+=`</div>`;
-      }
-    });
-  }
-
-  // 候補グリッド
-  if(!cands.length){
-    html+=`<div style="text-align:center;color:#888;padding:20px 8px;font-size:13px">${th.noSoft}</div>`;
-  } else {
-    const full=_hhPicks.length>=req;
-    const lock = full && _hhCourse==='soft'; // ソフトは2杯埋まったら追加不可
-    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
-    cands.forEach(m=>{
-      html+=`<button onclick="hhPickDrink(${m.id})" ${lock?'disabled':''} style="text-align:left;padding:10px;border-radius:10px;border:1.5px solid #e0e0e0;background:${lock?'#f5f5f5':'#fff'};cursor:${lock?'not-allowed':'pointer'};font-family:'Noto Sans JP',sans-serif;opacity:${lock?'.5':'1'}">
-        <div style="font-size:22px">${(typeof m.img==='string'&&m.img.startsWith('http'))?'🥤':(m.img||'🥤')}</div>
-        <div style="font-size:12px;font-weight:700;color:#333;margin-top:2px">${nm(m)}</div>
-        <div style="font-size:11px;color:#888">¥${(Number(m.price)||0).toLocaleString()}</div>
-      </button>`;
-    });
-    html+=`</div>`;
-  }
-  body.innerHTML=html;
-
-  // 確定ボタン状態
-  const optOk=_hhPicks.every(p=>{ const m=menu.find(x=>x.id===p.itemId); return !(m&&m.drinkOpt) || !!p.opt; });
-  const ready=_hhPicks.length===req && optOk;
-  if(confirmBtn){
-    confirmBtn.disabled=!ready;
-    confirmBtn.style.background=ready?'#e65100':'#bbb';
-    confirmBtn.style.cursor=ready?'pointer':'not-allowed';
-    const remain=req-_hhPicks.length;
-    confirmBtn.textContent = ready ? th.addToCart : (remain>0 ? th.pickMore(remain) : th.addToCart);
-  }
-}
-
-function hhConfirm(){
-  const req=hhRequired();
-  const optOk=_hhPicks.every(p=>{ const m=menu.find(x=>x.id===p.itemId); return !(m&&m.drinkOpt) || !!p.opt; });
-  if(_hhPicks.length!==req || !optOk) return;
-  const th=(T_HH&&T_HH[lang])||T_HH.ja;
-  const mk=(m,price,opt,free)=>({
-    id:Date.now()+Math.random(),
-    groupId:`hh${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-    isMain:true, itemId:m.id, name:(m.name&&(m.name[lang]||m.name.ja))||'',
-    opts: opt?[opt]:[], qty:1, price:Number(price)||0, total:Number(price)||0,
-    hhFree:!!free, hhCourse:_hhCourse
-  });
-  if(_hhCourse==='alcohol'){
-    const beer=menu.find(m=>m.id===HH_BEER_ID);
-    if(beer) cart.push(mk(beer, Number(beer.price)||600, null, false));
-    const p=_hhPicks[0]; const m=menu.find(x=>x.id===p.itemId);
-    if(m) cart.push(mk(m, 0, p.opt, true));
-  } else {
-    // ソフドリ：安い方を無料に、高い方を通常料金で課金
-    const items=_hhPicks.map(p=>({p, m:menu.find(x=>x.id===p.itemId)})).filter(o=>o.m);
-    let freeIdx=0, minPrice=Infinity;
-    items.forEach((o,i)=>{ const pr=Number(o.m.price)||0; if(pr<minPrice){ minPrice=pr; freeIdx=i; } });
-    items.forEach((o,i)=>{ const free=(i===freeIdx); cart.push(mk(o.m, free?0:(Number(o.m.price)||0), o.p.opt, free)); });
-  }
-  renderCart();
-  updateCartBar();
-  closeHappyHour();
-  showValidationMsg('🍻 '+th.added);
-}
-
-// HH時間帯の切り替わりを検知してメニュー再描画（カード出し入れ）
-let _hhLastState = null;
-function hhTick(){
-  const now = isHappyHourNow();
-  if(_hhLastState === null){ _hhLastState = now; return; }
-  if(now !== _hhLastState){
-    _hhLastState = now;
-    const ms=document.getElementById('menuScreen');
-    if(ms && ms.classList.contains('active') && currentCat==='all'){
-      try{ renderMenu(); }catch(e){}
-    }
-    // 時間外になったら開いていたモーダルを閉じる
-    if(!now){ const ov=document.getElementById('happyHourOverlay'); if(ov && ov.style.display==='flex') closeHappyHour(); }
-  }
-}
-setInterval(hhTick, 30000);
-
-// グローバル公開（HTML onclick から呼ばれる）
-window.openHappyHour=openHappyHour;
-window.closeHappyHour=closeHappyHour;
-window.hhBack=hhBack;
-window.hhSelectCourse=hhSelectCourse;
-window.hhPickDrink=hhPickDrink;
-window.hhRemovePick=hhRemovePick;
-window.hhSetOpt=hhSetOpt;
-window.hhConfirm=hhConfirm;
 
 function closeGhostLock(){
   $('ghostLockOverlay').classList.remove('open');
