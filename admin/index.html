@@ -743,6 +743,10 @@ window.adminLogout = adminLogout;
       <div id="negitama-count-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
+      <div class="soup-card-head"><div class="card-title">🧅🥚 ナガサワくん（Onion &amp; Egg）</div><div class="soup-total"><span class="lbl">合計</span><span><span id="nagasawa-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div id="nagasawa-count-chart"></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
       <div class="soup-card-head"><div class="card-title">🥢 つけ麺・定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="gyoza-total" class="num">0</span><span class="unit">杯</span></span></div></div>
       <div id="gyoza-count-chart"></div>
     </div>
@@ -3748,6 +3752,7 @@ const SOUP_GROUPS = {
   shouyu:    { ids: [7, 6],               chart: 'shouyu-count-chart',       total: 'shouyu-total' },
   spicySh:   { ids: [8, 9],               chart: 'spicy-shouyu-count-chart', total: 'spicySh-total' },
   negitama:  { ids: [10, 11, 13, 14, 15], chart: 'negitama-count-chart',     total: 'negitama-total' },
+  nagasawa:  { ids: [30, 31, 32, 33],     chart: 'nagasawa-count-chart',     total: 'nagasawa-total' },
   // つけ麺・定食：ぎょうざ定食 / SKつけ麺 / スパイシーつけ麺（明示的な行定義）
   gyoza:     { rows: countTsukemenTeishokuRows, chart: 'gyoza-count-chart',  total: 'gyoza-total' }
 };
@@ -3835,8 +3840,8 @@ function calcSoupGrandTotal(filtered, includeBaseline) {
       Object.values(SOUP_BASELINE[groupKey]).forEach(v => total += v);
     }
   });
-  // 商品別グループ（ikasumi / shouyu / spicySh / negitama / gyoza・つけ麺定食）
-  ['ikasumi', 'shouyu', 'spicySh', 'negitama', 'gyoza'].forEach(groupKey => {
+  // 商品別グループ（ikasumi / shouyu / spicySh / negitama / nagasawa / gyoza・つけ麺定食）
+  ['ikasumi', 'shouyu', 'spicySh', 'negitama', 'nagasawa', 'gyoza'].forEach(groupKey => {
     total += soupGroupRows(groupKey, filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
   });
   return total;
@@ -3872,6 +3877,7 @@ function renderSoupRanking() {
   renderItemCountChart('shouyu', filtered, includeBaseline);
   renderItemCountChart('spicySh', filtered, includeBaseline);
   renderItemCountChart('negitama', filtered, includeBaseline);
+  renderItemCountChart('nagasawa', filtered, includeBaseline);
   renderItemCountChart('gyoza', filtered, includeBaseline);
 
   // CSV出力用のスナップショット
@@ -3928,12 +3934,13 @@ function exportSoupRankingCSV() {
   csv += '"杯数",' + Object.values(curryCounts).join(',') + ',' + curryTotal + '\n';
   csv += '\n';
 
-  // ③ 商品別（イカ墨・醤油・スパイシー醤油・ネギ玉・餃子）
+  // ③ 商品別（イカ墨・醤油・スパイシー醤油・ネギ玉・ナガサワくん・餃子）
   const itemGroups = [
     { key: 'ikasumi',  label: '■ イカスミラーメン' },
     { key: 'shouyu',   label: '■ 醤油ラーメン' },
     { key: 'spicySh',  label: '■ スパイシー醤油' },
     { key: 'negitama', label: '■ ネギ玉シリーズ' },
+    { key: 'nagasawa', label: '■ ナガサワくん（Onion & Egg）' },
     { key: 'gyoza',    label: '■ つけ麺・定食' }
   ];
   itemGroups.forEach(g => {
