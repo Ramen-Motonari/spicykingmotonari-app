@@ -4507,6 +4507,32 @@ async function forceRefreshMenuData() {
 }
 
 // ────── 商品編集モーダル ──────
+// サブカテゴリ <select> の option 群HTMLを生成（カテゴリに紐づく子カテゴリ＋未登録値の保持）
+//   カテゴリ選択と同時にサブカテゴリを選べるよう、onItemCatChange からも再利用する。
+function subCatOptionsHtml(cat, selectedJa) {
+  const subs = getSubCategoriesForCat(cat || '');
+  let html = '<option value="">— なし —</option>';
+  html += subs.map(s => {
+    const ja = getSubCatName(s, 'ja');
+    return `<option value="${ja}" ${selectedJa === ja ? 'selected' : ''}>${ja}</option>`;
+  }).join('');
+  if (selectedJa && !subs.some(s => getSubCatName(s, 'ja') === selectedJa)) {
+    html += `<option value="${selectedJa}" selected>${selectedJa} (未登録)</option>`;
+  }
+  return html;
+}
+
+// カテゴリ変更時：サブカテゴリのプルダウンを選択カテゴリの子カテゴリで再構築する。
+//   → 新規登録時にカテゴリとサブカテゴリを一度で選べるようにする。
+function onItemCatChange() {
+  const catSel = document.getElementById('itemCat');
+  const subSel = document.getElementById('itemSubCat');
+  if (!catSel) return;
+  const cat = catSel.value;
+  if (_editingItem) _editingItem.cat = cat;
+  if (subSel) subSel.innerHTML = subCatOptionsHtml(cat, '');
+}
+
 function openAddItemModal() {
   _editingItem = { isNew: true, id: generateNewItemId(), cat: '', name: {ja:'',en:'',zh:'',ko:''}, desc: {ja:'',en:'',zh:'',ko:''}, price: 0, imageUrl: null, custom: {} };
   _pendingImageFile = null;
@@ -4662,7 +4688,7 @@ function renderItemEditForm() {
     <div class="itemedit-grid">
       <div class="itemedit-row">
         <label class="itemedit-label">カテゴリ <span style="color:var(--accent2)">必須</span></label>
-        <select class="itemedit-select" id="itemCat" ${it.isCanonical?'disabled':''}>
+        <select class="itemedit-select" id="itemCat" ${it.isCanonical?'disabled':''} onchange="onItemCatChange()">
           <option value="">— 選択 —</option>
           ${cats.map(c => `<option value="${c.key}" ${it.cat===c.key?'selected':''}>${c.icon||''} ${c.name.ja||c.key}</option>`).join('')}
         </select>
@@ -4671,18 +4697,9 @@ function renderItemEditForm() {
       <div class="itemedit-row">
         <label class="itemedit-label">サブカテゴリ <span style="font-size:10px;color:var(--muted);font-weight:400">（任意・オーダー画面でグループ表示）</span></label>
         <select class="itemedit-select" id="itemSubCat">
-          <option value="">— なし —</option>
-          ${(() => {
-            const subs = getSubCategoriesForCat(it.cat || '');
-            return subs.map(s => {
-              const ja = getSubCatName(s, 'ja');
-              return `<option value="${ja}" ${it.subCat===ja?'selected':''}>${ja}</option>`;
-            }).join('');
-          })()}
-          ${it.subCat && !getSubCategoriesForCat(it.cat || '').some(s => getSubCatName(s, 'ja') === it.subCat)
-            ? `<option value="${it.subCat}" selected>${it.subCat} (未登録)</option>` : ''}
+          ${subCatOptionsHtml(it.cat || '', it.subCat || '')}
         </select>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">※ サブカテゴリは「🗂 カテゴリ管理」から作成できます</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">※ カテゴリを選ぶと、そのカテゴリのサブカテゴリが表示されます。新規作成は「🗂 カテゴリ管理」から。</div>
       </div>
       <div class="itemedit-row">
         <label class="itemedit-label">絵文字（画像なし時に表示）</label>
@@ -5647,6 +5664,7 @@ window.openEditItemModal = openEditItemModal;
 window.closeItemEditModal = closeItemEditModal;
 window.saveItemEdit = saveItemEdit;
 window.confirmDeleteCustomItem = confirmDeleteCustomItem;
+window.onItemCatChange = onItemCatChange;
 window.confirmHideCanonicalItem = confirmHideCanonicalItem;
 window.confirmDeleteCanonicalItem = confirmDeleteCanonicalItem;
 // 商品管理ページの並び替え
