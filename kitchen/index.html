@@ -3117,10 +3117,13 @@ function renderRamenGroupCard(orderId, grp) {
   const addonsHtml = addons.length ? `<div class="rg-sec rg-sec-addons">
     ${addons.map(a => {
       // ドリンク（焼酎・泡盛・ラム酒など）に選択肢（水割り/炭酸/ロック等）がある場合は2段表記
+      // ※ サイド/トッピング以外（＝ドリンク、またはメニュー未解決の商品）は割り方等の opts を必ず2段目に表示。
+      //   カスタム追加のアルコール等で itemId が canonical/custom の 'drink' に解決されない場合でも
+      //   割り方（水割り/ロック等）が伝票から欠落しないようにするため。
       const canon = MOTONARI.getMenuById(a.itemId);
       const custom = canon ? null : (_kitchenCustomMenuItems.find(c => c.id === a.itemId) || null);
       const aCat = canon ? canon.cat : (custom ? custom.cat : null);
-      const aOpts = (aCat === 'drink') ? buildOptsHtml(a.opts, a) : '';
+      const aOpts = (aCat !== 'side' && aCat !== 'topping') ? buildOptsHtml(a.opts, a) : '';
       return `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}${aOpts ? `<span class="ra-opts">${aOpts}</span>` : ''}</div>`;
     }).join('')}
   </div>` : '';
