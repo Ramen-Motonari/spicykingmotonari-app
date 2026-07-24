@@ -2820,6 +2820,9 @@ function buildMenuSections(mode) {
     // 冷やし！SKつけ麺(#10012)の直後にスパイシーつけ麺(疑似ID '10012s')を挿入
     if (m.id === 10012) buckets[k].push({ id: '10012s', name: 'スパイシーつけ麺' });
   });
+  // チャーハン＋ミニ醤油ラーメン（¥300セット追加）をサイド欄の末尾に疑似行として追加
+  const miniShoyuBucket = (mode === 'lunch') ? 'sidetop' : 'side';
+  if (buckets[miniShoyuBucket]) buckets[miniShoyuBucket].push({ id: 'miniShoyu', name: 'ミニ醤油ラーメン' });
   return defs.map(d => ({ label: d.label, key: d.key, entries: buckets[d.key] }))
              .filter(s => s.entries.length);
 }
@@ -3031,6 +3034,10 @@ function calcReportFor(session) {
       // スパイシーつけ麺は別商品として集計（疑似ID '10012s'）
       const id = isSpicyTsukemen(item) ? '10012s' : item.itemId;
       counts[id] = (counts[id] || 0) + (item.qty || 0);
+      // チャーハン＋ミニ醤油ラーメン（¥300セット追加）は別項目として集計（疑似ID 'miniShoyu'）
+      if (item.miniShoyu === true || (Array.isArray(item.opts) && item.opts.some(o => /ミニ醤油/.test(String(o))))) {
+        counts['miniShoyu'] = (counts['miniShoyu'] || 0) + (item.qty || 0);
+      }
     });
   });
   // 支払い方法別（別会計で paymentBreakdown が記録されている場合はそちらを優先）
@@ -3325,6 +3332,10 @@ function buildReportText(session) {
       const cnt = r.counts[item.id] || 0;
       txt += `${item.name}　x ${cnt}\n`;
     });
+    // チャーハン＋ミニ醤油ラーメン（¥300セット追加）をサイド欄の末尾に別集計
+    if (key === 'side') {
+      txt += `ミニ醤油ラーメン　x ${r.counts['miniShoyu'] || 0}\n`;
+    }
     txt += `\n`;
   });
 
@@ -3637,6 +3648,10 @@ function renderAnalytics() {
     (o.items||[]).forEach(item => {
       const id = isSpicyTsukemen(item) ? '10012s' : item.itemId;
       menuCounts[id] = (menuCounts[id] || 0) + (item.qty || 0);
+      // チャーハン＋ミニ醤油ラーメン（¥300セット追加）は別項目として集計（疑似ID 'miniShoyu'）
+      if (item.miniShoyu === true || (Array.isArray(item.opts) && item.opts.some(o => /ミニ醤油/.test(String(o))))) {
+        menuCounts['miniShoyu'] = (menuCounts['miniShoyu'] || 0) + (item.qty || 0);
+      }
     });
   });
   renderAllMenuCount(menuCounts, allFiltered);
