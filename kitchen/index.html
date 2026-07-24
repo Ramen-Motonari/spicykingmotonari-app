@@ -3124,7 +3124,9 @@ function renderRamenGroupCard(orderId, grp) {
       const custom = canon ? null : (_kitchenCustomMenuItems.find(c => c.id === a.itemId) || null);
       const aCat = canon ? canon.cat : (custom ? custom.cat : null);
       const aOpts = (aCat !== 'side' && aCat !== 'topping') ? buildOptsHtml(a.opts, a) : '';
-      return `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}${aOpts ? `<span class="ra-opts">${aOpts}</span>` : ''}</div>`;
+      // チャーハン＋ミニ醤油ラーメン(¥300)：チャーハン名の下に区切り線＋「＋ミニ醤油」をスタック表示
+      const aMini = a.miniShoyu ? `<div style="width:100%;margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:13px;font-weight:900;color:var(--accent2)">＋ミニ醤油</div>` : '';
+      return `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}${aOpts ? `<span class="ra-opts">${aOpts}</span>` : ''}${aMini}</div>`;
     }).join('')}
   </div>` : '';
 
@@ -3147,7 +3149,11 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
   const main = grp.main || grp.items[0];
   const allServed = grp.items.every(i => i.served);
   const groupKey = getGroupKey(grp);
-  const optsHtml = buildOptsHtml(main.opts, main);
+  // チャーハン＋ミニ醤油ラーメン(¥300)：区切り線＋「＋ミニ醤油」をスタック表示（opts のマーカーは重複を避けて除外）
+  const miniShoyu = !!main.miniShoyu || (Array.isArray(main.opts) && main.opts.some(o => String(o).indexOf('ミニ醤油') !== -1));
+  const optsForDisp = miniShoyu ? (main.opts || []).filter(o => String(o).indexOf('ミニ醤油') === -1) : main.opts;
+  const miniShoyuTag = miniShoyu ? `<div class="tc-mini-shoyu" style="margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:13px;font-weight:900;color:var(--accent2)">＋ミニ醤油</div>` : '';
+  const optsHtml = buildOptsHtml(optsForDisp, main);
   // アドオンが付いている場合（理論上少ないが）はメインの後に追記
   const subAddons = (grp.addons || []).map(a => `${getAbbrevJa(a)}${a.qty>1?` ×${a.qty}`:''}`).join(' / ');
   const qty = main.qty || 1;
@@ -3183,6 +3189,7 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
 <div class="tc-info">
 <div class="tc-name">${getAbbrevJa(main)}</div>
 ${optsHtml || subAddons ? `<div class="tc-opts">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
+${miniShoyuTag}
 </div>
 ${qtyHtml}
 </div>`;
@@ -5157,7 +5164,7 @@ const items = allMenuItems
     if (pa !== pb) return pa - pb;
     return (a._sortOrder || 0) - (b._sortOrder || 0);
   });
-el.innerHTML = items.map(item => {
+const rowsArr = items.map(item => {
 const price = getKitchenItemPrice(item.id);
 let row = `<div onclick="addEditItem(${item.id})" style="display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid var(--border);cursor:pointer">
 <span style="font-size:14px;color:var(--text)">${item.name}</span>
@@ -5178,7 +5185,23 @@ if (item.id === 10012) {
 </div>`;
 }
 return row;
-}).join('');
+});
+// 注文変更のサイドカテゴリー：チャーハンシリーズの一番下に「ミニ醤油ラーメン ¥300」を追加
+if (cat === 'サイド') {
+  const isChaahan = (m) => /チャーハン|炒飯/.test(m.name || '');
+  let lastChaahanIdx = -1;
+  items.forEach((m, idx) => { if (isChaahan(m)) lastChaahanIdx = idx; });
+  const miniRow = `<div onclick="addQuickEditItem('ミニ醤油ラーメン',300)" style="display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid var(--border);cursor:pointer;background:rgba(200,134,10,0.06)">
+<span style="font-size:14px;color:#e67e22;font-weight:700">🍜 ミニ醤油ラーメン</span>
+<div style="display:flex;align-items:center;gap:10px">
+<span style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--accent)">¥300</span>
+<span style="font-size:20px;color:var(--accent);font-weight:900">＋</span>
+</div>
+</div>`;
+  if (lastChaahanIdx >= 0) rowsArr.splice(lastChaahanIdx + 1, 0, miniRow);
+  else rowsArr.push(miniRow);
+}
+el.innerHTML = rowsArr.join('');
 }
 
 function changeOtherQty(delta) {
