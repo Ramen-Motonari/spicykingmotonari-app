@@ -1137,7 +1137,7 @@ const isItemSoldout = id => {
   if(shoyuSoldout && isShoyuDependent(id)) return true;
   return false;
 };
-const isNightTime  = () => { const h=new Date().getHours(); return h>=17&&h<21; };
+const isNightTime  = () => { const h=new Date().getHours(); return h>=17&&h<24; };
 const isLunchTime  = () => { const now=new Date(); const m=now.getHours()*60+now.getMinutes(); return m>=630&&m<=870; }; // 10:30〜14:30（替え玉・大盛り無料判定／余裕を持った時間枠）
 
 /* ===== 日本の祝日判定 ===== */
@@ -2174,7 +2174,7 @@ function openItem(id){
   const item=menu.find(m=>m.id===id);
   if(!item) return;
   if(isItemSoldout(item.id)){ showValidationMsg('🚫 申し訳ございません、この商品は売り切れです'); return; }
-  if(!isAvailable(item)){ showValidationMsg('🌙 夜営業（17:00〜21:00）のみご注文いただけます'); return; }
+  if(!isAvailable(item)){ showValidationMsg('🌙 夜営業（17:00〜24:00）のみご注文いただけます'); return; }
   if(item.ghost){ openGhostLock(id); return; }
   // スタッフ専用商品：商品名に「スタッフ専用」を含むものはパスワード認証が必要
   if(isStaffOnlyItem(item) && !window._staffUnlocked){
