@@ -146,6 +146,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 /* 2行目：追加トッピング */
 .rlist-line2{font-family:'Noto Sans JP',sans-serif;font-size:17px;font-weight:700;color:#222;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;line-height:1.3;margin-top:2px;padding-top:4px;border-top:1px solid #e8d9b8}
 .rlist-line2-empty{display:none}
+/* 替え玉バッジ：縦書き・カード内右寄せ（替玉／学替）。writing-mode で縦組み表示 */
+.kbadge-vert{writing-mode:vertical-rl;text-orientation:upright;display:inline-flex;align-items:center;justify-content:center;color:#fff;border-radius:6px;padding:8px 4px;font-size:15px;font-weight:900;letter-spacing:2px;line-height:1;white-space:nowrap;margin-left:auto}
 /* 替え玉バッジの文字：通常は「替え玉」、スマホ幅では「替」だけに縮約 */
 .kbadge-short{display:none}
 @media (max-width:640px){
@@ -3006,17 +3008,12 @@ function renderRamenGroupCard(orderId, grp) {
       const bg = totalPending > 0 ? '#ff9800' : '#bdbdbd';
       // 替え玉通知バッジは顧客の注文言語に関わらず常に日本語のみで表示する
       //   （以前は「日本語 / 顧客言語」併記だったが、伝票が見づらいため日本語のみに統一）
-      const stuMark = '';
-      // 「替え玉」はスマホ幅で「替」に縮約（CSS .kbadge-full / .kbadge-short で出し分け）
-      //   学生替え玉が含まれる場合は「学生替え玉」と表記し、絵文字は付けない
-      const kaeFull = hasStudent ? '学生替え玉' : '替え玉';
-      const kaeShort = hasStudent ? '学生替' : '替';
-      const kaeWord = `<span class="kbadge-full">${kaeFull}</span><span class="kbadge-short">${kaeShort}</span>`;
-      const label = kaeWord + (total > 1 ? ` ×${total}` : '');
-      // 小さい版（金額左側用）
-      kaedamaRightBadge = `<span style="background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:900;letter-spacing:.3px">${stuMark}${label}</span>`;
-      // 大きい版（ヘッダー名右側用 — 確実に視認できるように）
-      kaedamaRightBadgeBig = `<span style="background:${bg};color:#fff;border-radius:8px;padding:4px 12px;font-size:14px;font-weight:900;letter-spacing:.5px;box-shadow:0 1px 4px rgba(0,0,0,0.15)">${stuMark}🍝 ${label}</span>`;
+      // 替え玉バッジ：学生は「学替」、通常は「替玉」。縦書き・カード内右寄せで表示（絵文字なし）
+      const kaeWord = hasStudent ? '学替' : '替玉';
+      const label = kaeWord + (total > 1 ? `×${total}` : '');
+      // 縦書きバッジ（カード内右寄せ）
+      kaedamaRightBadge = `<span class="kbadge-vert" style="background:${bg}">${label}</span>`;
+      kaedamaRightBadgeBig = `<span class="kbadge-vert" style="background:${bg};font-size:17px">${label}</span>`;
     }
   }
   // ━━━ Section 1: 名前 + 替え玉バッジ + 辛さ ━━━
@@ -3363,14 +3360,10 @@ function getKaedamaRightBadgeSmall(main) {
   if (total <= 0) return '';
   const hasStudent = !!studentR;
   const bg = totalPending > 0 ? '#ff9800' : '#bdbdbd';
-  const stuMark = '';
-  //   学生替え玉が含まれる場合は「学生替え玉」と表記し、絵文字（🎓🍝）は付けない
-  const kaeFull = hasStudent ? '学生替え玉' : '替え玉';
-  const kaeShort = hasStudent ? '学生替' : '替';
-  const kaeWord = `<span class="kbadge-full">${kaeFull}</span><span class="kbadge-short">${kaeShort}</span>`;
-  const label = kaeWord + (total > 1 ? ` ×${total}` : '');
-  const ramenMark = hasStudent ? '' : '🍝 ';
-  return `<span class="rlist-kaedama-badge" style="margin-left:auto;background:${bg};color:#fff;border-radius:6px;padding:2px 10px;font-size:13px;font-weight:900;letter-spacing:.3px;white-space:nowrap">${stuMark}${ramenMark}${label}</span>`;
+  // 替え玉バッジ：学生は「学替」、通常は「替玉」。縦書き・カード内右寄せで表示（絵文字なし）
+  const kaeWord = hasStudent ? '学替' : '替玉';
+  const label = kaeWord + (total > 1 ? `×${total}` : '');
+  return `<span class="rlist-kaedama-badge kbadge-vert" style="background:${bg}">${label}</span>`;
 }
 
 function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
