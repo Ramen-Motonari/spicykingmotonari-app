@@ -889,6 +889,12 @@ const DRINK_OPT_BY_ID = {
   10015: {label:{ja:'銘柄をお選びください',en:'Choose your whisky',zh:'请选择品牌',ko:'브랜드를 선택해 주세요'},choices:[{ja:'余市',en:'Yoichi',zh:'余市',ko:'요이치'},{ja:'宮城峡',en:'Miyagikyo',zh:'宫城峡',ko:'미야기쿄'},{ja:'AMAHAGAN',en:'AMAHAGAN',zh:'AMAHAGAN',ko:'AMAHAGAN'}]}
 };
 
+// 二次選択（銘柄などを選んだ後に表示する追加の必須単一選択）のIDマップ。
+// ウイスキー(10015)：銘柄を選んだ後に「割り方」（水割り／炭酸割り／ロック）を焼酎類と同様に選択させる。
+const DRINK_OPT2_BY_ID = {
+  10015: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'水割り',en:'With Water',zh:'兑水',ko:'물에 희석'},{ja:'炭酸割り',en:'With Soda',zh:'兑苏打',ko:'탄산에 희석'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]}
+};
+
 function wrapLunchFree(m) {
   if (!m.lunchFreeBase) return m;
   const w = { ...m };
@@ -973,6 +979,8 @@ function rebuildMenu() {
 
   // カスタム商品（ラム酒等）にコード側の選択肢を付与（canonicalの drinkOpt は上書きしない）
   menu.forEach(it => { if (DRINK_OPT_BY_ID[it.id] && !it.drinkOpt) it.drinkOpt = DRINK_OPT_BY_ID[it.id]; });
+  // 二次選択（ウイスキーの割り方など）を付与
+  menu.forEach(it => { if (DRINK_OPT2_BY_ID[it.id] && !it.drinkOpt2) it.drinkOpt2 = DRINK_OPT2_BY_ID[it.id]; });
 
   // ナガサワくんシリーズ（店舗が管理APPで手動登録したカスタム商品）に、
   // コード側からチャーシュー選択(豚/鶏 必須)と、ワイルド系のSPICYバッジを付与する。
@@ -2563,6 +2571,9 @@ function getMissingFields(){
   // ドリンク単品：割り方/銘柄の必須選択
   if(curItem.cat==='drink' && curItem.drinkOpt && !curOpts.drinkChoice)
     missing.push({key:'drinkChoice',label:(curItem.drinkOpt.label[lang]||curItem.drinkOpt.label.ja)});
+  // ドリンク単品：二次選択（ウイスキーの割り方など）の必須選択
+  if(curItem.cat==='drink' && curItem.drinkOpt2 && !curOpts.drinkChoice2)
+    missing.push({key:'drinkChoice2',label:(curItem.drinkOpt2.label[lang]||curItem.drinkOpt2.label.ja)});
   // SKつけ麺の麺の量（必須選択）
   if(isTsukemenItem(curItem) && !curOpts.tsukemenSize)
     missing.push({key:'tsukemenSize',label:'麺の量'});
@@ -2628,6 +2639,15 @@ function renderDrinkOptsInline(key, item){
       </div>
     </div>`;
   }
+  if (item.drinkOpt2) {
+    const sel2 = (curOpts[key+'Choice2'] && curOpts[key+'Choice2'][item.id]) || '';
+    h += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px">${item.drinkOpt2.label[lang]||item.drinkOpt2.label.ja}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        ${item.drinkOpt2.choices.map(c=>{const lbl=drinkChoiceLabel(c);const on=sel2===lbl;return `<button onclick="pickAddonDrinkOpt2('${key}',${item.id},'${lbl}')" style="padding:5px 9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ${on?'var(--accent)':'var(--border)'};background:${on?'rgba(200,134,10,.12)':'transparent'};color:${on?'var(--accent)':'#1a1a1a'}">${lbl}</button>`;}).join('')}
+      </div>
+    </div>`;
+  }
   if (item.drinkRefill) {
     const can = canRefillGreenTea();
     const isRefill = !!(curOpts[key+'Refill'] && curOpts[key+'Refill'][item.id]);
@@ -2649,6 +2669,11 @@ function pickAddonDrinkOpt(key, itemId, label){
   curOpts[key+'Choice'][itemId]=label;
   renderModal();
 }
+function pickAddonDrinkOpt2(key, itemId, label){
+  if(!curOpts[key+'Choice2']) curOpts[key+'Choice2']={};
+  curOpts[key+'Choice2'][itemId]=label;
+  renderModal();
+}
 function pickAddonDrinkRefill(key, itemId, isRefill){
   if(!curOpts[key+'Refill']) curOpts[key+'Refill']={};
   if(isRefill) curOpts[key+'Refill'][itemId]=true;
@@ -2662,6 +2687,10 @@ function renderDrinkOptsTab(item){
   if(item.drinkOpt){
     const sel=curOpts.drinkChoice||'';
     h += `<div class="option-group" id="field-drinkChoice"><div class="option-label">${item.drinkOpt.label[lang]||item.drinkOpt.label.ja}</div><div class="option-btns">${item.drinkOpt.choices.map(c=>{const lbl=drinkChoiceLabel(c);return `<button class="option-btn ${sel===lbl?'selected':''}" onclick="pickOpt('drinkChoice','${lbl}')">${lbl}</button>`;}).join('')}</div></div>`;
+  }
+  if(item.drinkOpt2){
+    const sel2=curOpts.drinkChoice2||'';
+    h += `<div class="option-group" id="field-drinkChoice2"><div class="option-label">${item.drinkOpt2.label[lang]||item.drinkOpt2.label.ja}</div><div class="option-btns">${item.drinkOpt2.choices.map(c=>{const lbl=drinkChoiceLabel(c);return `<button class="option-btn ${sel2===lbl?'selected':''}" onclick="pickOpt('drinkChoice2','${lbl}')">${lbl}</button>`;}).join('')}</div></div>`;
   }
   if(item.drinkRefill){
     const can=canRefillGreenTea();
@@ -3055,6 +3084,7 @@ function addonQty(key,itemId,delta){
   // ドリンクの数量が0になったら割り方/銘柄/中おかわりの選択もクリア
   if (next === 0) {
     if (curOpts[key+'Choice']) delete curOpts[key+'Choice'][itemId];
+    if (curOpts[key+'Choice2']) delete curOpts[key+'Choice2'][itemId];
     if (curOpts[key+'Refill']) delete curOpts[key+'Refill'][itemId];
     // チャーハンの数量が0になったらミニ醤油ラーメンの選択もクリア
     if (curOpts.addonMiniShoyu) delete curOpts.addonMiniShoyu[itemId];
@@ -3144,6 +3174,11 @@ function addCart(){
       showValidationMsg('🥃 ' + (dm.name[lang]||dm.name.ja) + '：' + (dm.drinkOpt.label[lang]||dm.drinkOpt.label.ja));
       return;
     }
+    // 二次選択（ウイスキーの割り方など）が未選択なら確定不可
+    if (dm && dm.drinkOpt2 && _adItems[idStr] > 0 && !(curOpts.addonDrinkChoice2 && curOpts.addonDrinkChoice2[did])) {
+      showValidationMsg('🥃 ' + (dm.name[lang]||dm.name.ja) + '：' + (dm.drinkOpt2.label[lang]||dm.drinkOpt2.label.ja));
+      return;
+    }
   }
 
   // メイン商品の売り切れ最終チェック（万が一openItem時から状態が変わった場合の保険）
@@ -3165,6 +3200,7 @@ function addCart(){
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
   // ドリンク単品：割り方/銘柄・中おかわりを opts に反映
   if(curOpts.drinkChoice) opts.push(curOpts.drinkChoice);
+  if(curOpts.drinkChoice2) opts.push(curOpts.drinkChoice2);
   if(curOpts.drinkRefill && curItem.drinkRefill) opts.push(curItem.drinkRefill.label[lang]||curItem.drinkRefill.label.ja);
   // チャーハン単品：ミニ醤油ラーメン(¥300)を付けた場合は伝票マーカーを追加
   if(isChaahanItem(curItem) && curOpts.miniShoyu) opts.push(MINI_SHOYU_MARK);
@@ -3266,6 +3302,7 @@ function addCart(){
         // ドリンクの割り方/銘柄・中おかわりを opts と価格に反映
         if (key === 'addonDrink') {
           if (curOpts.addonDrinkChoice && curOpts.addonDrinkChoice[m.id]) addonOpts.push(curOpts.addonDrinkChoice[m.id]);
+          if (curOpts.addonDrinkChoice2 && curOpts.addonDrinkChoice2[m.id]) addonOpts.push(curOpts.addonDrinkChoice2[m.id]);
           if (m.drinkRefill && curOpts.addonDrinkRefill && curOpts.addonDrinkRefill[m.id]) {
             addonUnitPrice = m.drinkRefill.price;
             addonOpts.push(m.drinkRefill.label[lang]||m.drinkRefill.label.ja);
