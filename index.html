@@ -846,9 +846,23 @@ function localizeOptText(opt, langCode){
 }
 
 // 顧客の言語で選択された opt 値を日本語へ変換（伝票表示用にFirestoreへは日本語で保存）
-function optToJa(opt, fromLang){
+//   item を渡すとドリンクの割り方/銘柄の逆引きをその商品の選択肢から優先的に行う
+//   （例: 「炭酸割り」と「炭酸」のように商品ごとに ja 表記が異なる場合の取り違え防止）
+function optToJa(opt, fromLang, item){
   if(!opt || fromLang === 'ja') return opt;
   const s = String(opt);
+  // ドリンクの割り方/銘柄：まず該当商品の選択肢から逆引き（商品指定がある場合）
+  const fromGroups = (obj) => {
+    if(!obj) return null;
+    for (const grp of [obj.drinkOpt, obj.drinkOpt2]) {
+      if (grp && Array.isArray(grp.choices)) {
+        const c = grp.choices.find(ch => ch && ch[fromLang] === s);
+        if (c && c.ja) return c.ja;
+      }
+    }
+    return null;
+  };
+  if(item){ const hitItem = fromGroups(item); if(hitItem) return hitItem; }
   // index-based lookup：各 opts 配列の同じインデックスが対応する ja 値
   const lookup = (dict) => {
     const arr = dict[fromLang];
@@ -865,6 +879,12 @@ function optToJa(opt, fromLang){
   for(const dict of [noodleSizeOptsWeekday, noodleSizeOptsWeekend, noodleSizeOptsShouyu, tsukemenSizeOpts]){
     const hit = lookup(dict); if(hit) return hit;
   }
+  // ドリンクの割り方/銘柄（drinkOpt / drinkOpt2）：選択肢は {ja,en,zh,ko} オブジェクトのため
+  //   顧客言語のラベルから該当する ja を逆引きする（キッチン伝票を常に日本語で表示するため）
+  //   商品指定がない/一致しない場合は全ドリンクを走査してフォールバック
+  try {
+    for (const it of menu) { const hit = fromGroups(it); if(hit) return hit; }
+  } catch(e){}
   // 辛さラベル: '5辛 +¥220' → そのまま（数字部分は同じ）
   return opt;
 }
@@ -3504,7 +3524,7 @@ async function placeOrder(){
         // 伝票表示はすべて日本語に統一：name と opts を日本語へ変換
         const canon = i.itemId != null ? menu.find(m=>m.id===i.itemId) : null;
         const nameJa = (canon && canon.name && canon.name.ja) || i.name;
-        const optsJa = (i.opts || []).map(o => optToJa(o, lang));
+        const optsJa = (i.opts || []).map(o => optToJa(o, lang, canon));
         const out = {
           itemId: i.itemId||null,
           name: nameJa,
