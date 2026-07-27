@@ -2291,6 +2291,7 @@ function renderModal(){
 
   // === 必須項目セクション開始 — 未選択がある場合は外側を1つの赤枠で囲む ===
   let reqHtml = '';
+  if(isChahanSet(item)) reqHtml+=renderChahanSetOption();
   if(c.top)        reqHtml+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
   if(c.chashu){
     // 売り切れ食材（鶏/豚チャーシュー）の選択肢を非表示（選択解除は getMissingFields 前に実施済み）。
@@ -2539,7 +2540,8 @@ function renderModal(){
   }
 
   // チャーハン単品（サイドカテゴリーから直接選択）：ミニ醤油ラーメン(¥300)セットのお誘い
-  if(isChaahanItem(item)){
+  //   ※ チャーハンセット(id 10034)はミニ醤油込みのため、このお誘いは表示しない
+  if(isChaahanItem(item) && !isChahanSet(item)){
     h += renderMiniShoyuOption();
   }
 
@@ -2561,6 +2563,8 @@ function renderModal(){
 
 function hasRequiredFields(){
   const c=curItem.custom;
+  // チャーハンセット：チャーハンの選択が必須
+  if(isChahanSet(curItem)) return true;
   // ドリンク単品で割り方/銘柄の必須選択がある場合も「必須あり」とする
   if(curItem.cat==='drink' && curItem.drinkOpt) return true;
   return !!(c.chashu||c.top||c.noodleSize||c.kata||c.rice);
@@ -2578,6 +2582,8 @@ function getMissingFields(){
   const c=curItem.custom, t=T[lang];
   const cat=curItem.cat;
   const missing=[];
+  // チャーハンセット：どのチャーハンかの選択が未選択なら必須
+  if(isChahanSet(curItem) && !curOpts.chahanSetChoice) missing.push({key:'chahanSetChoice',label:(CHAHAN_SET_LABEL[lang]||CHAHAN_SET_LABEL.ja)});
   if(c.chashu && availableChashuOpts(lang).length && !curOpts.chashu) missing.push({key:'chashu',label:t.optChashu});
   if(c.top    && !curOpts.top)    missing.push({key:'top',label:t.optTop});
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
@@ -2905,6 +2911,41 @@ function pickAddonMiniShoyu(itemId, v){
   if(v) curOpts.addonMiniShoyu[itemId] = true; else delete curOpts.addonMiniShoyu[itemId];
   renderModal();
 }
+
+// ── チャーハンセット（id 10034）：ミニ醤油ラーメン込みのお得セット ──
+//   お好きなチャーハンを1つ選択（セット価格）。選択したチャーハンの itemId で保存し
+//   miniShoyu フラグを立てることで、キッチン伝票は「チャーハン名＋ミニ醤油」（単品と同一表示）、
+//   管理APPの集計はチャーハン単品カウント＋ミニ醤油ラーメン別集計（既存ロジックをそのまま活用）。
+const CHAHAN_SET_ID = 10034;
+const CHAHAN_SET_CHOICES = [
+  { itemId: 80,    price: 950,  name:{ja:'鉄板チャーハン',            en:'Teppan Fried Rice',       zh:'铁板炒饭',   ko:'철판볶음밥'} },
+  { itemId: 10022, price: 1300, name:{ja:'とんかつチャーハン',        en:'Tonkatsu Fried Rice',     zh:'炸猪排炒饭', ko:'돈까스 볶음밥'} },
+  { itemId: 10024, price: 1300, name:{ja:'からあげチャーハン',        en:'Karaage Fried Rice',      zh:'炸鸡炒饭',   ko:'가라아게 볶음밥'} },
+  { itemId: 10021, price: 1300, name:{ja:'チャーシューチャーハン',    en:'Chashu Fried Rice',       zh:'叉烧炒饭',   ko:'차슈 볶음밥'} },
+  { itemId: 10032, price: 1500, name:{ja:'黒焦がしにんにくチャーハン', en:'Black Garlic Fried Rice', zh:'蒜蓉炒饭',   ko:'흑마늘 볶음밥'} },
+];
+const CHAHAN_SET_LABEL = {ja:'チャーハンをお選びください',en:'Please choose your fried rice',zh:'请选择炒饭',ko:'볶음밥을 선택해 주세요'};
+const CHAHAN_SET_INCLUDE = {ja:'🍜 ＋ミニ醤油ラーメン付き（セット）',en:'🍜 Includes a Mini Shoyu Ramen (set)',zh:'🍜 附迷你酱油拉面（套餐）',ko:'🍜 미니 간장라멘 포함（세트）'};
+function isChahanSet(it){ return !!(it && it.id === CHAHAN_SET_ID); }
+function getChahanSetChoice(){ return curOpts.chahanSetChoice ? CHAHAN_SET_CHOICES.find(c=>c.itemId===curOpts.chahanSetChoice) : null; }
+function pickChahanSet(itemId){ curOpts.chahanSetChoice = itemId; renderModal(); }
+function renderChahanSetOption(){
+  const label = CHAHAN_SET_LABEL[lang] || CHAHAN_SET_LABEL.ja;
+  const inc = CHAHAN_SET_INCLUDE[lang] || CHAHAN_SET_INCLUDE.ja;
+  const sel = curOpts.chahanSetChoice;
+  const btns = CHAHAN_SET_CHOICES.map(c=>{
+    const on = sel===c.itemId;
+    const nm = (c.name[lang]||c.name.ja);
+    return `<button class="option-btn ${on?'selected':''}" onclick="pickChahanSet(${c.itemId})" style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left">
+      <span>${nm}</span><span style="font-family:'Oswald',sans-serif;color:var(--accent);white-space:nowrap">¥${c.price.toLocaleString()}</span>
+    </button>`;
+  }).join('');
+  return `<div class="option-group" id="field-chahanSetChoice" style="border:none;padding:6px 0">
+    <div class="option-label">🍳 ${label}</div>
+    <div class="option-btns" style="flex-direction:column">${btns}</div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);margin-top:6px">${inc}</div>
+  </div>`;
+}
 // 単品チャーハンモーダル用：ミニ醤油ラーメン(¥300)のお誘い（単一選択・任意／初期=注文しない）
 function renderMiniShoyuOption(){
   const on = !!curOpts.miniShoyu;
@@ -3162,6 +3203,8 @@ function calcTotal(){
   // ドリンクタブ単品：緑茶割りの中おかわり選択時は割引価格を基準に
   let base = curItem.price;
   if(curItem.drinkRefill && curOpts.drinkRefill) base = curItem.drinkRefill.price;
+  // チャーハンセット：選択したチャーハンのセット価格を基準に（未選択時は表示上の基準価格）
+  if(isChahanSet(curItem)){ const ch=getChahanSetChoice(); base = ch ? ch.price : curItem.price; }
   const extra = (curOpts.spicyPr||0) + calcNoodleExtra() + calcRiceExtra() + calcAddonExtra() + calcTsukemenSpicyExtra() + calcMiniShoyuExtra();
   return (base+extra)*curQty;
 }
@@ -3231,20 +3274,25 @@ function addCart(){
   // キッチンAPPで「ラーメンとそのトッピング」を一括りで表示するため
   const groupId = `g${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
 
-  const basePrice = (curItem.drinkRefill && curOpts.drinkRefill)
-    ? (Number(curItem.drinkRefill.price) || 0)
-    : (Number(curItem.price) || 0);
+  // チャーハンセット：選択したチャーハンのセット価格・itemId・名称で保存する
+  //   → キッチン伝票は「チャーハン名＋ミニ醤油」、集計はチャーハン単品＋ミニ醤油ラーメン別集計
+  const _chSet = isChahanSet(curItem) ? getChahanSetChoice() : null;
+  const basePrice = _chSet
+    ? (Number(_chSet.price) || 0)
+    : (curItem.drinkRefill && curOpts.drinkRefill)
+      ? (Number(curItem.drinkRefill.price) || 0)
+      : (Number(curItem.price) || 0);
   const spicyExtra = Number(curOpts.spicyPr) || 0;
   const noodleExtra = Number(calcNoodleExtra()) || 0;
   const riceExtra = Number(calcRiceExtra()) || 0;
   const tsukemenSpicyExtra = Number(calcTsukemenSpicyExtra()) || 0;
-  const miniShoyuExtra = (isChaahanItem(curItem) && curOpts.miniShoyu) ? MINI_SHOYU_PRICE : 0;
+  const miniShoyuExtra = (isChaahanItem(curItem) && !isChahanSet(curItem) && curOpts.miniShoyu) ? MINI_SHOYU_PRICE : 0;
   const qtySafe = Number(curQty) || 1;
   const unitPrice = basePrice + spicyExtra + noodleExtra + riceExtra + tsukemenSpicyExtra + miniShoyuExtra;
   const mainTotal = unitPrice * qtySafe;
-  const mainCartItem = {id:Date.now(), groupId, isMain:true, itemId:curItem.id, name:curItem.name[lang], opts, qty:qtySafe, price:unitPrice, total:mainTotal};
-  // チャーハン＋ミニ醤油ラーメン：キッチン伝票のスタック表示用フラグ
-  if(miniShoyuExtra > 0) mainCartItem.miniShoyu = true;
+  const mainCartItem = {id:Date.now(), groupId, isMain:true, itemId:(_chSet?_chSet.itemId:curItem.id), name:(_chSet?(_chSet.name[lang]||_chSet.name.ja):curItem.name[lang]), opts, qty:qtySafe, price:unitPrice, total:mainTotal};
+  // チャーハン＋ミニ醤油ラーメン：キッチン伝票のスタック表示用フラグ（セットは常にミニ醤油付き）
+  if(miniShoyuExtra > 0 || _chSet) mainCartItem.miniShoyu = true;
   // 平日ランチの替え玉/半替え玉無料権を「権利」としてラーメン本体に紐付け（先注文・後提供）
   // キッチンは初回伝票では替え玉を出さない。お客様が再度オーダーAPPを開いた時に実注文する。
   if (curOpts.lunchFreeChoice === 'kaedama' || curOpts.lunchFreeChoice === 'kaedamaHalf') {
@@ -3440,6 +3488,7 @@ function renderCart(){
       <div style="flex:1">
         <div class="cart-row-name">${i.name} × ${i.qty}${sold?'<span class="soldout-tag">🚫 売切</span>':''}</div>
         ${i.opts.length?`<div class="cart-row-sub">${i.opts.map(o=>localizeOptText(o,lang)).join(' / ')}</div>`:''}
+        ${(i.miniShoyu && !(i.opts||[]).some(o=>String(o).indexOf('ミニ醤油')!==-1))?`<div class="cart-row-sub">${localizeOptText(MINI_SHOYU_MARK,lang)}</div>`:''}
         ${deferredTagHtml}
         ${kaedamaBadgeHtml}
       </div>
