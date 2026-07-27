@@ -466,7 +466,7 @@ window.adminLogout = adminLogout;
     <div class="nav-item" onclick="switchPage('analytics',this)"><span class="nav-icon">📈</span><span>売上分析</span></div>
     <div class="nav-item" onclick="switchPage('visits',this)"><span class="nav-icon">👥</span><span>来店分析</span></div>
     <div class="nav-item" onclick="switchPage('soup',this)"><span class="nav-icon">🌶</span><span>スープランキング</span></div>
-    <div class="nav-item" onclick="switchPage('kanritable',this)"><span class="nav-icon">📋</span><span>管理表</span></div>
+    <div class="nav-item" onclick="switchPage('kanritable',this)"><span class="nav-icon">📋</span><span>デイリー</span></div>
     <div class="nav-item" onclick="switchPage('menu',this)"><span class="nav-icon">🍜</span><span>商品管理</span></div>
     <div class="nav-item" onclick="switchPage('itemorder',this)"><span class="nav-icon">🔀</span><span>表示順序</span></div>
     <div class="nav-item" onclick="switchPage('maintenance',this)"><span class="nav-icon">🛠️</span><span>メンテナンス</span></div>
@@ -592,10 +592,10 @@ window.adminLogout = adminLogout;
           <div class="section-label" style="color:var(--green)">💾 今日の数値を保存</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <input type="date" id="dinner-save-date" class="form-input" style="width:160px" onchange="recalcDinnerManuals()">
-            <button onclick="saveDailyReportFromDinner()" style="padding:10px 22px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">💾 管理表に保存</button>
+            <button onclick="saveDailyReportFromDinner()" style="padding:10px 22px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">💾 デイリーに保存</button>
             <span id="dinner-save-status" style="font-size:11px;color:var(--muted)"></span>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">※ APP集計値（売上・客数）と手入力した数値をその日付の管理表データとして Firestore に保存します。保存後は管理表ページで閲覧・修正できます。</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">※ APP集計値（売上・客数）と手入力した数値をその日付のデイリーデータとして Firestore に保存します。保存後はデイリーページで閲覧・修正できます。</div>
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
         <div id="dinner-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
@@ -754,7 +754,7 @@ window.adminLogout = adminLogout;
 
   <!-- 管理表ページ -->
   <div class="page" id="page-kanritable">
-    <div class="page-title">📋 管理表</div>
+    <div class="page-title">📋 デイリー</div>
     <div class="page-sub kt-noprint">夜の日報で保存した数値の閲覧・修正・CSV出力</div>
     <div class="kt-noprint" style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
       <label style="font-size:13px;color:var(--muted)">対象月：</label>
@@ -2161,7 +2161,7 @@ async function saveDailyReportFromDinner() {
   try {
     await setDoc(doc(window.fb.db, 'dailyReports', dateKey), payload, { merge: true });
     if (statusEl) statusEl.textContent = `✅ ${dateKey} 保存完了`;
-    showToast('✅ 管理表に保存しました');
+    showToast('✅ デイリーに保存しました');
   } catch(e) {
     if (statusEl) statusEl.textContent = '❌ 失敗';
     console.error(e);
@@ -2235,7 +2235,7 @@ function exportKanritableCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `管理表_${monthEl.value}.csv`;
+  a.download = `デイリー_${monthEl.value}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('📥 CSV出力完了');
@@ -3408,7 +3408,7 @@ function copyDailyReport() {
         try {
           // 保存処理は非同期で実行（コピー成功トーストとは独立）
           Promise.resolve(saveDailyReportFromDinner()).catch(e => console.error('auto-save failed:', e));
-          showToast('日報をコピーしました 📋（管理表に自動保存中…）');
+          showToast('日報をコピーしました 📋（デイリーに自動保存中…）');
         } catch(e) {
           console.error('auto-save trigger failed:', e);
           showToast('日報をコピーしました 📋');
@@ -3427,7 +3427,7 @@ function copyNightReport() {
     .then(() => {
       try {
         Promise.resolve(saveDailyReportFromDinner()).catch(e => console.error('auto-save failed:', e));
-        showToast('夜の報告をコピーしました 🌙（管理表に自動保存中…）');
+        showToast('夜の報告をコピーしました 🌙（デイリーに自動保存中…）');
       } catch(e) {
         console.error('auto-save trigger failed:', e);
         showToast('夜の報告をコピーしました 🌙');
@@ -5970,7 +5970,7 @@ function exportSoupRankingPDF() {
 }
 function exportKanritablePDF() {
   const m = document.getElementById('kanritableMonth')?.value || '';
-  exportElementToPDF('page-kanritable', `管理表_${m}.pdf`);
+  exportElementToPDF('page-kanritable', `デイリー_${m}.pdf`);
 }
 
 window.printPage = printPage;
