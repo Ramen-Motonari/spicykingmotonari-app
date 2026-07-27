@@ -5609,6 +5609,40 @@ setInterval(() => {
   }
 }, 10000);
 
+// 平日（月〜金）14:00 に「両替に行ってください」通知を音付きで表示（1日1回）
+let _exchangeReminderFiredDate = null;
+function showKitchenExchangeReminder() {
+  document.getElementById('kitchenExchangeReminder')?.remove();
+  const backdrop = document.createElement('div');
+  backdrop.id = 'kitchenExchangeReminder';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:\'Noto Sans JP\',sans-serif';
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#fff;color:#1a1008;border-radius:18px;padding:34px 40px 28px;text-align:center;min-width:300px;box-shadow:0 14px 50px rgba(0,0,0,0.5);border-top:7px solid #e6a817';
+  card.innerHTML = `
+    <div style="font-size:52px;line-height:1;margin-bottom:14px">💴</div>
+    <div style="font-size:26px;font-weight:900;margin-bottom:26px">両替に行ってください</div>
+    <button type="button" id="kitchenExchangeCloseBtn" style="padding:13px 32px;border-radius:12px;background:#1a1008;color:#fff;border:none;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✕ 閉じる</button>`;
+  backdrop.appendChild(card);
+  const close = () => backdrop.remove();
+  backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
+  document.body.appendChild(backdrop);
+  document.getElementById('kitchenExchangeCloseBtn').onclick = close;
+  // 通知音（注目を引くため数回鳴らす）
+  let n = 0;
+  const ring = () => { try { playBellSound(); } catch(_) {} n++; if (n < 3) setTimeout(ring, 900); };
+  ring();
+}
+setInterval(() => {
+  const now = new Date();
+  const dow = now.getDay();
+  if (dow < 1 || dow > 5) return; // 月〜金のみ
+  if (now.getHours() !== 14) return; // 14時台
+  const dateStr = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+  if (_exchangeReminderFiredDate === dateStr) return; // 1日1回
+  _exchangeReminderFiredDate = dateStr;
+  showKitchenExchangeReminder();
+}, 30000);
+
 async function playBellSound() {
   const ctx = getAudioCtx();
   if (!ctx) { console.warn('[bell] no ctx'); return; }

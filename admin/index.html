@@ -3415,9 +3415,38 @@ function copyDailyReport() {
         }
       } else {
         showToast('日報をコピーしました 📋');
+        // 平日（月〜金）のランチ日報コピー時：両替リマインドカードを表示
+        if (currentReportTab === 'lunch') {
+          const dow = new Date().getDay();
+          if (dow >= 1 && dow <= 5) showExchangeReminderCard();
+        }
       }
     })
     .catch(() => showToast('コピー失敗', true));
+}
+
+// 両替リマインドカード（ランチ日報コピー時・平日限定）。×閉じるで閉じる。
+function showExchangeReminderCard() {
+  document.getElementById('exchangeReminderCard')?.remove();
+  document.getElementById('exchangeReminderBackdrop')?.remove();
+  const close = () => {
+    document.getElementById('exchangeReminderCard')?.remove();
+    document.getElementById('exchangeReminderBackdrop')?.remove();
+  };
+  const backdrop = document.createElement('div');
+  backdrop.id = 'exchangeReminderBackdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99998';
+  backdrop.onclick = close;
+  const card = document.createElement('div');
+  card.id = 'exchangeReminderCard';
+  card.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#1a1008;border-radius:16px;padding:28px 32px 24px;z-index:99999;box-shadow:0 12px 44px rgba(0,0,0,0.45);text-align:center;min-width:260px;border-top:6px solid #e6a817;font-family:\'Noto Sans JP\',sans-serif';
+  card.innerHTML = `
+    <div style="font-size:42px;line-height:1;margin-bottom:12px">💴</div>
+    <div style="font-size:20px;font-weight:900;margin-bottom:22px">両替は行きましたか？</div>
+    <button type="button" id="exchangeReminderCloseBtn" style="padding:11px 26px;border-radius:10px;background:#1a1008;color:#fff;border:none;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✕ 閉じる</button>`;
+  document.body.appendChild(backdrop);
+  document.body.appendChild(card);
+  document.getElementById('exchangeReminderCloseBtn').onclick = close;
 }
 
 // 合算ページから「夜の報告」をコピー（夜営業タブのコピーと同じ挙動：管理表にも自動保存）
