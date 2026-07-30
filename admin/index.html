@@ -545,6 +545,13 @@ window.adminLogout = adminLogout;
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="lunch-customers">0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="lunch-avg">¥0</div></div>
         </div>
+        <div class="manual-input-section">
+          <div class="section-label">🛵 Uber Eats（ランチ）</div>
+          <div class="manual-input-grid">
+            <div class="manual-field"><label>件数 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-count" placeholder="例: 3"></div>
+            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-sales" placeholder="例: 5400"></div>
+          </div>
+        </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
         <div id="lunch-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
       </div>
@@ -586,6 +593,13 @@ window.adminLogout = adminLogout;
           <div class="manual-input-grid">
             <div class="manual-field"><label>労働時間（h） <span class="auto-label">入力</span></label><input type="number" id="dinner-work-hours" placeholder="例: 22" step="0.5" oninput="recalcDinnerManuals()"></div>
             <div class="manual-field"><label>人時売上 <span class="auto-label">自動計算</span></label><input type="text" id="dinner-work-sales" class="auto-input" readonly></div>
+          </div>
+        </div>
+        <div class="manual-input-section">
+          <div class="section-label">🛵 Uber Eats（夜）</div>
+          <div class="manual-input-grid">
+            <div class="manual-field"><label>件数 <span class="auto-label">入力</span></label><input type="number" id="dinner-uber-count" placeholder="例: 5"></div>
+            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="dinner-uber-sales" placeholder="例: 8200"></div>
           </div>
         </div>
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
@@ -3256,6 +3270,11 @@ function buildReportText(session) {
     txt += `累計客単価　¥${mtdAvg.toLocaleString()}\n`;
     txt += `累計新規率　${mtdAll.visitRate.rate}%\n`;
     txt += `累計外国人率　${mtdAll.foreignRate.rate}%\n`;
+    const luCnt = parseInt(document.getElementById('lunch-uber-count')?.value || '0') || 0;
+    const luSales = parseInt(document.getElementById('lunch-uber-sales')?.value || '0') || 0;
+    txt += `\n`;
+    txt += `●Uber Eats\n`;
+    txt += `${luCnt}件　　¥${luSales.toLocaleString()}\n`;
     return txt;
   }
 
@@ -3396,6 +3415,15 @@ function buildReportText(session) {
   const spicyLine2 = [6,7,8,9,10].map(i => `${i}辛x${spicyCounts[i]}`).join(' / ');
   txt += `${spicyLine1}\n`;
   txt += `${spicyLine2}\n`;
+  const dnUberCnt = parseInt(document.getElementById('dinner-uber-count')?.value || '0') || 0;
+  const dnUberSales = parseInt(document.getElementById('dinner-uber-sales')?.value || '0') || 0;
+  const luUberCnt = parseInt(document.getElementById('lunch-uber-count')?.value || '0') || 0;
+  const luUberSales = parseInt(document.getElementById('lunch-uber-sales')?.value || '0') || 0;
+  txt += `\n`;
+  txt += `●Uber Eats\n`;
+  txt += `${dnUberCnt}件　　¥${dnUberSales.toLocaleString()}\n`;
+  txt += `累計\n`;
+  txt += `${luUberCnt + dnUberCnt}件　　¥${(luUberSales + dnUberSales).toLocaleString()}\n`;
   return txt;
 }
 
