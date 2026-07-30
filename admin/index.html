@@ -695,6 +695,11 @@ window.adminLogout = adminLogout;
         <div class="an-kpi-value" style="color:#7b1fa2" id="an-drink-rate">0%</div>
         <div class="an-kpi-prev">件数 <span id="an-drink-count">0</span></div>
       </div>
+      <div class="an-kpi-card">
+        <div class="an-kpi-label">🛵 Uber Eats 売上</div>
+        <div class="an-kpi-value" style="color:#05a357" id="an-uber-sales">¥0</div>
+        <div class="an-kpi-prev">件数 <span id="an-uber-count">0</span> 件</div>
+      </div>
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">カテゴリ別売上</div>
@@ -2165,9 +2170,15 @@ async function saveDailyReportFromDinner() {
   const salesToday = parseFloat(document.getElementById('dinner-yearly-sales-today')?.value) || null;
   const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || null;
   const workHours = parseFloat(document.getElementById('dinner-work-hours')?.value) || null;
+  // Uber Eats（ランチ・夜それぞれの件数/売上）を日次データとして保存 → 売上分析で期間集計する
+  const uberLunchCount = parseInt(document.getElementById('lunch-uber-count')?.value) || 0;
+  const uberLunchSales = parseInt(document.getElementById('lunch-uber-sales')?.value) || 0;
+  const uberDinnerCount = parseInt(document.getElementById('dinner-uber-count')?.value) || 0;
+  const uberDinnerSales = parseInt(document.getElementById('dinner-uber-sales')?.value) || 0;
   const payload = {
     date: dateKey, weather,
     salesToday, purchaseToday, workHours,
+    uberLunchCount, uberLunchSales, uberDinnerCount, uberDinnerSales,
     updatedAt: serverTimestamp()
   };
   const statusEl = document.getElementById('dinner-save-status');
@@ -3619,8 +3630,10 @@ function renderAnalytics() {
 
   // 前年対比：dailyReports の prevYearSalesToday を集計して使用
   //   ※ 売上は管理表で入力された前年値を加算。客数/客単価/新規率/外国人率は前年データなしのため「—」
+  //   併せて Uber Eats（件数/売上）も範囲内で集計（セッションタブに応じてランチ/夜/合算を切替）
   let prevYearSales = 0;
   let hasPrevYearData = false;
+  let uberCount = 0, uberSales = 0;
   if (typeof _dailyReports === 'object' && _dailyReports) {
     // 範囲内の日付に対する前年売上合計
     const cursor = new Date(range.start);
@@ -3631,9 +3644,18 @@ function renderAnalytics() {
         prevYearSales += dr.prevYearSalesToday;
         hasPrevYearData = true;
       }
+      if (dr) {
+        const luC = Number(dr.uberLunchCount || 0), luS = Number(dr.uberLunchSales || 0);
+        const dnC = Number(dr.uberDinnerCount || 0), dnS = Number(dr.uberDinnerSales || 0);
+        if (session === 'lunch')      { uberCount += luC; uberSales += luS; }
+        else if (session === 'dinner'){ uberCount += dnC; uberSales += dnS; }
+        else                          { uberCount += luC + dnC; uberSales += luS + dnS; }
+      }
       cursor.setDate(cursor.getDate() + 1);
     }
   }
+  { const ec = document.getElementById('an-uber-count'); if (ec) ec.textContent = uberCount.toLocaleString();
+    const es = document.getElementById('an-uber-sales'); if (es) es.textContent = '¥' + uberSales.toLocaleString(); }
   // 前年対比の表示
   const setPrev = (id, prevText, diffText, diffColor) => {
     const pe = document.getElementById(id + '-prev');
