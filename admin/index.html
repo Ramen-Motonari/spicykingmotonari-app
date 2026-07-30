@@ -535,33 +535,10 @@ window.adminLogout = adminLogout;
           <div style="background:var(--surface2);border-radius:10px;padding:12px;border-left:3px solid var(--green)"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">ランチ売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--green)" id="all-lunch-sales">¥0</div></div>
           <div style="background:var(--surface2);border-radius:10px;padding:12px;border-left:3px solid var(--purple)"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">夜営業売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:18px;color:var(--purple)" id="all-dinner-sales">¥0</div></div>
         </div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント（一日合算）</div>
-        <div id="all-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
-      </div>
-      <div id="report-lunch-section" style="display:none">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)" id="lunch-sales-tax">¥0</div></div>
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="lunch-sales-notax">¥0</div></div>
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="lunch-customers">0</div></div>
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="lunch-avg">¥0</div></div>
-        </div>
-        <div class="manual-input-section">
-          <div class="section-label">🛵 Uber Eats（ランチ）</div>
-          <div class="manual-input-grid">
-            <div class="manual-field"><label>件数 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-count" placeholder="例: 3"></div>
-            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-sales" placeholder="例: 5400"></div>
-          </div>
-        </div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
-        <div id="lunch-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
-      </div>
-      <div id="report-dinner-section" style="display:none">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)" id="dinner-sales-tax">¥0</div></div>
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="dinner-sales-notax">¥0</div></div>
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="dinner-customers">0</div></div>
-          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="dinner-avg">¥0</div></div>
-        </div>
+        <style>
+          .manual-field .auto-input{background:rgba(255,255,255,0.06)!important;cursor:not-allowed;color:var(--accent)!important;font-family:'Oswald',sans-serif!important;font-size:14px!important}
+          .manual-field .auto-label{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-left:4px}
+        </style>
         <div class="manual-input-section">
           <div class="section-label">🏪 店舗情報</div>
           <div class="manual-input-grid">
@@ -569,10 +546,6 @@ window.adminLogout = adminLogout;
             <div class="manual-field"><label>天気</label><select class="weather-select" id="dinner-weather"><option value="晴">☀️ 晴</option><option value="曇">☁️ 曇</option><option value="雨">🌧️ 雨</option><option value="台風">🌀 台風</option></select></div>
           </div>
         </div>
-        <style>
-          .manual-field .auto-input{background:rgba(255,255,255,0.06)!important;cursor:not-allowed;color:var(--accent)!important;font-family:'Oswald',sans-serif!important;font-size:14px!important}
-          .manual-field .auto-label{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-left:4px}
-        </style>
         <div class="manual-input-section">
           <div class="section-label">📊 本年売上</div>
           <div class="manual-input-grid">
@@ -610,6 +583,33 @@ window.adminLogout = adminLogout;
             <span id="dinner-save-status" style="font-size:11px;color:var(--muted)"></span>
           </div>
           <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">※ APP集計値（売上・客数）と手入力した数値をその日付のデイリーデータとして Firestore に保存します。保存後はデイリーページで閲覧・修正できます。</div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント（一日合算）</div>
+        <div id="all-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
+      </div>
+      <div id="report-lunch-section" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)" id="lunch-sales-tax">¥0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="lunch-sales-notax">¥0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="lunch-customers">0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="lunch-avg">¥0</div></div>
+        </div>
+        <div class="manual-input-section">
+          <div class="section-label">🛵 Uber Eats（ランチ）</div>
+          <div class="manual-input-grid">
+            <div class="manual-field"><label>件数 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-count" placeholder="例: 3"></div>
+            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-sales" placeholder="例: 5400"></div>
+          </div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
+        <div id="lunch-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
+      </div>
+      <div id="report-dinner-section" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税込）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)" id="dinner-sales-tax">¥0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">売上（税抜）</div><div style="font-family:'Oswald',sans-serif;font-size:22px" id="dinner-sales-notax">¥0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客数（ラーメン杯数）</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--green)" id="dinner-customers">0</div></div>
+          <div style="background:var(--surface2);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">客単価</div><div style="font-family:'Oswald',sans-serif;font-size:22px;color:var(--purple)" id="dinner-avg">¥0</div></div>
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
         <div id="dinner-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
@@ -2573,17 +2573,22 @@ function switchReportTab(tab) {
   document.getElementById('report-all-section').style.display = tab === 'all' ? 'block' : 'none';
   document.getElementById('report-lunch-section').style.display = tab === 'lunch' ? 'block' : 'none';
   document.getElementById('report-dinner-section').style.display = tab === 'dinner' ? 'block' : 'none';
-  // 合算タブのときは「コピー」をグレーアウト（コピー対象は lunch/dinner のみのため）
+  // コピーボタン：ランチのみ表示。合算はグレーアウト（閲覧専用）、夜営業は非表示
+  //   （夜の報告は合算タブの「🌙 夜の報告をコピー」から行う）
   const copyBtn = document.getElementById('copyReportBtn');
   if (copyBtn) {
-    if (tab === 'all') {
+    if (tab === 'dinner') {
+      copyBtn.style.display = 'none';
+    } else if (tab === 'all') {
+      copyBtn.style.display = '';
       copyBtn.disabled = true;
       copyBtn.style.opacity = '0.35';
       copyBtn.style.cursor = 'not-allowed';
       copyBtn.style.background = 'var(--surface3)';
       copyBtn.style.color = 'var(--muted)';
-      copyBtn.title = '合算は閲覧専用です。コピーはランチ/夜営業を選択してください';
+      copyBtn.title = '合算は閲覧専用です。コピーはランチを選択してください';
     } else {
+      copyBtn.style.display = '';
       copyBtn.disabled = false;
       copyBtn.style.opacity = '';
       copyBtn.style.cursor = 'pointer';
