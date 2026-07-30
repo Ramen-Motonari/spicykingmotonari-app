@@ -2175,12 +2175,17 @@ async function saveDailyReportFromDinner() {
   const uberLunchSales = parseInt(document.getElementById('lunch-uber-sales')?.value) || 0;
   const uberDinnerCount = parseInt(document.getElementById('dinner-uber-count')?.value) || 0;
   const uberDinnerSales = parseInt(document.getElementById('dinner-uber-sales')?.value) || 0;
+  // 空欄は payload に含めない（merge書き込みで既存値を null / 空文字で上書きしないため）。
+  // ※コピー＝保存化により、片方の営業だけ入力済み状態で保存が走っても他方の保存値を潰さない。
   const payload = {
-    date: dateKey, weather,
-    salesToday, purchaseToday, workHours,
+    date: dateKey,
     uberLunchCount, uberLunchSales, uberDinnerCount, uberDinnerSales,
     updatedAt: serverTimestamp()
   };
+  if (weather) payload.weather = weather;
+  if (salesToday !== null) payload.salesToday = salesToday;
+  if (purchaseToday !== null) payload.purchaseToday = purchaseToday;
+  if (workHours !== null) payload.workHours = workHours;
   const statusEl = document.getElementById('dinner-save-status');
   if (statusEl) statusEl.textContent = '保存中…';
   try {
@@ -3458,7 +3463,14 @@ function copyDailyReport() {
           showToast('日報をコピーしました 📋');
         }
       } else {
-        showToast('日報をコピーしました 📋');
+        // ランチ等でもコピーだけで保存（Uber件数・売上などを永続化。押し忘れ防止）
+        try {
+          Promise.resolve(saveDailyReportFromDinner()).catch(e => console.error('auto-save failed:', e));
+          showToast('日報をコピーしました 📋（デイリーに自動保存中…）');
+        } catch(e) {
+          console.error('auto-save trigger failed:', e);
+          showToast('日報をコピーしました 📋');
+        }
         // 平日（月〜金）のランチ日報コピー時：両替リマインドカードを表示
         if (currentReportTab === 'lunch') {
           const dow = new Date().getDay();
