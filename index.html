@@ -4528,6 +4528,24 @@ async function submitPendingKaedamaOrder() {
         { items: newItems, updatedAt: window.FB.serverTimestamp() }
       );
     }
+    // ⚠️ 二重注文レース対策：送信した権利をローカル orderHistory にも即座に requested:true 反映。
+    //   これをしないと onSnapshot がローカルへ届くまでの間 getPendingKaedamaRights() が
+    //   同じ無料権利を未消化と誤判定し、フローティングボタンが消えず二重注文できてしまう。
+    submitTargets.forEach(({ p }) => {
+      const ord = (orderHistory || []).find(o => o.fbId === p.orderId);
+      if (!ord || !Array.isArray(ord.items)) return;
+      const it = ord.items[p.orderItemIdx];
+      if (!it) return;
+      if (p.paid) {
+        if (Array.isArray(it.pendingKaedamaRightsPaid) && it.pendingKaedamaRightsPaid[p.paidRightIdx]) {
+          it.pendingKaedamaRightsPaid[p.paidRightIdx].requested = true;
+        }
+      } else if (p.student) {
+        if (it.pendingStudentKaedamaRight) it.pendingStudentKaedamaRight.requested = true;
+      } else {
+        if (it.pendingKaedamaRight) it.pendingKaedamaRight.requested = true;
+      }
+    });
     const tk = (T_KPC && T_KPC[lang]) || T_KPC.ja;
     showValidationMsg('✅ ' + (tk.success || '替え玉を注文しました'));
     closePendingKaedamaCard();
