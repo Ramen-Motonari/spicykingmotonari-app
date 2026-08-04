@@ -3822,7 +3822,12 @@ tableOrders.forEach(o => {
 const items = Array.isArray(o.items) ? o.items : [];
 historyHtml += `<div class="order-block">
 <div class="order-block-time">${formatOrderTime(o)} の注文 #${shortOrderId(o.id)}</div>
-${items.map((item, idx) => {
+${(() => {
+// 注文変更で取り消された未提供アイテム（_deletedByEdit）は、通常商品とは分けて
+// 「取り消し商品」セクションに赤い打ち消し線＋¥0 で表示する。
+const activeItems = [], deletedItems = [];
+items.forEach((item, idx) => { (item._deletedByEdit ? deletedItems : activeItems).push({ item, idx }); });
+const renderActive = ({ item, idx }) => {
 const displayName = getDetailItemName(item);
 const unitPrice = getItemUnitPrice(item);
 const lineTotal = item.qty * unitPrice;
@@ -3835,7 +3840,23 @@ ${(()=>{const dopts=stripSpicyMarkerOpts(item.opts);return dopts.length?`<div cl
 <button onclick="event.stopPropagation();editLineItemPrice('${o.id}',${idx})" title="金額変更" style="background:rgba(200,134,10,0.15);border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:'Noto Sans JP',sans-serif">✏️</button>
 </div>
 </div>`;
-}).join('')}
+};
+const renderDeleted = ({ item }) => {
+const displayName = getDetailItemName(item);
+return `<div class="order-line" style="opacity:0.9">
+<div class="order-line-name" style="color:#e74c3c;text-decoration:line-through;text-decoration-thickness:2px">${displayName} × ${item.qty}
+${(()=>{const dopts=stripSpicyMarkerOpts(item.opts);return dopts.length?`<div class="order-line-sub" style="text-decoration:line-through">${dopts.map(o=>translateOptToLang(o)).join(' / ')}</div>`:'';})()}
+</div>
+<div class="order-line-price"><span>¥0</span></div>
+</div>`;
+};
+let out = activeItems.map(renderActive).join('');
+if (deletedItems.length) {
+out += `<div style="font-size:12px;font-weight:900;color:#c0392b;letter-spacing:1px;margin:12px 2px 6px">取り消し商品</div>`;
+out += deletedItems.map(renderDeleted).join('');
+}
+return out;
+})()}
 </div>`;
 });
 document.getElementById('orderHistory').innerHTML = historyHtml || '<div style="color:var(--muted);font-size:13px;padding:12px 0">注文履歴なし</div>';
