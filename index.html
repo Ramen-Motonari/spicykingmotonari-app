@@ -1445,6 +1445,8 @@ function subscribeSoldout(){
     if(cartModal && cartModal.classList.contains('open')) renderCart();
     // 商品モーダルを開いている時は、平打ち麺変更の売り切れ反映のため再描画
     if(curItem && $('itemModal') && $('itemModal').classList.contains('open')) renderModal();
+    // 管理画面の売り切れタブを開いている時：ボタンの状態（一括停止/再開の切替含む）を即時反映
+    if($('adminModal') && $('adminModal').classList.contains('open') && adminTab==='soldout') renderAdminSoldout();
   }, (err) => {
     console.error('Soldout subscribe error:', err);
   });
@@ -4937,13 +4939,23 @@ function renderAdminSoldout(){
     allCatKeys.map(cat=>{
       const items = menu.filter(m=>m.cat===cat);
       if(!items.length) return '';
+      // チャーハン類（商品名判定）を先頭にまとめ、その直上に一括停止/再開ボタンを置く
+      const chahanItems = items.filter(isChaahanItem);
+      const otherItems  = items.filter(it=>!isChaahanItem(it));
+      const ordered = [...chahanItems, ...otherItems];
+      const itemBtn = item => {
+        const so = isItemSoldout(item.id);
+        return `<button onclick="toggleSoldout(${item.id})" style="padding:6px 10px;border-radius:8px;font-size:11px;border:1.5px solid ${so?'#e74c3c':'var(--border)'};background:${so?'#fdecea':'transparent'};color:${so?'#c0392b':'var(--text)'};cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-weight:700">${so?'🚫 ':''}${item.name.ja}</button>`;
+      };
+      let bulkBtn = '';
+      if(chahanItems.length){
+        const allSold = chahanItems.every(it=>isItemSoldout(it.id));
+        bulkBtn = `<button onclick="bulkSoldoutChaahan()" style="flex-basis:100%;padding:9px 12px;border-radius:10px;font-size:12px;border:1.5px solid ${allSold?'#27ae60':'#e74c3c'};background:${allSold?'#eafaf1':'#fdecea'};color:${allSold?'#1e8449':'#c0392b'};cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-weight:800">${allSold?'▶️ チャーハン類を全て再開':'🚫 チャーハン類を全て停止'}</button>`;
+      }
       return `<div style="margin-bottom:12px">
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${(catLabels.ja && catLabels.ja[cat]) || cat}</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${items.map(item=>{
-            const so = isItemSoldout(item.id);
-            return `<button onclick="toggleSoldout(${item.id})" style="padding:6px 10px;border-radius:8px;font-size:11px;border:1.5px solid ${so?'#e74c3c':'var(--border)'};background:${so?'#fdecea':'transparent'};color:${so?'#c0392b':'var(--text)'};cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-weight:700">${so?'🚫 ':''}${item.name.ja}</button>`;
-          }).join('')}
+          ${bulkBtn}${ordered.map(itemBtn).join('')}
         </div>
       </div>`;
     }).join('');
@@ -4973,6 +4985,25 @@ async function toggleSoldout(id){
     await window.FB.setDoc(ref, {ids: Array.from(newSet), updatedAt: window.FB.serverTimestamp()});
   } catch(e) {
     console.error('Soldout toggle failed:', e);
+    alert('更新に失敗しました: ' + e.message);
+  }
+}
+
+// チャーハン類（商品名判定）を一括で売り切れ切替。全て売切なら一括再開、それ以外は一括停止。
+async function bulkSoldoutChaahan(){
+  if(!fbReady) return;
+  const chahanIds = menu.filter(isChaahanItem).map(m=>m.id);
+  if(!chahanIds.length) return;
+  const allSold = chahanIds.every(id=>soldoutSet.has(id));
+  const today = todayKey();
+  const ref = window.FB.doc(window.FB.db, 'soldout', today);
+  const newSet = new Set(soldoutSet);
+  if(allSold) chahanIds.forEach(id=>newSet.delete(id)); // 全て売切 → 一括再開
+  else        chahanIds.forEach(id=>newSet.add(id));    // それ以外 → 一括停止
+  try {
+    await window.FB.setDoc(ref, {ids: Array.from(newSet), updatedAt: window.FB.serverTimestamp()});
+  } catch(e) {
+    console.error('Bulk chahan soldout failed:', e);
     alert('更新に失敗しました: ' + e.message);
   }
 }
