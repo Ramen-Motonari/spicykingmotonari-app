@@ -2517,6 +2517,12 @@ function renderTableTicket(tt) {
   const allServed = allItems.length > 0 && allItems.every(i => i.served);
   // 新規追加が含まれているか（伝票全体のバッジ用）
   const hasNewItems = entries.some(e => e.isNewOrder);
+  // 注文変更で「追加」された未提供アイテムがあるか（伝票下部の確認アラート用）。
+  // _addedByEdit は注文変更で追加された行にのみ付く（通常の新規注文には付かない）。
+  const hasEditAdditionUnserved = entries.some(e => (e.grp.items || []).some(it => it && it._addedByEdit && !it.served));
+  const editAlertHtml = hasEditAdditionUnserved
+    ? `<div class="tk-edit-alert" style="margin:6px 10px 8px;background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);color:#fff;border-radius:12px;padding:11px 14px;text-align:center;box-shadow:0 2px 10px rgba(192,57,43,.4)"><div style="font-size:14px;font-weight:900;line-height:1.4">⚠️ 注文変更 — 提供済みか未提供かご確認ください</div><div style="font-size:12px;font-weight:700;margin-top:3px;opacity:.95">提供済みであればタップで提供完了にしてください</div></div>`
+    : '';
 
   const isExpanded = _expandedTickets.has(tLabel);
   const expandBtnLabel = isExpanded ? '戻' : '全';
@@ -2540,6 +2546,7 @@ ${isKaedamaTicket ? '<span class="ticket-new-flag" style="background:linear-grad
 </div>
 </div>
 <div class="ticket-body" style="padding:4px 0 8px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch">${sectionsHtml}</div>
+${editAlertHtml}
 </div>`;
 }
 
