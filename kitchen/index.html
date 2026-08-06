@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-06-1">
+<meta name="app-build" content="2026-08-06-2">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -407,6 +407,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .kitchen-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100vw;height:calc(100vh - 53px);color:var(--muted);text-align:center;padding:40px}
 .kitchen-empty .empty-icon{font-size:60px;margin-bottom:16px;opacity:0.4}
 .kitchen-empty .empty-text{font-size:14px}
+/* 待機画面の画面名ラベル（ゴシック・太字・グレー・大きめ） */
+.wait-screen-name{font-family:'Noto Sans JP',sans-serif;font-weight:900;font-size:46px;color:#9e9e9e;letter-spacing:3px;line-height:1.2}
 #registerScreen{padding:12px}
 .reg-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none}
 .reg-tabs::-webkit-scrollbar{display:none}
@@ -1942,7 +1944,7 @@ const hasNonGhost = !!content.querySelector('.ticket:not([data-removing])');
 if (!emptyAlready && !hasNonGhost) {
 const empty = document.createElement('div');
 empty.className = 'kitchen-empty';
-empty.innerHTML = `<div class="empty-icon">🍜</div><div class="empty-text">現在の注文はありません</div>`;
+empty.innerHTML = `<div class="wait-screen-name">全体表示</div>`;
 empty.style.opacity = '0';
 empty.style.transition = 'opacity 0.3s ease 0.2s';
 content.appendChild(empty);
@@ -3240,7 +3242,7 @@ function renderRamenList() {
   };
   allKaedama.sort(byCreatedAt);
   if (allRamen.length === 0 && allKaedama.length === 0) {
-    el.innerHTML = `<div class="rlist-empty"><div class="rlist-empty-icon">🍜</div><div class="rlist-empty-text">現在ラーメンの注文はありません</div></div>`;
+    el.innerHTML = `<div class="rlist-empty"><div class="wait-screen-name">ラーメン一覧</div></div>`;
     if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
     return;
   }
@@ -3505,7 +3507,7 @@ function renderSideList() {
   const sideCards = _listCardsFor(_collectListItems('side'));
   const drinkCards = _listCardsFor(_collectListItems('drink'));
   if (sideCards.length === 0 && drinkCards.length === 0) {
-    el.innerHTML = `<div class="rlist-empty"><div class="rlist-empty-icon">🍟</div><div class="rlist-empty-text">現在サイド・ドリンクの注文はありません</div></div>`;
+    el.innerHTML = `<div class="rlist-empty"><div class="wait-screen-name">サイド一覧</div></div>`;
     if (typeof updateKitchenVNavBar === 'function') requestAnimationFrame(updateKitchenVNavBar);
     return;
   }
