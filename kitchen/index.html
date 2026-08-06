@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
+<meta name="app-build" content="2026-08-06-1">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -5880,6 +5882,51 @@ window.addEventListener('load', bootstrap);
     }
     lastTouchEnd = now;
   }, { passive: false });
+})();
+</script>
+<script>
+// ===== 自動バージョン更新（レジを開いたまま最新版へ自動反映） =====
+//   仕組み：<meta name="app-build"> に現在の版数を埋め込み、フォアグラウンド復帰時に
+//   自ページを no-store で取得して版数を比較。変わっていれば「会計中など操作中でない時に限り」
+//   location.reload() する。オフライン時は何もしない（fetch失敗を握りつぶす）。
+//   デプロイ時は上部の <meta name="app-build"> content を1つ上げるだけ。
+(function(){
+  var meta = document.querySelector('meta[name="app-build"]');
+  var CURRENT = meta ? (meta.getAttribute('content') || '') : '';
+  if (!CURRENT) return;
+  var busy = false;
+  function isBlockingUiOpen(){
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return true;
+    var sel = '.modal.open,.modal.active,.modal.show,.modal-overlay.open,.modal-overlay.active,.overlay.open,.overlay.active,.sheet.open,.sheet.active,.drawer.open,.popup.open,.popup.active';
+    var nodes = document.querySelectorAll(sel);
+    for (var i=0;i<nodes.length;i++){ if (nodes[i].offsetParent !== null) return true; }
+    return false;
+  }
+  function canReloadNow(){
+    if (isBlockingUiOpen()) return false;
+    var last = Number(sessionStorage.getItem('__mtnr_reloadTs') || 0);
+    if (Date.now() - last < 60000) return false; // 直近60秒に自動リロード済みならループ防止で抑止
+    return true;
+  }
+  async function checkForUpdate(){
+    if (busy || document.visibilityState !== 'visible') return;
+    busy = true;
+    try {
+      var res = await fetch(location.pathname + '?_v=' + Date.now(), { cache: 'no-store' });
+      if (!res || !res.ok) return;
+      var html = await res.text();
+      var m = html.match(/name=["']app-build["'][^>]*content=["']([^"']+)["']/i);
+      if (m && m[1] && m[1] !== CURRENT && canReloadNow()) {
+        sessionStorage.setItem('__mtnr_reloadTs', String(Date.now()));
+        location.reload();
+      }
+    } catch(_) { /* オフライン等は無視 */ }
+    finally { busy = false; }
+  }
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') checkForUpdate(); });
+  window.addEventListener('focus', checkForUpdate);
+  setTimeout(checkForUpdate, 15000); // 起動15秒後に1回だけ保険チェック
 })();
 </script>
 </body>

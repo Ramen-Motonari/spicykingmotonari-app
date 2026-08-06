@@ -572,7 +572,7 @@ window.adminLogout = adminLogout;
           <div class="section-label">🛵 Uber Eats（夜）</div>
           <div class="manual-input-grid">
             <div class="manual-field"><label>件数 <span class="auto-label">入力</span></label><input type="number" id="dinner-uber-count" placeholder="例: 5"></div>
-            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="dinner-uber-sales" placeholder="例: 8200"></div>
+            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="dinner-uber-sales" placeholder="例: 8200" oninput="recalcDinnerManuals()"></div>
           </div>
         </div>
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
@@ -580,6 +580,7 @@ window.adminLogout = adminLogout;
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <input type="date" id="dinner-save-date" class="form-input" style="width:160px" onchange="recalcDinnerManuals()">
             <button onclick="saveDailyReportFromDinner()" style="padding:10px 22px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">💾 デイリーに保存</button>
+            <button onclick="migratePastUberIntoSales()" title="過去の日報の当日売上にUber売上(税抜)を一括合算します（各日1回のみ・二重加算なし）" style="padding:10px 16px;border-radius:10px;background:#fff;color:#c0392b;border:1.5px solid #e74c3c;font-size:12px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🔁 過去分にUberを反映</button>
             <span id="dinner-save-status" style="font-size:11px;color:var(--muted)"></span>
           </div>
           <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">※ APP集計値（売上・客数）と手入力した数値をその日付のデイリーデータとして Firestore に保存します。保存後はデイリーページで閲覧・修正できます。</div>
@@ -598,7 +599,7 @@ window.adminLogout = adminLogout;
           <div class="section-label">🛵 Uber Eats（ランチ）</div>
           <div class="manual-input-grid">
             <div class="manual-field"><label>件数 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-count" placeholder="例: 3"></div>
-            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-sales" placeholder="例: 5400"></div>
+            <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="lunch-uber-sales" placeholder="例: 5400" oninput="recalcDinnerManuals()"></div>
           </div>
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">商品別カウント</div>
@@ -2092,8 +2093,8 @@ function recalcDinnerManuals() {
   const isToday = (dateKey === todayKey());
 
   // 当日売上（税抜）の取得優先順:
-  //   ① 選択日が「今日」の場合 → APP集計の calcReportFor('all').salesNoTax（税抜）
-  //   ② 選択日が過去/未来の場合 → _dailyReports[dateKey].salesToday（保存済）
+  //   ① 選択日が「今日」の場合 → APP集計 calcReportFor('all').salesNoTax（税抜）＋ Uber売上（税込入力を÷1.10で税抜換算）
+  //   ② 選択日が過去/未来の場合 → _dailyReports[dateKey].salesToday（保存済・Uber込み）
   //   ③ いずれも無ければ 0
   let salesTodayAuto = 0;
   if (isToday) {
@@ -2103,6 +2104,10 @@ function recalcDinnerManuals() {
         salesTodayAuto = Math.round(Number(rAll?.salesNoTax) || 0);
       }
     } catch(_) { salesTodayAuto = 0; }
+    // Uber Eats 売上（税込入力）を税抜換算（÷1.10）して当日売上に合算
+    const uberLunchTax  = parseInt(document.getElementById('lunch-uber-sales')?.value) || 0;
+    const uberDinnerTax = parseInt(document.getElementById('dinner-uber-sales')?.value) || 0;
+    salesTodayAuto += Math.round((uberLunchTax + uberDinnerTax) / 1.10);
   } else {
     const saved = _dailyReports?.[dateKey];
     if (saved && typeof saved.salesToday === 'number') {
@@ -2180,6 +2185,9 @@ async function saveDailyReportFromDinner() {
   const payload = {
     date: dateKey,
     uberLunchCount, uberLunchSales, uberDinnerCount, uberDinnerSales,
+    // salesToday は recalcDinnerManuals() により「アプリ内(税抜)＋Uber(税抜)」で計算済み。
+    // 過去分一括反映(migratePastUberIntoSales)が二重加算しないよう、反映済みフラグを立てる。
+    uberMergedIntoSales: true,
     updatedAt: serverTimestamp()
   };
   if (weather) payload.weather = weather;
@@ -2198,6 +2206,45 @@ async function saveDailyReportFromDinner() {
     alert('保存失敗: ' + (e.message || ''));
   }
 }
+
+// 過去の日報の「当日売上」に Uber 売上（税抜）を一括合算する（1回きりの移行用）。
+//   - 変更前の当日売上 = アプリ内のみ（税抜）で保存されている過去日を対象に、
+//     Uber売上(税込) ÷1.10 を加算する。
+//   - uberMergedIntoSales フラグで二重加算を防止（各日1回のみ反映）。
+//   - 「今日」は当日売上がライブ再計算されるため対象外。
+async function migratePastUberIntoSales() {
+  if (!window.fbApi || !window.fb?.db) { alert('Firebase未接続のため実行できません'); return; }
+  if (!confirm('過去の日報の「当日売上」に Uber 売上（税抜）を合算します。\n各日1回のみ反映され、二重加算はされません。実行しますか？')) return;
+  const { doc, setDoc, serverTimestamp } = window.fbApi;
+  const reports = (typeof _dailyReports === 'object' && _dailyReports) ? _dailyReports : {};
+  const tKey = (typeof todayKey === 'function') ? todayKey() : '';
+  const keys = Object.keys(reports).filter(k => k && k !== tKey).sort();
+  const statusEl = document.getElementById('dinner-save-status');
+  if (statusEl) statusEl.textContent = '過去分を反映中…';
+  let updated = 0, skipped = 0, failed = 0;
+  for (const k of keys) {
+    const r = reports[k];
+    if (!r) { continue; }
+    if (r.uberMergedIntoSales) { skipped++; continue; } // 反映済み → スキップ
+    const uberTax = (Number(r.uberLunchSales) || 0) + (Number(r.uberDinnerSales) || 0);
+    try {
+      if (uberTax > 0 && typeof r.salesToday === 'number') {
+        const next = Math.round(Number(r.salesToday) || 0) + Math.round(uberTax / 1.10);
+        await setDoc(doc(window.fb.db, 'dailyReports', k), { salesToday: next, uberMergedIntoSales: true, updatedAt: serverTimestamp() }, { merge: true });
+        updated++;
+      } else {
+        // Uber無し or 当日売上未保存 → フラグのみ立てて今後の対象外に
+        await setDoc(doc(window.fb.db, 'dailyReports', k), { uberMergedIntoSales: true, updatedAt: serverTimestamp() }, { merge: true });
+        skipped++;
+      }
+    } catch(e) { console.error('migrate fail', k, e); failed++; }
+  }
+  const msg = `過去日報 Uber合算 完了：更新${updated}件 / 対象外${skipped}件` + (failed ? ` / 失敗${failed}件` : '');
+  if (statusEl) statusEl.textContent = '✅ ' + msg;
+  showToast(msg);
+  try { recalcDinnerManuals(); } catch(_) {}
+}
+window.migratePastUberIntoSales = migratePastUberIntoSales;
 
 function exportKanritableCSV() {
   const monthEl = document.getElementById('kanritableMonth');
