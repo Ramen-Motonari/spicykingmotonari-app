@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-06-4">
+<meta name="app-build" content="2026-08-06-5">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -1338,6 +1338,12 @@ const items = allMenuItems
   });
 if (!items.length) return;
 html += `<div style="font-size:11px;font-weight:700;color:var(--accent2);letter-spacing:1px;padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">${cat}</div>`;
+// チャーハン類（商品名判定）の一括停止/再開ボタン：該当カテゴリの先頭に表示
+const chahanItems = items.filter(m => /チャーハン|炒飯/.test(m.name || ''));
+if (chahanItems.length) {
+const allChahanSold = chahanItems.every(it => ids.includes(it.id));
+html += `<button onclick="bulkToggleChahanSoldout()" style="width:100%;padding:11px 14px;border-radius:12px;margin-bottom:8px;border:1.5px solid ${allChahanSold?'var(--green)':'var(--accent2)'};background:${allChahanSold?'rgba(34,197,94,0.12)':'rgba(192,57,43,0.1)'};color:${allChahanSold?'#22c55e':'#e74c3c'};font-size:13px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif">${allChahanSold?'▶️ チャーハン類を全て再開':'🚫 チャーハン類を全て停止'}</button>`;
+}
 items.forEach(item => {
 const sold = ids.includes(item.id);
 html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${sold?'rgba(192,57,43,0.1)':'var(--surface)'};border-radius:12px;margin-bottom:6px;border:1px solid ${sold?'var(--accent2)':'var(--border)'}">
@@ -1375,6 +1381,21 @@ const ids = getSoldoutIds();
 const sold = ids.includes(itemId);
 const newIds = sold ? ids.filter(id=>id!==itemId) : [...new Set([...ids, itemId])];
 try { await setSoldoutIdsRemote(newIds); showToast(sold?'販売再開しました ✅':'売り切れに設定しました 🚫'); }
+catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
+}
+
+// チャーハン類（商品名判定）を一括で売り切れ切替。全て売切なら一括再開、それ以外は一括停止。
+async function bulkToggleChahanSoldout() {
+const ids = getSoldoutIds();
+const chahanIds = (Array.isArray(allMenuItems) ? allMenuItems : [])
+  .filter(m => /チャーハン|炒飯/.test(m.name || ''))
+  .map(m => m.id);
+if (!chahanIds.length) return;
+const allSold = chahanIds.every(id => ids.includes(id));
+const newIds = allSold
+  ? ids.filter(id => !chahanIds.includes(id))            // 全て売切 → 一括再開
+  : [...new Set([...ids, ...chahanIds])];                // それ以外 → 一括停止
+try { await setSoldoutIdsRemote(newIds); showToast(allSold?'チャーハン類を全て再開しました ✅':'チャーハン類を全て売り切れにしました 🚫'); }
 catch(e) { console.error(e); showToast('エラー: 同期失敗'); }
 }
 
