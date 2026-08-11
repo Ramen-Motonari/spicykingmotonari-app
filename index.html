@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-11-1">
+<meta name="app-build" content="2026-08-11-2">
 <title>MOTONARI — Order</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700&display=swap" rel="stylesheet">
 <style>
@@ -2498,6 +2498,25 @@ function renderModal(){
       </div>
     </div>`;
   }
+  // つけ麺：ライス あり／なし（無料・必須選択）
+  if(isTsukemenItem(item)) {
+    const riceTitle = ({
+      ja:'ライスはいかがですか？',
+      en:'Would you like rice?',
+      zh:'需要米饭吗？',
+      ko:'라이스는 어떠세요？'
+    }[lang] || 'ライスはいかがですか？');
+    const riceYes = ({ja:'あり',en:'Yes',zh:'要',ko:'네'}[lang] || 'あり');
+    const riceNo  = ({ja:'なし',en:'No',zh:'不要',ko:'아니요'}[lang] || 'なし');
+    const riceVal = curOpts.tsukeRice || '';
+    reqHtml += `<div class="option-group" id="field-tsukeRice" style="border:none;padding:6px 0">
+      <div class="option-label">${riceTitle}</div>
+      <div class="option-btns">
+        <button class="option-btn ${riceVal==='yes'?'selected':''}" onclick="pickTsukeRice('yes')">${riceYes}</button>
+        <button class="option-btn ${riceVal==='no'?'selected':''}" onclick="pickTsukeRice('no')">${riceNo}</button>
+      </div>
+    </div>`;
+  }
   if(c.karasaAdd){
     // 0辛〜10辛を常時表示。0辛 = 辛さなし（追加料金なし）
     const currentLv = curOpts.spicyLv || '0辛';
@@ -2612,6 +2631,9 @@ function getMissingFields(){
   // つけ麺：納豆IN いる/いらない（必須選択）
   if(isTsukemenItem(curItem) && !curOpts.natto)
     missing.push({key:'natto',label:'納豆'});
+  // つけ麺：ライス あり/なし（必須選択）
+  if(isTsukemenItem(curItem) && !curOpts.tsukeRice)
+    missing.push({key:'tsukeRice',label:'ライス'});
   return missing;
 }
 
@@ -3130,6 +3152,7 @@ function restoreNoodleFromStudentOomori(){
 function toggleTsukemenSpicy(){ curOpts.tsukemenSpicy = !curOpts.tsukemenSpicy; renderModal(); }
 function calcTsukemenSpicyExtra(){ return curOpts.tsukemenSpicy ? 100 : 0; }
 function pickNatto(v){ curOpts.natto = v; renderModal(); }
+function pickTsukeRice(v){ curOpts.tsukeRice = v; renderModal(); }
 function pickKarasa(){ curOpts.karasa='pick'; renderModal(); } // 互換のため残す（現UIでは未使用）
 function pickSpicy(l,p){
   if (l === '0辛') {
@@ -3276,6 +3299,7 @@ function addCart(){
   if(curOpts.tsukemenSpicy) opts.push('スパイシーつけ麺に変更'); // 冷やし！スパイシーつけ麺
   if(curOpts.tsukemenSize) opts.push(curOpts.tsukemenSize); // SKつけ麺の麺の量
   if(curOpts.natto) opts.push(curOpts.natto==='yes'?'納豆あり':'納豆なし'); // つけ出汁に納豆IN
+  if(curOpts.tsukeRice) opts.push(curOpts.tsukeRice==='yes'?'ライスあり':'ライスなし'); // つけ麺のライス
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
   // ドリンク単品：割り方/銘柄・中おかわりを opts に反映
   if(curOpts.drinkChoice) opts.push(curOpts.drinkChoice);
