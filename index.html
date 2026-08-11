@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-06-1">
+<meta name="app-build" content="2026-08-11-1">
 <title>MOTONARI — Order</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700&display=swap" rel="stylesheet">
 <style>
@@ -2129,6 +2129,8 @@ function renderMenu(){
       }
     } else {
       items = menu.filter(m=>m.cat===cat);
+      // 【豚骨限定】トッピングは一覧タブには出さない（豚骨ラーメンのトッピング欄からのみ追加可）
+      if(cat==='topping') items = items.filter(m=>!isTonkotsuOnlyItem(m));
     }
     if(!items.length) return;
     const sec=document.createElement('div');
@@ -2812,8 +2814,18 @@ function renderDrinkAddonSection(key,label,items,sepStyle){
 function addonSectionLabel(label){
   return `<div style="font-size:20px;font-weight:900;letter-spacing:1px;color:#1a1a1a;padding:8px 12px;margin:0 0 12px;background:linear-gradient(to right,var(--accent),rgba(200,134,10,.08) 70%,transparent);background-repeat:no-repeat;background-size:100% 0.7em;background-position:left bottom 6px">${label}</div>`;
 }
+// 商品名に【豚骨限定】マークを含むトッピングは豚骨ラーメン専用。
+// ラーメン選択後のトッピング欄で、豚骨カテゴリー選択時のみ表示（醤油/定食などでは非表示）。
+function isTonkotsuOnlyItem(it){
+  const nm=(it&&it.name)?(it.name.ja||it.name.en||it.name.zh||it.name.ko||''):'';
+  return /豚骨限定/.test(nm);
+}
 function addonSection(key,label,cat,t,isFirstShown){
-  const items = menu.filter(m=>m.cat===cat && isAvailable(m) && !isItemSoldout(m.id));
+  let items = menu.filter(m=>m.cat===cat && isAvailable(m) && !isItemSoldout(m.id));
+  // 【豚骨限定】トッピングは豚骨ラーメン選択時のみ表示
+  if(cat==='topping' && !(curItem && curItem.cat==='tonkotsu')){
+    items = items.filter(m=>!isTonkotsuOnlyItem(m));
+  }
   if(!items.length) return ''; // 該当アイテムなしの場合はセクション自体を非表示
   // 最初に表示されるアドオンセクションは大きな間隔と太いボーダーで区切る
   const sepStyle = isFirstShown
