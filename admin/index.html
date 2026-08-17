@@ -578,7 +578,7 @@ window.adminLogout = adminLogout;
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
           <div class="section-label" style="color:var(--green)">💾 今日の数値を保存</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <input type="date" id="dinner-save-date" class="form-input" style="width:160px" onchange="recalcDinnerManuals()">
+            <input type="date" id="dinner-save-date" class="form-input" style="width:160px" onchange="onDinnerDateChange()">
             <button onclick="saveDailyReportFromDinner()" style="padding:10px 22px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">💾 デイリーに保存</button>
             <button onclick="migratePastUberIntoSales()" title="過去の日報の当日売上にUber売上(税抜)を一括合算します（各日1回のみ・二重加算なし）" style="padding:10px 16px;border-radius:10px;background:#fff;color:#c0392b;border:1.5px solid #e74c3c;font-size:12px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🔁 過去分にUberを反映</button>
             <span id="dinner-save-status" style="font-size:11px;color:var(--muted)"></span>
@@ -1831,8 +1831,13 @@ function subscribeDailyReportsForMonth(yyyyMm) {
       renderKanritableTable();
     }
     // ダッシュボードの「夜の報告」累計をデータ到着時に再計算
+    // （保存済みUber値を空欄フィールドにだけ復元してから再計算）
     if (document.getElementById('page-dashboard')?.classList.contains('active')) {
-      try { recalcDinnerManuals(); } catch(_) {}
+      try {
+        const dateKey = document.getElementById('dinner-save-date')?.value || '';
+        loadUberFieldsFromSaved(dateKey, false);
+        recalcDinnerManuals();
+      } catch(_) {}
     }
   }, err => console.error('dailyReports listener:', err));
 }
@@ -2082,6 +2087,37 @@ async function updateKanritableCell(dateKey, field, raw) {
 //   - 本年売上 累計 = 月初〜前日の保存済 salesToday（税抜） + 当日売上（税抜）
 //   - 仕入率 = 仕入累計 ÷ 売上累計（税抜） × 100（小数第1位）
 //   - 人時売上 = 当日売上（税抜） ÷ 労働時間（¥X,XXX 形式）
+// 選択日の保存済み Uber 件数/売上をフォームへ復元する。
+//   force=true  … 日付選択時：保存値でフォームを上書き（未保存日は空欄にする）
+//   force=false … データ更新/初期表示時：空欄のフィールドだけ埋める（入力中を潰さない）
+// これにより「Uber欄が空欄のまま保存が走って 0 で上書きされる」不具合を防ぐ。
+function loadUberFieldsFromSaved(dateKey, force) {
+  if (!dateKey) return;
+  const saved = (typeof _dailyReports === 'object' && _dailyReports) ? _dailyReports[dateKey] : null;
+  const apply = (id, key) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const has = saved && saved[key] !== undefined && saved[key] !== null;
+    if (force) {
+      el.value = has ? saved[key] : '';
+    } else {
+      // 空欄のときだけ復元（入力中の値を保持）
+      if (String(el.value).trim() === '' && has) el.value = saved[key];
+    }
+  };
+  apply('lunch-uber-count',  'uberLunchCount');
+  apply('lunch-uber-sales',  'uberLunchSales');
+  apply('dinner-uber-count', 'uberDinnerCount');
+  apply('dinner-uber-sales', 'uberDinnerSales');
+}
+
+// 夜の日報の日付が変更されたときのハンドラ：保存済みUber値を復元してから再計算
+function onDinnerDateChange() {
+  const dateKey = document.getElementById('dinner-save-date')?.value || '';
+  loadUberFieldsFromSaved(dateKey, true); // 日付切替は上書き復元
+  recalcDinnerManuals();
+}
+
 function recalcDinnerManuals() {
   const dateEl = document.getElementById('dinner-save-date');
   if (dateEl && !dateEl.value) {
@@ -2155,7 +2191,12 @@ function recalcDinnerManuals() {
 
 // dailyReports リスナーが更新されたら本日の入力値も再計算
 function _maybeRecalcDinnerOnDataUpdate() {
-  if (document.getElementById('page-dashboard')?.classList.contains('active')) recalcDinnerManuals();
+  if (document.getElementById('page-dashboard')?.classList.contains('active')) {
+    // 保存済みUber値を空欄フィールドにだけ復元（入力中は潰さない）→ 再計算
+    const dateKey = document.getElementById('dinner-save-date')?.value || '';
+    loadUberFieldsFromSaved(dateKey, false);
+    recalcDinnerManuals();
+  }
 }
 
 // 夜の日報セクションから当日分を保存
@@ -2175,21 +2216,27 @@ async function saveDailyReportFromDinner() {
   const salesToday = parseFloat(document.getElementById('dinner-yearly-sales-today')?.value) || null;
   const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || null;
   const workHours = parseFloat(document.getElementById('dinner-work-hours')?.value) || null;
-  // Uber Eats（ランチ・夜それぞれの件数/売上）を日次データとして保存 → 売上分析で期間集計する
-  const uberLunchCount = parseInt(document.getElementById('lunch-uber-count')?.value) || 0;
-  const uberLunchSales = parseInt(document.getElementById('lunch-uber-sales')?.value) || 0;
-  const uberDinnerCount = parseInt(document.getElementById('dinner-uber-count')?.value) || 0;
-  const uberDinnerSales = parseInt(document.getElementById('dinner-uber-sales')?.value) || 0;
-  // 空欄は payload に含めない（merge書き込みで既存値を null / 空文字で上書きしないため）。
-  // ※コピー＝保存化により、片方の営業だけ入力済み状態で保存が走っても他方の保存値を潰さない。
   const payload = {
     date: dateKey,
-    uberLunchCount, uberLunchSales, uberDinnerCount, uberDinnerSales,
     // salesToday は recalcDinnerManuals() により「アプリ内(税抜)＋Uber(税抜)」で計算済み。
     // 過去分一括反映(migratePastUberIntoSales)が二重加算しないよう、反映済みフラグを立てる。
     uberMergedIntoSales: true,
     updatedAt: serverTimestamp()
   };
+  // Uber Eats（ランチ・夜それぞれの件数/売上）を日次データとして保存 → 売上分析で期間集計する。
+  //   ★空欄は payload に含めない（merge書き込みで既存の保存値を 0 で上書き＝消してしまうのを防ぐ）。
+  //     以前は無条件で 0 を書いていたため、Uber欄が未復元(空欄)のまま別営業のコピー/保存が走ると
+  //     保存済みの件数・売上が消える不具合があった。入力があるフィールドだけ書き込む。
+  const addUber = (id, key) => {
+    const raw = document.getElementById(id)?.value;
+    if (raw === undefined || raw === null || String(raw).trim() === '') return;
+    const n = parseInt(raw, 10);
+    if (!isNaN(n)) payload[key] = n;
+  };
+  addUber('lunch-uber-count',  'uberLunchCount');
+  addUber('lunch-uber-sales',  'uberLunchSales');
+  addUber('dinner-uber-count', 'uberDinnerCount');
+  addUber('dinner-uber-sales', 'uberDinnerSales');
   if (weather) payload.weather = weather;
   if (salesToday !== null) payload.salesToday = salesToday;
   if (purchaseToday !== null) payload.purchaseToday = purchaseToday;
@@ -2771,7 +2818,11 @@ function renderDashboard() {
   // 夜の報告：当日売上（自動算出）と累計を最新化
   //   ※ 累計は _dailyReports（当月のFirestore データ）に依存するため、未購読なら開始
   try { ensureCurrentMonthDailyReportsSubscribed(); } catch(_) {}
-  try { recalcDinnerManuals(); } catch(_) {}
+  try {
+    recalcDinnerManuals(); // ここで日付が空なら今日にセットされる
+    const dateKey = document.getElementById('dinner-save-date')?.value || '';
+    loadUberFieldsFromSaved(dateKey, false); // 空欄のみ保存値で復元
+  } catch(_) {}
 }
 
 function setKpiDiff(elId, today, yesterday) {
@@ -5854,6 +5905,8 @@ window.exportAnalyticsCSV = exportAnalyticsCSV;
 window.loadKanritableData = loadKanritableData;
 window.exportSoupRankingCSV = exportSoupRankingCSV;
 window.recalcDinnerManuals = recalcDinnerManuals;
+window.onDinnerDateChange = onDinnerDateChange;
+window.loadUberFieldsFromSaved = loadUberFieldsFromSaved;
 
 // ────── 印刷 & PDF出力ヘルパー ──────
 // pageKey: 'analytics' | 'soup' | 'kanritable'
