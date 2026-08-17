@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-06-5">
+<meta name="app-build" content="2026-08-13-2">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -100,6 +100,11 @@ body.register-mode .seg-btn.active{background:var(--accent);color:#1a1008}
 /* 3層構成（ラーメン／ミドル／ドリンク） */
 .tk-tier{padding:2px 0}
 .tk-tier + .tk-tier{margin-top:4px;padding-top:6px;border-top:2px dashed #d4c8a8}
+/* サブ席グループ（同じT1伝票内をT1-A/T1-B…で分割表示） */
+.tk-subseat-group + .tk-subseat-group{margin-top:6px;padding-top:8px;border-top:2px solid #b9a97f}
+.tk-subseat{display:inline-block;background:transparent;border:2px solid #111;font-family:'Oswald',sans-serif;font-weight:700;font-size:20px;letter-spacing:1px;padding:2px 12px;border-radius:8px;margin:2px 0 4px 8px}
+.tk-subseat .tks-base{color:#111}
+.tk-subseat .tks-suf{color:#111}
 /* 新規追加アイテム強調：赤枠のみ（個別🆕バッジは廃止） */
 .tk-item-new{position:relative}
 .tk-item-new .ramen-group-card,
@@ -432,6 +437,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
 .table-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;transition:all 0.15s}
 .table-lang{position:absolute;top:8px;right:8px;font-family:'Oswald',sans-serif;font-size:11px;font-weight:900;letter-spacing:0.5px;padding:2px 6px;border-radius:7px;background:#1e3a5f;color:#cfe6ff;border:1px solid #3b6ea5;line-height:1}
+.table-subseat-badge{margin-top:5px;display:inline-block;font-size:11px;font-weight:900;letter-spacing:0.3px;color:#c8860a;background:rgba(200,134,10,0.14);border:1px solid rgba(200,134,10,0.5);border-radius:20px;padding:2px 9px}
 .table-served{margin-top:6px;font-size:11px;font-weight:900;letter-spacing:0.3px}
 .table-served.partial{color:#e67e22}
 .table-served.all{color:#22c55e}
@@ -576,7 +582,7 @@ body.register-mode #mergeOverlay>div{
 </style>
 </head>
 <body>
-<script src="./menu-canonical.js?v=20260724"></script>
+<script src="./menu-canonical.js?v=20260813"></script>
 
 <div id="modeScreen">
 <div class="mode-logo">SPICY KING MOTONARI</div>
@@ -2576,10 +2582,42 @@ function renderTableTicket(tt) {
     return `<div class="tk-tier" data-tier="${tierLabel}">${cardsHtml}</div>`;
   };
 
-  const sectionsHtml =
-    renderTier(tiers.ramen, 'ramen') +
-    renderTier(tiers.middle, 'middle') +
-    renderTier(tiers.drink, 'drink');
+  // サブ席（T1-A等）が含まれる伝票は、station別3層ではなく「サブ席ごと」に分割表示。
+  // 親T1の1伝票内で T1-A / T1-B … の見出しを付け、各人の注文をまとめる（要望対応）。
+  const hasSubSeats = orderList.some(o => MOTONARI.isSubSeat(o.table));
+  let sectionsHtml;
+  if (hasSubSeats) {
+    const seatOrder = [];
+    const seatEntries = new Map();
+    entries.forEach(e => {
+      const seat = e.order.table || tLabel;
+      if (!seatEntries.has(seat)) { seatEntries.set(seat, []); seatOrder.push(seat); }
+      seatEntries.get(seat).push(e);
+    });
+    // サブ席ラベル昇順（T1-A → T1-F）。基本席直付け（サブ席なし）は先頭に。
+    seatOrder.sort((a, b) => {
+      const sa = MOTONARI.isSubSeat(a) ? a : '';
+      const sb = MOTONARI.isSubSeat(b) ? b : '';
+      return sa.localeCompare(sb);
+    });
+    sectionsHtml = seatOrder.map(seat => {
+      const cardsHtml = seatEntries.get(seat).map(e => {
+        const cardHtml = isRamenGroup(e.grp)
+          ? renderRamenGroupCard(e.order.id, e.grp)
+          : renderCompactGroupCard(e.order.id, e.grp, e.isNewOrder);
+        return e.isNewOrder ? `<div class="tk-item-new">${cardHtml}</div>` : cardHtml;
+      }).join('');
+      const seatHdr = MOTONARI.isSubSeat(seat)
+        ? `<div class="tk-subseat"><span class="tks-base">${MOTONARI.baseSeat(seat)}-</span><span class="tks-suf">${seat.slice(-1)}</span></div>`
+        : '';
+      return `<div class="tk-subseat-group">${seatHdr}<div class="tk-tier" data-tier="sub">${cardsHtml}</div></div>`;
+    }).join('');
+  } else {
+    sectionsHtml =
+      renderTier(tiers.ramen, 'ramen') +
+      renderTier(tiers.middle, 'middle') +
+      renderTier(tiers.drink, 'drink');
+  }
 
   const allItems = orderList.flatMap(o => o.items || []);
   const allServed = allItems.length > 0 && allItems.every(i => i.served);
@@ -2893,6 +2931,7 @@ function parseRamenOpts(opts, mainItem) {
     curryTopping: '',    // 'とんかつ' / 'チキンカツ'
     tsukemenSize: '',    // '小 140g' / '並 180g' / '大 240g' ← SKつけ麺の麺の量
     natto: '',           // '納豆あり' / '納豆なし' ← つけ麺の納豆IN
+    tsukeRice: '',       // 'ライスあり' / 'ライスなし' ← つけ麺のライス有無
     other: []
   };
   const arr = Array.isArray(opts) ? opts.slice() : [];
@@ -2935,6 +2974,9 @@ function parseRamenOpts(opts, mainItem) {
       result.riceChange = 'チャーエッグ丼変更';
       return;
     }
+    // つけ麺のライス有無（「ライスあり」「ライスなし」）→ 量ではなく有無なので専用フィールドへ。
+    //   ※ この下の isRice ブロックより前に判定しないと、量マッチ失敗で握りつぶされる（表示されないバグ）
+    if (/^ライス(あり|なし)$/.test(s)) { result.tsukeRice = s; return; }
     // ライスのオプション（餃子定食など）— 麺と区別するため最優先で検出
     //   新ラベル: 「ライス並」「ライス大盛り」「Rice Regular」「Rice Large」「米饭...」「라이스...」
     const isRice = /(ライス|Rice|米饭|라이스)/i.test(s);
@@ -3154,8 +3196,11 @@ function renderRamenGroupCard(orderId, grp) {
   const nattoSpan = p.natto
     ? `<span class="rg-natto" style="font-weight:900"> / ${p.natto}</span>`
     : '';
-  const tsukemenHtml = (p.tsukemenSize || p.natto)
-    ? `<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.tsukemenSize}${nattoSpan}</span></div>`
+  const tsukeRiceSpan = p.tsukeRice
+    ? `<span class="rg-natto" style="font-weight:900"> / ${p.tsukeRice}</span>`
+    : '';
+  const tsukemenHtml = (p.tsukemenSize || p.natto || p.tsukeRice)
+    ? `<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.tsukemenSize}${nattoSpan}${tsukeRiceSpan}</span></div>`
     : '';
 
   // ━━━ Section 3: チャーシュー / カレートッピング ━━━
@@ -3475,10 +3520,11 @@ function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   //   「麺大盛り」など他の右側項目とフォントサイズを揃える
   if (p.riceChange) blockB.push(`<span class="rlist-noodle-change">${p.riceChange}</span>`);
   else if (p.rice) blockB.push(`<span class="${p.rice.includes('大盛り') ? 'rg-large' : ''}">ライス${p.rice}</span>`);
-  // SKつけ麺の麺の量（＋納豆IN表記を麺量の右に太字で）
-  if (p.tsukemenSize || p.natto) {
+  // SKつけ麺の麺の量（＋納豆IN／ライス有無を麺量の右に太字で）
+  if (p.tsukemenSize || p.natto || p.tsukeRice) {
     const nattoBold = p.natto ? ` <span style="font-weight:900">/ ${p.natto}</span>` : '';
-    blockB.push(`<span>${p.tsukemenSize}${nattoBold}</span>`);
+    const riceBold = p.tsukeRice ? ` <span style="font-weight:900">/ ${p.tsukeRice}</span>` : '';
+    blockB.push(`<span>${p.tsukemenSize}${nattoBold}${riceBold}</span>`);
   }
   const blockC = [];
   if (p.curryTopping) {
@@ -3686,14 +3732,44 @@ if (allServed) showToast(`${order.tableLabel || order.table || '?'} 全品提供
 } catch(e) { console.error(e); showToast('エラー: 更新失敗'); }
 }
 
+// サブ席を持つ親テーブル（T1等）の集計：親直下＋各サブ席(T1-A..F)を合算
+function aggregateBase(base) {
+const subLabels = MOTONARI.SUB_SEATS.filter(s => MOTONARI.baseSeat(s) === base);
+const agg = { total: 0, status: 'empty', hasUnserved: false, language: null, visitType: null, paymentRequested: false, subSeatsUsed: [], baseDirectUsed: false };
+const consider = (lbl, isSub) => {
+  const t = tables[lbl];
+  if (!t || t.status === 'empty') return;
+  agg.total += (t.total || 0);
+  if (t.hasUnserved) agg.hasUnserved = true;
+  if (!agg.language && t.language) agg.language = t.language;
+  if (!agg.visitType && t.visitType) agg.visitType = t.visitType;
+  if (t.status === 'payment') { agg.status = 'payment'; agg.paymentRequested = true; }
+  else if (agg.status !== 'payment') agg.status = 'ordering';
+  if (isSub) agg.subSeatsUsed.push(lbl); else agg.baseDirectUsed = true;
+};
+consider(base, false);
+subLabels.forEach(s => consider(s, true));
+return agg;
+}
+
 // Register
 function renderRegister() {
 applyRegI18n();
 const grid = document.getElementById('tableGrid');
 grid.innerHTML = SEAT_LABELS.map(label => {
-const t = tables[label] || { label, orderIds: [], status: 'empty', total: 0, visitType: null, paymentRequested: false };
-const displayStatus = t.status;
-// P席（テイクアウト/別会計用）・TEST席 は使用時のみ表示
+// サブ席（T1-A等）は単独カードとしては出さず、親テーブルに集約表示する
+if (MOTONARI.isSubSeat(label)) return '';
+let t, displayStatus, subCount = 0;
+if (MOTONARI.SUB_SEAT_BASES.includes(label)) {
+  const agg = aggregateBase(label);
+  t = { label, total: agg.total, status: agg.status, hasUnserved: agg.hasUnserved, language: agg.language, visitType: agg.visitType, paymentRequested: agg.paymentRequested };
+  displayStatus = agg.status;
+  subCount = agg.subSeatsUsed.length;
+} else {
+  t = tables[label] || { label, orderIds: [], status: 'empty', total: 0, visitType: null, paymentRequested: false };
+  displayStatus = t.status;
+}
+// P席（テイクアウト/別会計用）・TEST席は使用時のみ表示
 if (label.startsWith('P') && displayStatus === 'empty') return '';
 if (label === 'TEST' && displayStatus === 'empty') return '';
 if (regFilter === 'ordering' && displayStatus !== 'ordering') return '';
@@ -3714,11 +3790,13 @@ const servedBadge = hasOrder
       ? `<div class="table-served partial">${regT('servedPartial')}</div>`
       : `<div class="table-served all">${regT('servedAll')}</div>`)
   : '';
+const subBadge = subCount > 0 ? `<div class="table-subseat-badge">別会計 ${subCount}名</div>` : '';
 return `<div class="table-card ${cardClass}" onclick="openTable('${label}')">
 ${langBadge}
 <div class="table-num">${label}</div>
 <div class="table-status ${statusClass}">${statusLabel}</div>
 ${totalToShow>0?`<div class="table-total">¥${totalToShow.toLocaleString()}</div>`:''}
+${subBadge}
 ${servedBadge}
 </div>`;
 }).join('');
@@ -3732,6 +3810,21 @@ renderRegister();
 }
 
 function openTable(label) {
+// 親テーブル(T1等)でサブ席が使われている場合は、まず別会計の選択画面を出す
+if (MOTONARI.SUB_SEAT_BASES.includes(label)) {
+  const agg = aggregateBase(label);
+  if (agg.subSeatsUsed.length > 0) {
+    const keys = [];
+    if (agg.baseDirectUsed) keys.push(label);
+    keys.push(...agg.subSeatsUsed.slice().sort());
+    openSubSeatPicker(label, keys);
+    return;
+  }
+}
+openTableDirect(label);
+}
+
+function openTableDirect(label) {
 const t = tables[label];
 if (!t || t.status === 'empty') return;
 selectedTable = label;
@@ -3741,6 +3834,46 @@ document.querySelectorAll('.lang-btn').forEach(b => {
 });
 refreshDetailModal();
 document.getElementById('detailOverlay').classList.add('open');
+}
+
+// 別会計：親テーブル内の各お客様（サブ席）を選ぶ画面
+function openSubSeatPicker(base, keys) {
+const old = document.getElementById('subSeatPickerOverlay');
+if (old) old.remove();
+const rowsHtml = keys.map(k => {
+  const t = tables[k] || { total: 0, status: 'empty' };
+  const isSub = MOTONARI.isSubSeat(k);
+  const shownLabel = isSub ? k : `${k}（席全体）`;
+  const badge = t.status === 'payment'
+    ? `<span style="background:#ffe0e0;color:#c0392b;font-size:11px;font-weight:900;padding:3px 9px;border-radius:20px">🔔 会計希望</span>`
+    : t.hasUnserved
+      ? `<span style="background:#fff3d6;color:#b8860b;font-size:11px;font-weight:900;padding:3px 9px;border-radius:20px">調理中</span>`
+      : `<span style="background:#e3f4e3;color:#2e7d32;font-size:11px;font-weight:900;padding:3px 9px;border-radius:20px">提供済</span>`;
+  return `<button onclick="pickSubSeat('${k}')" style="display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:14px 16px;border-radius:12px;border:2px solid #111;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif">
+    <span style="font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;color:#111;letter-spacing:1px">${shownLabel}</span>
+    <span style="display:flex;align-items:center;gap:10px">
+      <span style="font-family:'Oswald',sans-serif;font-weight:900;font-size:20px;color:#111">¥${(t.total || 0).toLocaleString()}</span>
+      ${badge}
+    </span>
+  </button>`;
+}).join('');
+const overlay = document.createElement('div');
+overlay.id = 'subSeatPickerOverlay';
+overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:305;display:flex;align-items:center;justify-content:center;padding:18px';
+overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+overlay.innerHTML = `<div style="background:#fff;border-radius:18px;width:100%;max-width:440px;padding:22px 20px;display:flex;flex-direction:column;gap:12px">
+  <div style="text-align:center;font-family:'Oswald',sans-serif;font-weight:900;font-size:26px;color:#111;letter-spacing:1px">${base} <span style="font-size:15px;font-family:'Noto Sans JP',sans-serif;color:#666">別会計</span></div>
+  <div style="text-align:center;font-size:12px;color:#666;margin-top:-6px">お会計するお客様を選んでください</div>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">${rowsHtml}</div>
+  <button onclick="document.getElementById('subSeatPickerOverlay').remove()" style="margin-top:6px;padding:12px;border-radius:10px;border:1px solid #ccc;background:transparent;color:#666;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">閉じる</button>
+</div>`;
+document.body.appendChild(overlay);
+}
+
+function pickSubSeat(key) {
+const ov = document.getElementById('subSeatPickerOverlay');
+if (ov) ov.remove();
+openTableDirect(key);
 }
 
 // 注文済み商品の単価を個別に変更（お会計前）

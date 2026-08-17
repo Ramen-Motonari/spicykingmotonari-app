@@ -13,13 +13,28 @@
 (function (global) {
   'use strict';
 
-  // ===== 席ラベル（15席 + P1〜P11 別会計/外国人グループ用） =====
+  // ===== サブ席（別会計用）: T1〜T6・S1〜S4 に各 A〜D =====
+  // 例: T1-A 〜 T1-D / S1-A 〜 S4-D（計40席）。1人1QR で別会計、キッチンは基本席で1枚に集約。
+  const SUB_SEAT_BASES = ['T1','T2','T3','T4','T5','T6','S1','S2','S3','S4'];
+  const SUB_SEAT_SUFFIXES = ['A','B','C','D'];
+  const SUB_SEATS = [];
+  SUB_SEAT_BASES.forEach(b => SUB_SEAT_SUFFIXES.forEach(s => SUB_SEATS.push(`${b}-${s}`)));
+
+  // サブ席判定 / 基本席取得
+  function isSubSeat(label){ return /^[TS][1-6]-[A-D]$/.test(String(label||'')); }
+  function baseSeat(label){
+    const m = String(label||'').match(/^([TS][1-6])-[A-D]$/);
+    return m ? m[1] : String(label||'');
+  }
+
+  // ===== 席ラベル（15席 + P1〜P11 別会計/外国人グループ用 + サブ席40） =====
   const SEAT_LABELS = [
     'T1','T2','T3','T4','T5','T6',
     'C1','C2','C3','C4',
     'M',
     'S1','S2','S3','S4',
     'P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11',
+    ...SUB_SEATS,
     'TEST'
   ];
 
@@ -50,6 +65,12 @@
     const upper = raw.toUpperCase();
     if (SEAT_LABELS.includes(upper)) return upper;
     if (SEAT_ALIASES[upper]) return SEAT_ALIASES[upper];
+    // サブ席（T1-A 〜 T6-D, S1-A 〜 S4-D）: T1A / t1-a / T1-A などを T1-A に正規化
+    const subM = upper.replace(/\s+/g,'').match(/^([TS])([1-6])-?([A-D])$/);
+    if (subM) {
+      const canon = `${subM[1]}${subM[2]}-${subM[3]}`;
+      if (SEAT_LABELS.includes(canon)) return canon;
+    }
     // 旧URL（数字のみ）対応
     const num = parseInt(raw);
     if (!isNaN(num)) {
@@ -418,6 +439,7 @@
   global.MOTONARI = {
     VERSION: '1.0.0',
     SEAT_LABELS, SEAT_ALIASES, normalizeTable,
+    SUB_SEATS, SUB_SEAT_BASES, isSubSeat, baseSeat,
     CATEGORIES, SUBCATEGORIES, ORDER_STATUS, SPICY_LEVELS, MENU_ITEMS,
     getMenuById, getMenuByCategory, getNameJa, getName, getPrice,
     isLunchWeekday, isNightTime, isAvailable, extractSpicyLevel,

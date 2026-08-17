@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-11-2">
+<meta name="app-build" content="2026-08-13-2">
 <title>MOTONARI — Order</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700&display=swap" rel="stylesheet">
 <style>
@@ -266,7 +266,7 @@ body.dark-bg{background:#111}
 </script>
 
 <!-- Canonical menu data (3アプリ共通) -->
-<script src="./menu-canonical.js?v=20260724"></script>
+<script src="./menu-canonical.js?v=20260813"></script>
 
 <!-- Firebase status -->
 <div class="fb-status" id="fbStatus">
@@ -1080,13 +1080,25 @@ let sessionId=null;
 
 /* ===== Seat (Table) System ===== */
 // Valid seats matching Kitchen&Regi App
+// サブ席（別会計用）: T1〜T6・S1〜S4 に各 A〜D（計40席）
+const SUB_SEATS = [];
+['T1','T2','T3','T4','T5','T6','S1','S2','S3','S4'].forEach(b =>
+  ['A','B','C','D'].forEach(s => SUB_SEATS.push(`${b}-${s}`)));
+
 const VALID_SEATS = [
   'T1','T2','T3','T4','T5','T6',
   'C1','C2','C3','C4',
   'M',
   'S1','S2','S3','S4',
-  'P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11'
+  'P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11',
+  ...SUB_SEATS
 ];
+
+// サブ席 → 基本席（T1-A → T1）。キッチン集約用の tableLabel に使用
+function tableBaseOf(label){
+  const m = String(label||'').match(/^([TS][1-6])-[A-D]$/);
+  return m ? m[1] : String(label||'');
+}
 
 // 旧URL/旧ラベル → 新ラベル（QRコード互換のため保持）
 const SEAT_ALIAS_MAP = {
@@ -1113,6 +1125,12 @@ function normalizeTable(raw) {
   const upper = raw.toUpperCase();
   if (VALID_SEATS.includes(upper)) return upper;
   if (SEAT_ALIAS_MAP[upper]) return SEAT_ALIAS_MAP[upper];
+  // サブ席（T1-A 〜 T6-D, S1-A 〜 S4-D）: T1A / t1-a などを T1-A に正規化
+  const subM = upper.replace(/\s+/g,'').match(/^([TS])([1-6])-?([A-D])$/);
+  if (subM) {
+    const canon = `${subM[1]}${subM[2]}-${subM[3]}`;
+    if (VALID_SEATS.includes(canon)) return canon;
+  }
   // 数字のみの旧URL対応 (1 → T1, 7 → C1, 11 → M, 12 → S1)
   const num = parseInt(raw);
   if (!isNaN(num)) {
@@ -3605,8 +3623,8 @@ async function placeOrder(){
     const orderData = {
       sessionId,
       userId: currentUser?.uid || null,
-      table: tableNum,           // 内部値: T1, C1, M, S1 etc
-      tableLabel: tableNum,      // 表示用（同じだが将来拡張用）
+      table: tableNum,               // 内部値/レジ別会計キー: T1, T1-A, C1 etc
+      tableLabel: tableBaseOf(tableNum), // キッチン集約用の基本席: T1-A → T1
       language: lang,
       visitType: window._currentVisitType || 'first',
       items: cart.map(i=>{
@@ -4494,7 +4512,7 @@ async function submitPendingKaedamaOrder() {
       sessionId,
       userId: currentUser?.uid || null,
       table: tableNum,
-      tableLabel: tableNum,
+      tableLabel: tableBaseOf(tableNum),
       language: lang,
       visitType: window._currentVisitType || 'first',
       items,
@@ -4638,7 +4656,7 @@ async function submitKaedamaOrder(){
       sessionId,
       userId: currentUser?.uid || null,
       table: tableNum,
-      tableLabel: tableNum,
+      tableLabel: tableBaseOf(tableNum),
       language: lang,
       visitType: window._currentVisitType || 'first',
       items,
