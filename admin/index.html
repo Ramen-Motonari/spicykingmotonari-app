@@ -250,6 +250,31 @@ body.pdf-export-mode .print-target [id$="-spicy-chart"] span[style*="font-family
 body.pdf-export-mode .print-target [id$="-count-chart"] span[style*="font-family:'Oswald'"],
 body.print-mode .print-target [id$="-spicy-chart"] span[style*="font-family:'Oswald'"],
 body.print-mode .print-target [id$="-count-chart"] span[style*="font-family:'Oswald'"]{ font-size:13pt !important; color:#000 !important; font-weight:900 !important; }
+/* 売上分析：4枚→3枚に収めるための追加圧縮（page-analytics限定） */
+body.pdf-export-mode .print-target#page-analytics,
+body.print-mode .print-target#page-analytics{ padding:4mm 6mm !important; }
+body.pdf-export-mode .print-target#page-analytics .card,
+body.print-mode .print-target#page-analytics .card{ padding:2mm 3mm !important; margin-bottom:1.6mm !important; }
+body.pdf-export-mode .print-target#page-analytics .card-title,
+body.print-mode .print-target#page-analytics .card-title{ padding-bottom:1mm !important; margin-bottom:1.2mm !important; }
+body.pdf-export-mode .print-target#page-analytics .page-title,
+body.print-mode .print-target#page-analytics .page-title{ font-size:16pt !important; padding:0 0 1.5mm !important; margin:0 0 1.5mm !important; }
+body.pdf-export-mode .print-target#page-analytics .page-sub,
+body.print-mode .print-target#page-analytics .page-sub{ margin-bottom:2mm !important; }
+body.pdf-export-mode .print-target#page-analytics .an-kpi-grid,
+body.print-mode .print-target#page-analytics .an-kpi-grid{ gap:1.5mm !important; margin-bottom:2mm !important; }
+body.pdf-export-mode .print-target#page-analytics .an-kpi-card,
+body.print-mode .print-target#page-analytics .an-kpi-card{ padding:2mm !important; }
+body.pdf-export-mode .print-target#page-analytics .an-kpi-value,
+body.print-mode .print-target#page-analytics .an-kpi-value{ font-size:20pt !important; }
+body.pdf-export-mode .print-target#page-analytics .rank-row,
+body.print-mode .print-target#page-analytics .rank-row{ padding:1mm 0 !important; }
+body.pdf-export-mode .print-target#page-analytics #analytics-menu-count,
+body.print-mode .print-target#page-analytics #analytics-menu-count{ column-count:4 !important; column-gap:4mm !important; }
+body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div,
+body.print-mode .print-target#page-analytics #analytics-menu-count > div{ font-size:8pt !important; padding:0.3mm 1.5mm !important; }
+body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div span:last-child,
+body.print-mode .print-target#page-analytics #analytics-menu-count > div span:last-child{ font-size:10pt !important; }
 /* 管理表：A4横1枚に収める（表のみ・余白詰め） */
 /* 表以外（操作UI・説明文・サブ見出し・プレースホルダ）はPDF/印刷で非表示 */
 body.pdf-export-mode .print-target .kt-noprint,
@@ -5955,13 +5980,16 @@ function printPage(pageKey) {
 }
 
 // 共通 PDF 出力（html2pdf でページの要素を画像化して PDF 化、日本語フォントも問題なし）
-async function exportElementToPDF(elementId, filename) {
+async function exportElementToPDF(elementId, filename, opts) {
   const el = document.getElementById(elementId);
   if (!el) { alert('対象が見つかりません'); return; }
   if (typeof html2pdf === 'undefined') {
     alert('PDFライブラリ読み込み失敗。再読み込みしてみてください。');
     return;
   }
+  // pagebreak はページ種別ごとに上書き可能（既定は1ページ最適化の avoid-all）。
+  // 縦長の表（デイリー等）は複数ページに分割させるため呼び出し側で指定する。
+  const pagebreak = (opts && opts.pagebreak) || { mode: ['avoid-all', 'css', 'legacy'] };
   // 印刷モードを一時的に有効にして見た目を白黒に
   el.classList.add('print-target');
   document.body.classList.add('pdf-export-mode');
@@ -5972,7 +6000,7 @@ async function exportElementToPDF(elementId, filename) {
       image: { type: 'jpeg', quality: 0.92 },
       html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      pagebreak
     }).from(el).save();
     showToast('📄 PDF出力完了');
   } catch (e) {
@@ -6166,7 +6194,11 @@ function exportSoupRankingPDF() {
 }
 function exportKanritablePDF() {
   const m = document.getElementById('kanritableMonth')?.value || '';
-  exportElementToPDF('page-kanritable', `デイリー_${m}.pdf`);
+  // 1ヶ月分の縦長テーブルは複数ページに分割（行 tr の途中で切らない）。
+  // avoid-all だと1ページに収めようとして下部が切れるため、行単位の改ページに変更。
+  exportElementToPDF('page-kanritable', `デイリー_${m}.pdf`, {
+    pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
+  });
 }
 
 window.printPage = printPage;
