@@ -2408,7 +2408,7 @@ function translateNoodleSize(opt) {
   const isFlat = opt.includes('平打ち麺');
   const noodleType = isThin ? 'thin' : isFlat ? 'flat' : 'unknown';
   const isLarge = opt.includes('大盛り');
-  const isLess = opt.includes('少');
+  const isLess = opt.includes('少') || opt.includes('小');
   const isRegular = opt.includes('並');
   const sizeKey = isLarge ? 'large' : isLess ? 'less' : isRegular ? 'regular' : 'unknown';
   // 価格部分を抽出
@@ -2670,7 +2670,7 @@ function shouldExtractAddon(item) {
   const canon = MOTONARI.getMenuById(item.itemId);
   if (canon) {
     if (canon.cat === 'side' || canon.cat === 'drink') return true;
-    if (canon.id === 40) return true; // 替え玉（細麺）
+    if (canon.id === 40 || canon.id === 41) return true; // 替え玉 / 半替え玉（細麺）
     return false;
   }
   // カスタムメニュー（管理APPで追加）も cat フィールドを参照
@@ -2787,7 +2787,7 @@ function ticketNoodleOpt(opt, mainItem) {
   const isThin = /(細麺|Thin|细面|가는면)/i.test(opt);
   const isFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(opt);
   const isLarge = /(大盛り|Large|大碗|곱배기)/.test(opt);
-  const isLess = /(少|Less|少量|적게)/.test(opt);
+  const isLess = /(少|小|Less|少量|적게)/.test(opt);
   const canon = mainItem ? MOTONARI.getMenuById(mainItem.itemId) : null;
   const cat = canon ? canon.cat : null;
   const isDefaultNoodle = (cat === 'tonkotsu' && isThin) || (cat === 'shouyu' && isFlat);
@@ -2808,10 +2808,11 @@ function transformOptForTicket(opt, mainItem) {
   s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉)\s*/g, '').trim();
   // 単独の「並」（デフォルト量）は伝票非表示
   if (/^(並|Regular)$/i.test(s)) return '';
-  // 麺の硬さは カタ/フツウ/やわ で表記
+  // 麺の硬さは バリカタ/カタ/フツウ/やわ で表記
+  if (/^(ばりかた|バリカタ|Extra\s*Firm)$/i.test(s)) return 'バリカタ';
   if (/^(かため|Firm|偏硬|단단함)$/i.test(s)) return 'カタ';
   if (/^(ふつう|普通|Medium|보통)$/i.test(s)) return 'フツウ';
-  if (/^(やわ|Soft|偏软|부드러움)$/i.test(s)) return 'やわ';
+  if (/^(やわ|やわらかめ|Soft|偏软|부드러움)$/i.test(s)) return 'やわ';
   const spicy = s.match(/^(\d+)\s*(辛|Spicy|辣|매움)\s*$/i);
   if (spicy) return `${spicy[1]}辛`;
   if (/(細麺|平打ち麺|Thin|Flat|细面|宽面|가는면|넓은면)/i.test(s)) {
@@ -3014,7 +3015,7 @@ function parseRamenOpts(opts, mainItem) {
     const hasThin = /(細麺|Thin|细面|가는면)/i.test(s);
     const hasFlat = /(平打ち麺|Flat|宽面|넓은면)/i.test(s);
     const hasLarge = /(大盛り|大盛|Large|大碗|곱배기)/i.test(s);
-    const hasLess = /(少盛|少量|^少|\s少|少 |Less|적게)/i.test(s);
+    const hasLess = /(少盛|小盛|少量|^少|^小|\s少|\s小|少 |小 |Less|적게)/i.test(s);
     const hasRegular = /(並|Regular|普通)/i.test(s);
 
     if (hasThin || hasFlat) {
