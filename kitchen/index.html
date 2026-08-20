@@ -162,6 +162,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 /* テーブル番号と商品名の区切り「｜」。区切りを付ける行では table の大きな右マージンを打ち消す */
 .rlist-table.with-sep{margin-right:0}
 .rlist-tsep{color:#c8c8c8;font-family:'Oswald',sans-serif;font-size:24px;font-weight:400;line-height:1;margin:0 2px}
+/* 一覧カードのサブ番号バッジ（伝票の tk-subseat と同様の小型枠、-A 等） */
+.rlist-subseat{display:inline-block;border:1.5px solid #111;font-family:'Oswald',sans-serif;font-weight:700;font-size:16px;letter-spacing:0.5px;padding:0 6px;border-radius:5px;color:#111;line-height:1.35}
 /* 大盛り(.rg-large)・辛さ・麺変更 等の赤文字は全体表示と共通の #e74c3c で統一 */
 .rlist-noodle-change{color:#e74c3c;font-weight:900}
 /* 2行目：追加トッピング */
@@ -178,6 +180,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .rlist-spice{font-size:20px}
   .rlist-info{font-size:14px}
   .rlist-line2{font-size:19px}
+  .rlist-subseat{font-size:14px;padding:0 5px}
   .kbadge-full{display:none}
   .kbadge-short{display:inline}
 }
@@ -1136,6 +1139,7 @@ isInitialOrdersLoad = false;
 rebuildTables();
 if (currentMode === 'kitchen' && document.getElementById('kitchenScreen').classList.contains('active')) renderKitchen();
 if (currentMode === 'register' && document.getElementById('registerScreen').classList.contains('active')) renderRegister();
+if (window._reopenSubPickerBase) tryReopenSubPicker();
 if (document.getElementById('historyFullPage').style.display === 'block') renderHistoryList();
 if (selectedTable && document.getElementById('detailOverlay').classList.contains('open')) refreshDetailModal();
 updateActiveCount();
@@ -3445,8 +3449,18 @@ function isKaedamaListItem(it) {
 }
 
 // 替え玉カード（ラーメン一覧の最上部・赤枠）
+// 一覧カードのテーブル表記：サブ席なら親席（大）＋サブ番号バッジ(-A)、通常席はそのまま
+function _listSeatParts(rawLabel) {
+  const raw = rawLabel || '?';
+  if (typeof MOTONARI !== 'undefined' && MOTONARI.isSubSeat && MOTONARI.isSubSeat(raw)) {
+    return { base: MOTONARI.baseSeat(raw), badge: `<span class="rlist-subseat">-${raw.slice(-1)}</span>` };
+  }
+  return { base: raw, badge: '' };
+}
+
 function renderKaedamaListCard(order, item, itemIdx, unitIdx) {
   const tLabel = order.tableLabel || order.table || '?';
+  const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
   const name = getAbbrevJa(item);
   const isServed = (Array.isArray(item.servedIndices) && item.servedIndices.includes(unitIdx)) || ((Number(item.qty) || 1) <= 1 && item.served);
   // オプション（硬さ等）を補足表示
@@ -3454,7 +3468,7 @@ function renderKaedamaListCard(order, item, itemIdx, unitIdx) {
   const optsHtml = opts.length ? `<span class="rlist-info">${opts.map(o => `<span>${o}</span>`).join('')}</span>` : '';
   return `<div class="rlist-card kaedama ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','idx:${itemIdx}')">
     <div class="rlist-line1">
-      <span class="rlist-table with-sep">${tLabel}</span>
+      <span class="rlist-table with-sep">${_tBase}</span>${_tSub}
       <span class="rlist-tsep">｜</span>
       <span class="rlist-name">🍝 ${name}</span>
       ${optsHtml ? `<span class="rlist-sep">/</span>${optsHtml}` : ''}
@@ -3489,6 +3503,7 @@ function getKaedamaRightBadgeSmall(main) {
 
 function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   const tLabel = order.tableLabel || order.table || '?';
+  const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
   const mainName = getAbbrevJa(main);
   const kaedamaBadge = getKaedamaRightBadgeSmall(main);
   const addBadge = isAdditional ? `<span class="rlist-add-badge">追加</span>` : '';
@@ -3553,7 +3568,7 @@ function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   const groupKey = (typeof getGroupKey === 'function') ? getGroupKey({ groupId: main.groupId, items:[main], main, isSolo: !main.groupId }) : ('item:' + (main.itemId || main.id || ''));
   return `<div class="rlist-card ${isServed?'served':''} ${isAdditional?'additional':''}" onclick="toggleGroupServed('${order.id}','${groupKey}')">
     <div class="rlist-line1">
-      <span class="rlist-table with-sep">${tLabel}</span>
+      <span class="rlist-table with-sep">${_tBase}</span>${_tSub}
       <span class="rlist-tsep">｜</span>
       ${addBadge}
       <span class="rlist-name">${mainName}</span>
@@ -3633,6 +3648,7 @@ function renderSideList() {
 
 function renderSideListCard(order, item, itemIdx, unitIdx) {
   const tLabel = order.tableLabel || order.table || '?';
+  const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
   const name = getAbbrevJa(item);
   // qty>1 の場合は servedIndices で個別管理（タップで item 全体トグル）
   const isServed = (Array.isArray(item.servedIndices) && item.servedIndices.includes(unitIdx)) || ((Number(item.qty) || 1) <= 1 && item.served);
@@ -3641,7 +3657,7 @@ function renderSideListCard(order, item, itemIdx, unitIdx) {
   const optsHtml = opts.length ? `<span class="rlist-info">${opts.map(o => `<span>${o}</span>`).join('')}</span>` : '';
   return `<div class="rlist-card ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','idx:${itemIdx}')">
     <div class="rlist-line1">
-      <span class="rlist-table">${tLabel}</span>
+      <span class="rlist-table ${_tSub?'with-sep':''}">${_tBase}</span>${_tSub}
       <span class="rlist-name">${name}</span>
       ${optsHtml ? `<span class="rlist-sep">/</span>${optsHtml}` : ''}
     </div>
@@ -3866,7 +3882,8 @@ overlay.innerHTML = `<div style="background:#fff;border-radius:18px;width:100%;m
   <div style="text-align:center;font-family:'Oswald',sans-serif;font-weight:900;font-size:26px;color:#111;letter-spacing:1px">${base} <span style="font-size:15px;font-family:'Noto Sans JP',sans-serif;color:#666">別会計</span></div>
   <div style="text-align:center;font-size:12px;color:#666;margin-top:-6px">お会計するお客様を選んでください</div>
   <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">${rowsHtml}</div>
-  <button onclick="document.getElementById('subSeatPickerOverlay').remove()" style="margin-top:6px;padding:12px;border-radius:10px;border:1px solid #ccc;background:transparent;color:#666;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">閉じる</button>
+  <button onclick="combineSubSeats('${base}')" style="margin-top:4px;padding:14px;border-radius:12px;border:2px solid var(--accent2);background:var(--accent2);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🧮 まとめて会計（合算）</button>
+  <button onclick="document.getElementById('subSeatPickerOverlay').remove()" style="margin-top:2px;padding:12px;border-radius:10px;border:1px solid #ccc;background:transparent;color:#666;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">閉じる</button>
 </div>`;
 document.body.appendChild(overlay);
 }
@@ -3875,6 +3892,28 @@ function pickSubSeat(key) {
 const ov = document.getElementById('subSeatPickerOverlay');
 if (ov) ov.remove();
 openTableDirect(key);
+}
+
+// 別会計テーブルの全員（親直付け＋各サブ席）を1回でまとめて会計（合算）する
+function combineSubSeats(base) {
+if (!MOTONARI.SUB_SEAT_BASES.includes(base)) return;
+const agg = aggregateBase(base);
+const mergedTables = [];
+if (agg.baseDirectUsed) mergedTables.push(base);
+mergedTables.push(...agg.subSeatsUsed.slice().sort());
+if (mergedTables.length === 0) return;
+const total = mergedTables.reduce((s,label) => s + (tables[label]?.total||0), 0);
+const labelStr = `${base}（全${mergedTables.length}名）`;
+const allMergedItems = mergedTables.flatMap(label =>
+  orders.filter(o => o.table === label && o.status !== 'paid').flatMap(o =>
+    (o.items||[]).map(item => ({name: item.name, qty: item.qty, price: getItemUnitPrice(item)}))));
+const mergedOrderIds = mergedTables.flatMap(label =>
+  orders.filter(o => o.table === label && o.status !== 'paid').map(o => o.id));
+window._pendingMergeData = { mergedTables, total, labels: labelStr, allItems: allMergedItems, orderIds: mergedOrderIds };
+window._paySnapshotOrderIds = mergedOrderIds.slice();
+const ov = document.getElementById('subSeatPickerOverlay');
+if (ov) ov.remove();
+openPaymentConfirmModal({ label: labelStr, total, onConfirm: () => finalizePayment('merge', null, '__merge__') });
 }
 
 // 注文済み商品の単価を個別に変更（お会計前）
@@ -4785,15 +4824,35 @@ window._paySnapshotOrderIds = null;
 return;
 }
 if (!selectedTable) return;
+const _paidSeat = selectedTable;
 try {
 const tableOrders = orders.filter(o => o.table === selectedTable && o.status !== 'paid' && (!_useSnap || _snapIds.includes(o.id)));
 await Promise.all(tableOrders.map(o => updateDoc(doc(window.fb.db,'orders',o.id), {
 status:'paid', paymentMethod:payMethod, paymentType:type||'normal', paymentRequested:false, updatedAt:serverTimestamp()
 })));
-showToast(`${selectedTable} ${paySuffix}会計完了！`);
+showToast(`${_paidSeat} ${paySuffix}会計完了！`);
 closeDetail();
+// 別会計：サブ席の会計後、親テーブルに未会計が残っていればサブ番号選択画面へ戻す
+if (typeof MOTONARI !== 'undefined' && MOTONARI.isSubSeat && MOTONARI.isSubSeat(_paidSeat)) {
+  window._reopenSubPickerBase = MOTONARI.baseSeat(_paidSeat);
+  tryReopenSubPicker();
+}
 } catch(e) { console.error(e); showToast('エラー: 会計失敗'); }
 window._paySnapshotOrderIds = null;
+}
+
+// 別会計の続き：親テーブルにまだ未会計のサブ席／親直付けが残っていれば
+// サブ番号選択画面を再表示する。全て会計済みなら何もしない（テーブル一覧に戻る）。
+function tryReopenSubPicker() {
+  const base = window._reopenSubPickerBase;
+  if (!base) return;
+  if (currentMode !== 'register' || !MOTONARI.SUB_SEAT_BASES.includes(base)) { window._reopenSubPickerBase = null; return; }
+  const agg = aggregateBase(base);
+  const keys = [];
+  if (agg.baseDirectUsed) keys.push(base);
+  keys.push(...agg.subSeatsUsed.slice().sort());
+  window._reopenSubPickerBase = null;
+  if (keys.length > 0) openSubSeatPicker(base, keys);
 }
 
 function completePayment(type) {
