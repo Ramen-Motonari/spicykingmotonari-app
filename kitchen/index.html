@@ -127,7 +127,9 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket > div:last-child{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 /* 全提供完了の演出状態：薄くなり「完了」感を視覚的に伝えるが、消えない（猶予期間中は表示維持） */
 .ticket.completing{opacity:0.72;filter:grayscale(0.35);position:relative}
-.ticket.completing::after{content:"✓ 全提供完了";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);font-family:'Oswald','Noto Sans JP',sans-serif;font-size:36px;font-weight:900;color:#22c55e;background:rgba(255,255,255,0.85);padding:10px 22px;border-radius:14px;border:3px solid #22c55e;box-shadow:0 4px 14px rgba(0,0,0,0.2);pointer-events:none;z-index:20;letter-spacing:2px}
+.ticket-complete-badge{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);display:flex;flex-direction:column;align-items:center;gap:2px;font-family:'Oswald','Noto Sans JP',sans-serif;font-weight:900;color:#22c55e;background:rgba(255,255,255,0.9);padding:10px 24px;border-radius:14px;border:3px solid #22c55e;box-shadow:0 4px 14px rgba(0,0,0,0.2);pointer-events:none;z-index:20;letter-spacing:1px;white-space:nowrap}
+.ticket-complete-badge .tcb-emoji{font-size:30px;line-height:1}
+.ticket-complete-badge .tcb-msg{font-size:26px;line-height:1.1}
 /* ─── 一覧モード（ラーメン／サイド＋ドリンク） ─── */
 #ramenListContent,#sideListContent{position:absolute;left:0;top:46px;height:calc(100vh - 53px - 46px - 26px);width:100vw;padding:8px 10px 90px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:var(--bg);box-sizing:border-box}
 @media (max-height:760px){#ramenListContent,#sideListContent{top:32px;height:calc(100vh - 47px - 32px)}}
@@ -2498,6 +2500,15 @@ function renderOrderGroupsHtml(order) {
 //   下段：ドリンク
 // 各層内：未提供アイテム → 提供済みアイテム の順
 // 追加注文（2件目以降）も同じ層内で正しい位置にマージされる
+// 全提供完了バッジのランダム文言（👊 と一緒に表示）
+const COMPLETE_MSGS = ['Complete!', 'Nice!', 'Good!', 'やったね!', 'Perfect!', '完了!', 'ナイス!', 'Great!', 'よくやった!', 'Bravo!'];
+const _completeMsgCache = new Map(); // 伝票ID -> 文言（猶予期間中の再描画でちらつかないよう固定）
+function pickCompleteMsg(ticketId) {
+  let m = _completeMsgCache.get(ticketId);
+  if (!m) { m = COMPLETE_MSGS[Math.floor(Math.random() * COMPLETE_MSGS.length)]; _completeMsgCache.set(ticketId, m); }
+  return m;
+}
+
 function renderTableTicket(tt) {
   let orderList = tt.orders || [];
   const first = orderList[0];
@@ -2636,7 +2647,16 @@ function renderTableTicket(tt) {
 
   const isExpanded = _expandedTickets.has(tLabel);
   const expandBtnLabel = isExpanded ? '戻' : '全';
+  // 全提供完了バッジ（👊 + ランダム文言）。未完了時はキャッシュを解放し次回の完了で再抽選
+  let completeBadge = '';
+  if (allServed) {
+    const _msg = pickCompleteMsg('ticket-' + tIdSafe);
+    completeBadge = `<div class="ticket-complete-badge"><span class="tcb-emoji">👊</span><span class="tcb-msg">${_msg}</span></div>`;
+  } else {
+    _completeMsgCache.delete('ticket-' + tIdSafe);
+  }
   return `<div class="ticket ${allServed?'completing':''} ${isExpanded?'expanded':''}" id="ticket-${tIdSafe}">
+${completeBadge}
 <div class="ticket-reorder">
   <button class="tk-reord-btn" onclick="moveTicket('${tLabel}',-1)" aria-label="左に移動">←</button>
   <button class="tk-reord-btn" onclick="moveTicket('${tLabel}',1)" aria-label="右に移動">→</button>
