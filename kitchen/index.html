@@ -321,6 +321,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .tc-info{flex:1;min-width:0}
 .tc-name{font-size:20px;font-weight:700;color:#111;line-height:1.2}
 .tc-opts{font-size:14px;color:#666;margin-top:2px;font-weight:600}
+/* 替え玉カードの硬さ（バリカタ/カタ等）は伝票で大きく・黒で強調 */
+.ticket-compact-card.kaedama .tc-opts{font-size:22px !important;color:#111 !important;font-weight:900 !important;margin-top:3px !important}
 .tc-qty{font-family:'Oswald',sans-serif;font-size:22px;color:#c8860a;font-weight:700;flex-shrink:0}
 .tc-qty-multi{color:#e74c3c !important;font-weight:900 !important}
 .tc-qty-added{color:#e74c3c !important;font-weight:900 !important;font-size:16px !important;font-family:'Noto Sans JP','Oswald',sans-serif !important;background:rgba(231,76,60,0.12);border:1.5px solid #e74c3c;padding:2px 8px;border-radius:8px;letter-spacing:0.5px}
@@ -3326,7 +3328,10 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
       <div class="tc-qty" style="background:var(--accent2);color:#fff;font-weight:900">取消</div>
     </div>`;
   }
-  return `<div class="ticket-compact-card ${allServed?'served':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
+  // 替え玉（id 40 / 41 / isKaedama）は硬さ表示を大きくするため専用クラスを付与
+  const _mainCanon = (typeof MOTONARI !== 'undefined' && MOTONARI.getMenuById) ? MOTONARI.getMenuById(main.itemId) : null;
+  const isKaedamaMain = (_mainCanon && (_mainCanon.id === 40 || _mainCanon.id === 41)) || main.isKaedama === true || main.itemId === 40 || main.itemId === 41;
+  return `<div class="ticket-compact-card ${allServed?'served':''} ${isKaedamaMain?'kaedama':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="tc-check"></div>
 <div class="tc-info">
 <div class="tc-name">${getAbbrevJa(main)}</div>
