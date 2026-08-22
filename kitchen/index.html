@@ -299,6 +299,8 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 @media (max-width:640px){.rg-total-mini{font-size:12px}}
 /* 全表示モード（ticket.expanded）では合計金額を非表示 — コンパクト維持のため */
 .ticket.expanded .rg-sec-total-mini{display:none !important}
+/* 【一旦非表示】ラーメンのみの項目下金額を全伝票で非表示（JS生成コードは保持。再表示はこの1行を削除） */
+.rg-sec-total-mini{display:none !important}
 .rg-sec-other{font-size:18px;color:#222;line-height:1.4;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
 .rg-sec-addons{padding-top:8px}
 .rg-sec-total{font-family:'Oswald','Noto Sans JP',sans-serif;font-size:22px;font-weight:900;color:#1a1008;text-align:right;padding:8px 4px 4px;border-top:2px solid #e8d9b8;margin-top:4px;letter-spacing:1px}
