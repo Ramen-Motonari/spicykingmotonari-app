@@ -669,14 +669,11 @@ window.adminLogout = adminLogout;
         <button class="stab" onclick="switchSession(this,'lunch','analytics-chart')">ランチ</button>
         <button class="stab" onclick="switchSession(this,'dinner','analytics-chart')">夜営業</button>
       </div>
-      <input type="date" id="analyticsDateFrom" class="form-input" style="width:130px">
+      <select id="analyticsMonthPreset" class="form-input" style="width:150px;font-weight:700" onchange="applyAnalyticsMonth()"></select>
+      <input type="date" id="analyticsDateFrom" class="form-input" style="width:130px" onchange="onAnalyticsDateManual()">
       <span style="color:var(--muted);font-size:13px">〜</span>
-      <input type="date" id="analyticsDateTo" class="form-input" style="width:130px">
+      <input type="date" id="analyticsDateTo" class="form-input" style="width:130px" onchange="onAnalyticsDateManual()">
       <button onclick="renderAnalytics()" style="padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">検索</button>
-      <span style="color:var(--border);font-size:13px">|</span>
-      <span style="color:var(--muted);font-size:12px">月で選択</span>
-      <input type="month" id="analyticsMonth" class="form-input" style="width:150px" onchange="applyAnalyticsMonth()">
-      <button onclick="applyAnalyticsMonth()" style="padding:8px 16px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📅 この月で表示</button>
       <button onclick="exportAnalyticsCSV()" style="padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV</button>
       <button onclick="exportAnalyticsPDF()" style="padding:8px 16px;border-radius:10px;background:var(--accent2);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📄 PDF</button>
       <button onclick="printPage('analytics')" style="padding:8px 16px;border-radius:10px;background:#444;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🖨 印刷</button>
@@ -3733,16 +3730,41 @@ function copyNightReport() {
 }
 
 // ────── Analytics ──────
-// 月単位選択：選んだ月の初日〜末日を期間入力に流し込み、そのまま分析を再描画する
+// 月プルダウンの選択肢を初回のみ生成：先頭「期間指定」＋直近18ヶ月（YYYY年M月）
+function populateAnalyticsMonthSelects() {
+  const sel = document.getElementById('analyticsMonthPreset');
+  if (!sel || sel.options.length) return;
+  const now = new Date();
+  let html = `<option value="">期間指定</option>`;
+  for (let i = 0; i < 18; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    html += `<option value="${y}-${String(m).padStart(2,'0')}">${y}年${m}月</option>`;
+  }
+  sel.innerHTML = html;
+}
+
+// 月プルダウン選択：選んだ月の初日〜末日を期間入力に流し込み、そのまま一発で再描画する。
+// 「期間指定」(value="") のときは日付範囲入力をそのまま使う。
 function applyAnalyticsMonth() {
-  const mEl = document.getElementById('analyticsMonth');
-  if (!mEl || !mEl.value) return;
-  const [y, m] = mEl.value.split('-').map(Number);
+  const sel = document.getElementById('analyticsMonthPreset');
+  if (!sel) return;
+  const v = sel.value;
+  if (!v) { renderAnalytics(); return; } // 期間指定モード：現在の From〜To をそのまま使う
+  const [y, m] = v.split('-').map(Number);
   if (!y || !m) return;
   const fromEl = document.getElementById('analyticsDateFrom');
   const toEl = document.getElementById('analyticsDateTo');
   if (fromEl) fromEl.value = dateKey(new Date(y, m - 1, 1));   // 月初
   if (toEl)   toEl.value   = dateKey(new Date(y, m, 0));       // 月末（翌月0日）
+  renderAnalytics();
+}
+
+// 日付を手入力したら、月プルダウンを「期間指定」に戻す
+function onAnalyticsDateManual() {
+  const sel = document.getElementById('analyticsMonthPreset');
+  if (sel) sel.value = '';
   renderAnalytics();
 }
 
@@ -3798,6 +3820,7 @@ function getAnalyticsRange() {
 }
 
 function renderAnalytics() {
+  populateAnalyticsMonthSelects();
   const session = currentSession['analytics-chart'] || 'all';
   const range = getAnalyticsRange();
   const filtered = paidOrders.filter(o => session === 'all' || getSession(o) === session);
@@ -6038,6 +6061,7 @@ window.saveDailyReportFromDinner = saveDailyReportFromDinner;
 window.exportKanritableCSV = exportKanritableCSV;
 window.exportAnalyticsCSV = exportAnalyticsCSV;
 window.applyAnalyticsMonth = applyAnalyticsMonth;
+window.onAnalyticsDateManual = onAnalyticsDateManual;
 window.loadKanritableData = loadKanritableData;
 window.exportSoupRankingCSV = exportSoupRankingCSV;
 window.recalcDinnerManuals = recalcDinnerManuals;
