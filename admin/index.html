@@ -600,6 +600,20 @@ window.adminLogout = adminLogout;
             <div class="manual-field"><label>売上 <span class="auto-label">入力</span></label><input type="number" id="dinner-uber-sales" placeholder="例: 8200" oninput="recalcDinnerManuals()"></div>
           </div>
         </div>
+        <div class="manual-input-section">
+          <div class="section-label">🎪 その他売上（臨時）</div>
+          <div class="manual-input-grid">
+            <div class="manual-field"><label>項目名 <span class="auto-label">入力</span></label><input type="text" id="dinner-other-name" placeholder="例: お祭り" oninput="recalcDinnerManuals()"></div>
+            <div class="manual-field"><label>売上（税込） <span class="auto-label">入力</span></label><input type="number" id="dinner-other-sales" placeholder="例: 55000" oninput="recalcDinnerManuals()"></div>
+          </div>
+          <div id="dinner-other-display" style="display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(46,125,50,0.12);border:1px solid rgba(46,125,50,0.35);font-size:12px">
+            <span id="dinner-other-display-name" style="font-weight:800;color:#2e7d32"></span>
+            <span style="margin-left:10px;font-family:'Oswald',sans-serif">¥<span id="dinner-other-display-notax">0</span> <span style="font-size:10px;color:var(--muted)">（税抜）</span></span>
+            <span style="margin-left:10px;font-family:'Oswald',sans-serif;color:var(--muted)">¥<span id="dinner-other-display-tax">0</span> <span style="font-size:10px">（税込）</span></span>
+            <div style="margin-top:6px;font-size:11px;color:var(--muted)">合算後 当日総売上（税抜）: <span style="font-family:'Oswald',sans-serif;font-weight:800;color:#2e7d32">¥<span id="dinner-other-display-grand">0</span></span></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">※ お祭り等の臨時売上。税込で入力。項目名がある時のみ、総売上（税抜）に ÷1.10 で合算され、デイリー表・売上分析にも反映されます。</div>
+        </div>
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
           <div class="section-label" style="color:var(--green)">💾 今日の数値を保存</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -1982,6 +1996,9 @@ function renderKanritableTable() {
   let wSales = 0, wPurch = 0, wHours = 0;
   // 月合計
   let mSales = 0, mPurch = 0, mHours = 0;
+  // その他売上（臨時）：月内合計（税込）と項目名の収集
+  let mOtherTax = 0;
+  const mOtherNames = new Set();
 
   const cellOf = (val, c, dateKey, isSubtotal, color) => {
     const bg = isSubtotal
@@ -2031,6 +2048,8 @@ function renderKanritableTable() {
     cumPurch += purchaseToday;
     wSales += salesToday; wPurch += purchaseToday; wHours += workHours;
     mSales += salesToday; mPurch += purchaseToday; mHours += workHours;
+    { const oa = Number(data.otherSalesAmount || 0);
+      if (oa > 0) { mOtherTax += oa; if (data.otherSalesName) mOtherNames.add(String(data.otherSalesName)); } }
 
     const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : 0;
     const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : 0;
@@ -2062,14 +2081,33 @@ function renderKanritableTable() {
       wSales = 0; wPurch = 0; wHours = 0;
     }
   }
-  // 月合計行
-  const mPurchRate = mSales > 0 ? Math.round((mPurch / mSales) * 1000) / 10 : 0;
-  const mSph = mHours > 0 ? Math.round(mSales / mHours) : 0;
+  // その他売上（臨時）行：月内合計を税抜換算 ÷1.10 で表示。合計の直前に挿入。
+  const mOtherNoTax = Math.round(mOtherTax / 1.10);
+  if (mOtherTax > 0) {
+    const salesIdx = cols.findIndex(c => c.key === 'salesToday');
+    const nameLabel = (mOtherNames.size === 1) ? `（${[...mOtherNames][0]}）` : (mOtherNames.size > 1 ? '（複数）' : '');
+    const otherCells = cols.map((c, i) => {
+      const bg = 'rgba(46,125,50,0.20)';
+      if (i === 0) {
+        return `<td colspan="${salesIdx}" style="padding:6px;border:1px solid var(--border);background:${bg};text-align:center;color:#66bb6a;font-weight:800;font-size:11px">🎪 その他売上（税抜）${nameLabel}</td>`;
+      }
+      if (i > 0 && i < salesIdx) return '';
+      if (c.key === 'salesToday') {
+        return `<td style="padding:6px;border:1px solid var(--border);background:${bg};text-align:right;color:#66bb6a;font-family:'Oswald',sans-serif;font-weight:800">${_fmt(mOtherNoTax, 'num')}</td>`;
+      }
+      return `<td style="padding:6px;border:1px solid var(--border);background:${bg}"></td>`;
+    }).join('');
+    rows += `<tr>${otherCells}</tr>`;
+  }
+  // 月合計行（その他売上を税抜換算で合算）
+  const mSalesTotal = mSales + mOtherNoTax;
+  const mPurchRate = mSalesTotal > 0 ? Math.round((mPurch / mSalesTotal) * 1000) / 10 : 0;
+  const mSph = mHours > 0 ? Math.round(mSalesTotal / mHours) : 0;
   const monthCells = cols.map(c => {
     let val = '';
     if (c.key === 'day')          val = '月';
     else if (c.key === 'weekday') val = '合計';
-    else if (c.key === 'salesToday')    val = mSales || '';
+    else if (c.key === 'salesToday')    val = mSalesTotal || '';
     else if (c.key === 'purchaseToday') val = mPurch || '';
     else if (c.key === 'purchaseRate')  val = (mPurch > 0) ? mPurchRate : '';
     else if (c.key === 'workHours')     val = mHours || '';
@@ -2134,6 +2172,8 @@ function loadUberFieldsFromSaved(dateKey, force) {
   apply('lunch-uber-sales',  'uberLunchSales');
   apply('dinner-uber-count', 'uberDinnerCount');
   apply('dinner-uber-sales', 'uberDinnerSales');
+  apply('dinner-other-name',  'otherSalesName');
+  apply('dinner-other-sales', 'otherSalesAmount');
 }
 
 // 夜の日報の日付が変更されたときのハンドラ：保存済みUber値を復元してから再計算
@@ -2177,6 +2217,27 @@ function recalcDinnerManuals() {
   }
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setVal('dinner-yearly-sales-today', salesTodayAuto || '');
+
+  // その他売上（臨時）：項目名がある時のみ「記載」表示。総売上（税抜）に ÷1.10 で合算表示。
+  //   ※ salesToday 自体には合算しない（別フィールドで保存し、デイリー表/売上分析で加算）。
+  {
+    const onm  = (document.getElementById('dinner-other-name')?.value || '').trim();
+    const otax = parseInt(document.getElementById('dinner-other-sales')?.value) || 0;
+    const disp = document.getElementById('dinner-other-display');
+    const hasOther = !!(onm && otax > 0);
+    if (disp) {
+      if (hasOther) {
+        const onotax = Math.round(otax / 1.10);
+        const nEl = document.getElementById('dinner-other-display-name');   if (nEl) nEl.textContent = onm;
+        const ntEl = document.getElementById('dinner-other-display-notax'); if (ntEl) ntEl.textContent = onotax.toLocaleString();
+        const txEl = document.getElementById('dinner-other-display-tax');   if (txEl) txEl.textContent = otax.toLocaleString();
+        const gtEl = document.getElementById('dinner-other-display-grand'); if (gtEl) gtEl.textContent = (salesTodayAuto + onotax).toLocaleString();
+        disp.style.display = 'block';
+      } else {
+        disp.style.display = 'none';
+      }
+    }
+  }
 
   const salesToday = salesTodayAuto; // 税抜
   const purchaseToday = parseFloat(document.getElementById('dinner-purchase-today')?.value) || 0;
@@ -2262,6 +2323,10 @@ async function saveDailyReportFromDinner() {
   addUber('lunch-uber-sales',  'uberLunchSales');
   addUber('dinner-uber-count', 'uberDinnerCount');
   addUber('dinner-uber-sales', 'uberDinnerSales');
+  addUber('dinner-other-sales', 'otherSalesAmount');
+  // その他売上の項目名（テキスト）：入力があれば保存、空欄なら書き込まない
+  { const onm = (document.getElementById('dinner-other-name')?.value || '').trim();
+    if (onm) payload.otherSalesName = onm; }
   if (weather) payload.weather = weather;
   if (salesToday !== null) payload.salesToday = salesToday;
   if (purchaseToday !== null) payload.purchaseToday = purchaseToday;
@@ -2330,6 +2395,7 @@ function exportKanritableCSV() {
   let weekIdx = 0;
   let wSales = 0, wPurch = 0, wHours = 0;
   let mSales = 0, mPurch = 0, mHours = 0;
+  let mOtherTax = 0;
   const buildSubtotal = (label1, label2, sumSales, sumPurch, sumHours) => {
     const rate = sumSales > 0 ? Math.round((sumPurch / sumSales) * 1000) / 10 : '';
     const sph = sumHours > 0 ? Math.round(sumSales / sumHours) : '';
@@ -2355,6 +2421,7 @@ function exportKanritableCSV() {
     cumPurch += purchaseToday;
     wSales += salesToday; wPurch += purchaseToday; wHours += workHours;
     mSales += salesToday; mPurch += purchaseToday; mHours += workHours;
+    mOtherTax += Number(data.otherSalesAmount || 0);
     const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : '';
     const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : '';
     const computed = {
@@ -2377,8 +2444,17 @@ function exportKanritableCSV() {
       wSales = 0; wPurch = 0; wHours = 0;
     }
   }
-  // 月合計行
-  csv += buildSubtotal('月', '合計', mSales, mPurch, mHours);
+  // その他売上行（税抜換算）＋ 月合計行（その他売上を合算）
+  const mOtherNoTaxCsv = Math.round(mOtherTax / 1.10);
+  if (mOtherTax > 0) {
+    csv += cols.map(c => {
+      let v = '';
+      if (c.key === 'day') v = 'その他売上(税抜)';
+      else if (c.key === 'salesToday') v = mOtherNoTaxCsv || '';
+      return '"' + String(v).replace(/"/g, '""') + '"';
+    }).join(',') + '\n';
+  }
+  csv += buildSubtotal('月', '合計', mSales + mOtherNoTaxCsv, mPurch, mHours);
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -3774,6 +3850,7 @@ function renderAnalytics() {
   let prevYearSales = 0;
   let hasPrevYearData = false;
   let uberCount = 0, uberSales = 0;
+  let otherSalesTaxIncl = 0; // その他売上（臨時・税込・期間内合計）
   if (typeof _dailyReports === 'object' && _dailyReports) {
     // 範囲内の日付に対する前年売上合計
     const cursor = new Date(range.start);
@@ -3790,12 +3867,18 @@ function renderAnalytics() {
         if (session === 'lunch')      { uberCount += luC; uberSales += luS; }
         else if (session === 'dinner'){ uberCount += dnC; uberSales += dnS; }
         else                          { uberCount += luC + dnC; uberSales += luS + dnS; }
+        // その他売上（臨時・税込・全営業共通の日次値）は期間内で常に合算
+        otherSalesTaxIncl += Number(dr.otherSalesAmount || 0);
       }
       cursor.setDate(cursor.getDate() + 1);
     }
   }
   { const ec = document.getElementById('an-uber-count'); if (ec) ec.textContent = uberCount.toLocaleString();
     const es = document.getElementById('an-uber-sales'); if (es) es.textContent = '¥' + uberSales.toLocaleString(); }
+  // その他売上（臨時・税込）を税抜換算 ÷1.10 で売上合計（税抜）に合算
+  const otherNoTax = Math.round(otherSalesTaxIncl / 1.10);
+  const salesWithOther = totalSalesNoTax + otherNoTax;
+  { const se = document.getElementById('an-sales'); if (se) se.textContent = '¥' + salesWithOther.toLocaleString(); }
   // 前年対比の表示
   const setPrev = (id, prevText, diffText, diffColor) => {
     const pe = document.getElementById(id + '-prev');
@@ -3804,7 +3887,7 @@ function renderAnalytics() {
     if (de) { de.textContent = diffText; de.style.color = diffColor || 'var(--muted)'; }
   };
   if (hasPrevYearData && prevYearSales > 0) {
-    const diff = totalSalesNoTax - prevYearSales;
+    const diff = salesWithOther - prevYearSales;
     const pct = ((diff / prevYearSales) * 100).toFixed(1);
     const color = diff >= 0 ? '#10b981' : '#e74c3c';
     setPrev('an-sales', '¥' + prevYearSales.toLocaleString(), (diff >= 0 ? '▲ +' : '▼ ') + pct + '%', color);
@@ -3881,6 +3964,7 @@ function renderAnalytics() {
     fromStr: dateKey(range.start),
     toStr: dateKey(range.end),
     totalSalesNoTax, totalSalesTax,
+    salesWithOther, otherSalesTaxIncl,
     customers, avg,
     newRate: visitRate.rate, foreignRate: foreignRate.rate,
     prevYearSales, hasPrevYearData,
@@ -3906,10 +3990,11 @@ function exportAnalyticsCSV() {
   const fmt = v => (v == null || v === '') ? '' : Number(v).toLocaleString();
   const pctDiff = (cur, prev) => (prev > 0) ? (((cur - prev) / prev) * 100).toFixed(1) + '%' : '';
   const diff = (cur, prev) => (prev > 0) ? (cur - prev) : '';
+  const aSales = (a.salesWithOther != null) ? a.salesWithOther : a.totalSalesNoTax;
   if (a.hasPrevYearData && a.prevYearSales > 0) {
-    csv += '"売上合計（税抜）",' + a.totalSalesNoTax + ',' + a.prevYearSales + ',' + diff(a.totalSalesNoTax, a.prevYearSales) + ',"' + pctDiff(a.totalSalesNoTax, a.prevYearSales) + '"\n';
+    csv += '"売上合計（税抜・その他込）",' + aSales + ',' + a.prevYearSales + ',' + diff(aSales, a.prevYearSales) + ',"' + pctDiff(aSales, a.prevYearSales) + '"\n';
   } else {
-    csv += '"売上合計（税抜）",' + a.totalSalesNoTax + ',"—","",""\n';
+    csv += '"売上合計（税抜・その他込）",' + aSales + ',"—","",""\n';
   }
   csv += '"客数合計",' + a.customers + ',"—","",""\n';
   csv += '"客単価",' + a.avg + ',"—","",""\n';
