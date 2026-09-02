@@ -2215,7 +2215,7 @@ function recalcDinnerManuals() {
   const isToday = (dateKey === todayKey());
 
   // 当日売上（税抜）の取得優先順:
-  //   ① 選択日が「今日」の場合 → APP集計 calcReportFor('all').salesNoTax（税抜）＋ Uber売上（税込入力を÷1.10で税抜換算）
+  //   ① 選択日が「今日」の場合 → APP集計 calcReportFor('all').salesNoTax（税抜）＋ Uber売上（税込入力を÷1.08=軽減税率8%で税抜換算）
   //   ② 選択日が過去/未来の場合 → _dailyReports[dateKey].salesToday（保存済・Uber込み）
   //   ③ いずれも無ければ 0
   let salesTodayAuto = 0;
@@ -2226,10 +2226,10 @@ function recalcDinnerManuals() {
         salesTodayAuto = Math.round(Number(rAll?.salesNoTax) || 0);
       }
     } catch(_) { salesTodayAuto = 0; }
-    // Uber Eats 売上（税込入力）を税抜換算（÷1.10）して当日売上に合算
+    // Uber Eats 売上（税込入力）を税抜換算（軽減税率8% ÷1.08）して当日売上に合算
     const uberLunchTax  = parseInt(document.getElementById('lunch-uber-sales')?.value) || 0;
     const uberDinnerTax = parseInt(document.getElementById('dinner-uber-sales')?.value) || 0;
-    salesTodayAuto += Math.round((uberLunchTax + uberDinnerTax) / 1.10);
+    salesTodayAuto += Math.round((uberLunchTax + uberDinnerTax) / 1.08);
   } else {
     const saved = _dailyReports?.[dateKey];
     if (saved && typeof saved.salesToday === 'number') {
@@ -2367,7 +2367,7 @@ async function saveDailyReportFromDinner() {
 
 // 過去の日報の「当日売上」に Uber 売上（税抜）を一括合算する（1回きりの移行用）。
 //   - 変更前の当日売上 = アプリ内のみ（税抜）で保存されている過去日を対象に、
-//     Uber売上(税込) ÷1.10 を加算する。
+//     Uber売上(税込) ÷1.08（軽減税率8%）を加算する。
 //   - uberMergedIntoSales フラグで二重加算を防止（各日1回のみ反映）。
 //   - 「今日」は当日売上がライブ再計算されるため対象外。
 async function migratePastUberIntoSales() {
@@ -2387,7 +2387,7 @@ async function migratePastUberIntoSales() {
     const uberTax = (Number(r.uberLunchSales) || 0) + (Number(r.uberDinnerSales) || 0);
     try {
       if (uberTax > 0 && typeof r.salesToday === 'number') {
-        const next = Math.round(Number(r.salesToday) || 0) + Math.round(uberTax / 1.10);
+        const next = Math.round(Number(r.salesToday) || 0) + Math.round(uberTax / 1.08);
         await setDoc(doc(window.fb.db, 'dailyReports', k), { salesToday: next, uberMergedIntoSales: true, updatedAt: serverTimestamp() }, { merge: true });
         updated++;
       } else {
