@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-13-2">
+<meta name="app-build" content="2026-08-25-1">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -241,6 +241,13 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .ticket-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .ticket-table{font-family:'Oswald',sans-serif;font-size:42px;color:#111;font-weight:700}
 .ticket-time{font-size:16px;color:#333;font-weight:700;font-family:'Oswald','Noto Sans JP',sans-serif;letter-spacing:0.5px}
+/* 提供スピードタイマー（注文時刻の下・カウントアップ）：青=経過中 / 赤=8分超過かつ未提供 / 黒=一品以上提供済 */
+.serve-timer{margin-top:2px;font-family:'Oswald','Noto Sans JP',sans-serif;font-weight:900;font-size:18px;letter-spacing:0.5px;line-height:1;display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.serve-timer .st-ico{font-size:13px}
+.serve-timer.st-blue{color:#1d72e8}
+.serve-timer.st-red{color:#e53935}
+.serve-timer.st-black{color:#222;opacity:.8}
+@keyframes stFlash{0%,100%{opacity:1}50%{opacity:.35}}
 .ticket-visit{display:inline-block;font-size:13px;font-weight:900;padding:4px 12px;border-radius:8px;letter-spacing:1px}
 .visit-first{background:#f59e0b;color:#1a1008;border:2px solid #fbbf24;text-shadow:none}
 .visit-repeat{background:#10b981;color:#0a1a0e;border:2px solid #34d399;text-shadow:none}
@@ -335,6 +342,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .ticket{border-radius:14px;border-width:1px}
   .ticket-table{font-size:30px}
   .ticket-time{font-size:14px;font-weight:700}
+  .serve-timer{font-size:16px}
   .ticket-section-label{font-size:12px;letter-spacing:0.5px;margin-bottom:4px;padding-bottom:3px}
   .ticket-section{padding:6px 10px}
   .item-name-k{font-size:20px;letter-spacing:0.5px}
@@ -391,6 +399,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
   .ticket-visit{font-size:10px;padding:2px 6px}
   .ticket-lang{font-size:10px;padding:2px 6px}
   .ticket-time{font-size:12px;font-weight:700}
+  .serve-timer{font-size:14px}
   /* スマホ用：商品名・オプションを2列用に最適化 */
   .rg-main-name{font-size:17px;letter-spacing:0.3px}
   .rg-main-qty{font-size:15px}
@@ -485,6 +494,12 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .btn-complete{width:100%;padding:16px;border-radius:14px;border:none;background:var(--green);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
 .btn-close-detail{width:100%;padding:14px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
 .pay-notif{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--accent2);color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:200;display:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+/* 提供遅延アラート通知（8分経過・未提供）：赤・点滅、閉じるボタン付き */
+.serve-notif{position:fixed;top:64px;left:50%;transform:translateX(-50%);width:min(94vw,460px);display:none;align-items:center;gap:10px;background:linear-gradient(135deg,#c0392b 0%,#e53935 100%);color:#fff;border-radius:12px;padding:12px 12px 12px 14px;font-size:14px;font-weight:900;z-index:401;box-shadow:0 6px 28px rgba(229,57,53,0.5);animation:snPulse 1s ease infinite}
+@keyframes snPulse{0%,100%{box-shadow:0 6px 28px rgba(229,57,53,0.4)}50%{box-shadow:0 6px 40px rgba(229,57,53,0.85)}}
+.serve-notif .sn-ico{font-size:22px;flex:0 0 auto}
+.serve-notif .sn-txt{flex:1;line-height:1.4}
+.serve-notif .sn-x{background:rgba(255,255,255,.22);border:none;color:#fff;width:28px;height:28px;border-radius:8px;font-size:16px;font-weight:900;cursor:pointer;flex:0 0 auto}
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:12px 24px;border-radius:12px;font-size:13px;font-weight:700;z-index:999;display:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
 .soldout-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:400;display:none;align-items:center;justify-content:center;padding:20px}
 .soldout-overlay.open{display:flex}
@@ -778,6 +793,11 @@ body.register-mode #mergeOverlay>div{
 </div>
 
 <div class="pay-notif" id="payNotif">🔔 会計リクエストが届きました</div>
+<div class="serve-notif" id="serveNotif">
+  <span class="sn-ico">🚨</span>
+  <span class="sn-txt" id="serveNotifTxt">8分経ったぞ！まず一品は提供しよう！</span>
+  <button class="sn-x" onclick="closeServeNotif()">✕</button>
+</div>
 <div class="toast" id="toast"></div>
 <div id="connStatus" class="conn-status connecting">CONNECTING...</div>
 
@@ -2513,6 +2533,94 @@ function pickCompleteMsg(ticketId) {
   return m;
 }
 
+// ══════════ ⏱ 提供スピードタイマー ══════════
+//   各伝票の注文時刻の下にカウントアップタイマー（M:SS）を表示。
+//   ・青 … 注文から経過中（8分未満・未提供） / ・赤 … 8分超過かつ一品も未提供 → 通知＋アラーム / ・黒 … 一品以上提供済
+const SERVE_TIMER_THRESHOLD_MS = 8 * 60 * 1000;
+const _serveAlertRung = new Set();
+let _serveAlertDismissed = false;
+function _serveTimerFmt(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+function _serveStartMs(order) {
+  if (!order || !order.createdAt) return 0;
+  if (typeof order.createdAt.toMillis === 'function') return order.createdAt.toMillis();
+  if (typeof order.createdAt.seconds === 'number') return order.createdAt.seconds * 1000;
+  return 0;
+}
+function serveTimerHtml(startMs, anyServed, tLabel) {
+  if (!startMs) return '';
+  const el = Date.now() - startMs;
+  const overdue = el >= SERVE_TIMER_THRESHOLD_MS && !anyServed;
+  const cls = anyServed ? 'st-black' : (overdue ? 'st-red' : 'st-blue');
+  const ico = anyServed ? '' : (overdue ? '<span class="st-ico">🚨</span>' : '<span class="st-ico">⏱</span>');
+  const tblAttr = String(tLabel == null ? '' : tLabel).replace(/"/g, '&quot;');
+  return `<div class="serve-timer ${cls}" data-start="${startMs}" data-served="${anyServed ? 1 : 0}" data-table="${tblAttr}">${ico}${_serveTimerFmt(el)}</div>`;
+}
+function playServeAlarm() {
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume().catch(() => {});
+    const base = ctx.currentTime;
+    for (let i = 0; i < 8; i++) {
+      const t = base + i * 0.16;
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1600, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t); osc.stop(t + 0.14);
+    }
+  } catch (e) { /* 無音でフォールバック */ }
+}
+function refreshServeNotif(tables) {
+  const banner = document.getElementById('serveNotif');
+  if (!banner) return;
+  const uniq = [...new Set(tables)].filter(Boolean);
+  if (uniq.length && !_serveAlertDismissed) {
+    const txt = document.getElementById('serveNotifTxt');
+    if (txt) txt.textContent = `${uniq.join('・')}、8分経ったぞ！まず一品は提供しよう！`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+function closeServeNotif() {
+  _serveAlertDismissed = true;
+  const b = document.getElementById('serveNotif');
+  if (b) b.style.display = 'none';
+}
+function tickServeTimers() {
+  const nodes = document.querySelectorAll('.serve-timer');
+  const overdue = [];
+  nodes.forEach(node => {
+    const startMs = Number(node.getAttribute('data-start')) || 0;
+    if (!startMs) return;
+    const served = node.getAttribute('data-served') === '1';
+    const elapsed = Date.now() - startMs;
+    const isOver = elapsed >= SERVE_TIMER_THRESHOLD_MS && !served;
+    const cls = served ? 'st-black' : (isOver ? 'st-red' : 'st-blue');
+    if (node.className !== 'serve-timer ' + cls) node.className = 'serve-timer ' + cls;
+    const ico = served ? '' : (isOver ? '<span class="st-ico">🚨</span>' : '<span class="st-ico">⏱</span>');
+    node.innerHTML = ico + _serveTimerFmt(elapsed);
+    if (isOver) {
+      const tbl = node.getAttribute('data-table') || '';
+      overdue.push({ tbl, key: startMs + '@' + tbl });
+    }
+  });
+  const activeKeys = new Set(overdue.map(o => o.key));
+  Array.from(_serveAlertRung).forEach(k => { if (!activeKeys.has(k)) _serveAlertRung.delete(k); });
+  let fresh = false;
+  overdue.forEach(o => { if (!_serveAlertRung.has(o.key)) { _serveAlertRung.add(o.key); fresh = true; } });
+  if (fresh) { _serveAlertDismissed = false; playServeAlarm(); }
+  refreshServeNotif(overdue.map(o => o.tbl));
+}
+setInterval(tickServeTimers, 1000);
+
 function renderTableTicket(tt) {
   let orderList = tt.orders || [];
   const first = orderList[0];
@@ -2675,7 +2783,10 @@ ${isKaedamaTicket ? '<span class="ticket-new-flag" style="background:linear-grad
 </div>
 <div style="display:flex;align-items:center;gap:6px">
 <button class="tk-expand-btn" onclick="event.stopPropagation();toggleExpandTicket('${tLabel}')" title="伝票を横に広げて全商品を一度に表示">${expandBtnLabel}</button>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">
 <div class="ticket-time">${formatOrderTime(first)}</div>
+${serveTimerHtml(_serveStartMs(first), allItems.some(i => i.served), tLabel)}
+</div>
 </div>
 </div>
 </div>
@@ -2961,6 +3072,8 @@ function parseRamenOpts(opts, mainItem) {
     tsukemenSize: '',    // '小 140g' / '並 180g' / '大 240g' ← SKつけ麺の麺の量
     natto: '',           // '納豆あり' / '納豆なし' ← つけ麺の納豆IN
     tsukeRice: '',       // 'ライスあり' / 'ライスなし' ← つけ麺のライス有無
+    atsumori: false,     // あつ盛りに変更 ← エビキング系
+    konaCheeseRice: '',  // '粉チーズライスあり' / '粉チーズライスなし' ← エビキング系
     other: []
   };
   const arr = Array.isArray(opts) ? opts.slice() : [];
@@ -2997,6 +3110,10 @@ function parseRamenOpts(opts, mainItem) {
       result.tsukemenSize = s;
       return;
     }
+    // エビキング系：あつ盛りに変更（選択時のみ・伝票では赤文字）
+    if (/^あつ盛りに変更$/.test(s)) { result.atsumori = true; return; }
+    // エビキング系：粉チーズライス あり/なし（※「ライス」を含むので isRice ブロックより前に判定）
+    if (/^粉チーズライス(あり|なし)$/.test(s)) { result.konaCheeseRice = s; return; }
 
     // ライスを「ミニチャーシューエッグ丼」に変更（餃子定食）— 赤文字で強調表示
     if (/(エッグ丼|チャーシューエッグ|Egg Bowl|鸡蛋盖饭|에그\s*동)/i.test(s)) {
@@ -3228,9 +3345,36 @@ function renderRamenGroupCard(orderId, grp) {
   const tsukeRiceSpan = p.tsukeRice
     ? `<span class="rg-natto" style="font-weight:900"> / ${p.tsukeRice}</span>`
     : '';
-  const tsukemenHtml = (p.tsukemenSize || p.natto || p.tsukeRice)
+  const isEbiKing = (main.itemId === 10041 || main.itemId === 10042);
+  const tsukemenHtml = (!isEbiKing && (p.tsukemenSize || p.natto || p.tsukeRice))
     ? `<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.tsukemenSize}${nattoSpan}${tsukeRiceSpan}</span></div>`
     : '';
+
+  // ━━━ エビキング系（id 10041 / 10042）の専用表示 ━━━
+  //   ① あつ盛り変更（選択時のみ・赤文字）
+  //   ── 区切り線 ──
+  //   ② 麺の量（小140g=青文字 / 並180g=通常 / 大240g=赤文字）
+  //   ── 区切り線 ──
+  //   ③ 粉チーズライス あり / なし
+  let ebiKingHtml = '';
+  if (isEbiKing) {
+    const sep = `<div style="border-top:2px dashed var(--border);margin:5px 0"></div>`;
+    const parts = [];
+    if (p.atsumori) {
+      parts.push(`<div class="rg-sec rg-sec-noodle"><span class="rg-qty" style="color:#c0392b;font-weight:900">あつ盛り変更</span></div>`);
+    }
+    if (p.tsukemenSize) {
+      let color = '';
+      if (/小/.test(p.tsukemenSize)) color = '#1565c0';       // 小 → 青文字
+      else if (/大/.test(p.tsukemenSize)) color = '#c0392b';  // 大 → 赤文字
+      const colStyle = color ? `color:${color};font-weight:900` : 'font-weight:900';
+      parts.push(`<div class="rg-sec rg-sec-noodle"><span class="rg-qty" style="${colStyle}">${p.tsukemenSize}</span></div>`);
+    }
+    if (p.konaCheeseRice) {
+      parts.push(`<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.konaCheeseRice}</span></div>`);
+    }
+    ebiKingHtml = parts.join(sep);
+  }
 
   // ━━━ Section 3: チャーシュー / カレートッピング ━━━
   const chashuParts = [];
@@ -3282,6 +3426,7 @@ ${headerHtml}
 ${noodleHtml}
 ${riceHtml}
 ${tsukemenHtml}
+${ebiKingHtml}
 ${chashuHtml}
 ${otherHtml}
 ${addonsHtml}
@@ -6213,6 +6358,10 @@ window.addEventListener('load', bootstrap);
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') checkForUpdate(); });
   window.addEventListener('focus', checkForUpdate);
   setTimeout(checkForUpdate, 15000); // 起動15秒後に1回だけ保険チェック
+  // ★ キッチン端末を常時フォアグラウンド表示のままにしていると
+  //   visibilitychange/focus が二度と発火せず自動リロードされないため、
+  //   60秒ごとに定期チェックする（canReloadNow で操作中/直近リロードは抑止）。
+  setInterval(checkForUpdate, 60000);
 })();
 </script>
 </body>
