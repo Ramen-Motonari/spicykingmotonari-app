@@ -2006,9 +2006,9 @@ function renderKanritableTable() {
   let cumSales = 0, cumPurch = 0;
   // 週ごとの集計用（7日区切り：1-7, 8-14, 15-21, 22-28, 29-末日）
   let weekIdx = 0; // 0始まりの週インデックス
-  let wSales = 0, wPurch = 0, wHours = 0;
+  let wSales = 0, wPurch = 0, wHours = 0, wCentral = 0;
   // 月合計
-  let mSales = 0, mPurch = 0, mHours = 0, mCentral = 0; // mCentral は月合計・専用行のみで使用
+  let mSales = 0, mPurch = 0, mHours = 0, mCentral = 0;
   // その他売上（臨時）：月内合計（税込）と項目名の収集
   let mOtherTax = 0;
   const mOtherNames = new Set();
@@ -2030,16 +2030,16 @@ function renderKanritableTable() {
     return `<td style="padding:5px 6px;border:1px solid var(--border);background:${bg};text-align:right;color:${color||'var(--text)'};font-family:'Oswald',sans-serif">${display}</td>`;
   };
 
-  // 週小計行を描画するヘルパー（セントラルは週小計には含めない＝店舗売上のみ）
-  const buildWeekSubtotal = (weekNum, sumSales, sumPurch, sumHours) => {
-    const combined = sumSales; // 店舗売上（税抜）のみ
+  // 週小計行を描画するヘルパー（仕入率・人時売上はセントラル込みの売上で計算）
+  const buildWeekSubtotal = (weekNum, sumSales, sumCentral, sumPurch, sumHours) => {
+    const combined = sumSales + sumCentral; // 店舗売上＋セントラル（税抜）
     const purchRate = combined > 0 ? Math.round((sumPurch / combined) * 1000) / 10 : 0;
     const sph = sumHours > 0 ? Math.round(combined / sumHours) : 0;
     const cells = cols.map(c => {
       let val = '';
       if (c.key === 'day')          val = `週${weekNum}`;
       else if (c.key === 'weekday') val = '小計';
-      else if (c.key === 'salesToday')    val = sumSales || '';
+      else if (c.key === 'salesToday')    val = combined || '';
       else if (c.key === 'purchaseToday') val = sumPurch || '';
       else if (c.key === 'purchaseRate')  val = (sumPurch > 0) ? purchRate : '';
       else if (c.key === 'workHours')     val = sumHours || '';
@@ -2058,11 +2058,11 @@ function renderKanritableTable() {
     const centralSales = Number(data.centralSales || 0);
     const purchaseToday = Number(data.purchaseToday || 0);
     const workHours = Number(data.workHours || 0);
-    const daySales = salesToday; // 店舗売上（税抜）のみ。セントラルは月合計・専用行で別途加算
+    const daySales = salesToday + centralSales; // 店舗売上＋セントラル（税抜）。デイリー表の計算はセントラル込み
 
     cumSales += daySales;
     cumPurch += purchaseToday;
-    wSales += salesToday; wPurch += purchaseToday; wHours += workHours;
+    wSales += salesToday; wCentral += centralSales; wPurch += purchaseToday; wHours += workHours;
     mSales += salesToday; mCentral += centralSales; mPurch += purchaseToday; mHours += workHours;
     { const oa = Number(data.otherSalesAmount || 0);
       if (oa > 0) { mOtherTax += oa; if (data.otherSalesName) mOtherNames.add(String(data.otherSalesName)); } }
@@ -2093,8 +2093,8 @@ function renderKanritableTable() {
     // 週小計を挿入（7,14,21,28日目と月末）
     if (d % 7 === 0 || d === lastDay) {
       weekIdx++;
-      rows += buildWeekSubtotal(weekIdx, wSales, wPurch, wHours);
-      wSales = 0; wPurch = 0; wHours = 0;
+      rows += buildWeekSubtotal(weekIdx, wSales, wCentral, wPurch, wHours);
+      wSales = 0; wCentral = 0; wPurch = 0; wHours = 0;
     }
   }
   // その他売上（臨時）行：月内合計を税抜換算 ÷1.10 で表示。合計の直前に挿入。
@@ -2436,18 +2436,18 @@ function exportKanritableCSV() {
   // 月内累計 / 週・月集計
   let cumSales = 0, cumPurch = 0;
   let weekIdx = 0;
-  let wSales = 0, wPurch = 0, wHours = 0;
+  let wSales = 0, wPurch = 0, wHours = 0, wCentral = 0;
   let mSales = 0, mPurch = 0, mHours = 0, mCentral = 0;
   let mOtherTax = 0;
-  const buildSubtotal = (label1, label2, sumSales, sumPurch, sumHours) => {
-    const combined = sumSales;
+  const buildSubtotal = (label1, label2, sumSales, sumCentral, sumPurch, sumHours) => {
+    const combined = sumSales + sumCentral; // 店舗売上＋セントラル（税抜）
     const rate = combined > 0 ? Math.round((sumPurch / combined) * 1000) / 10 : '';
     const sph = sumHours > 0 ? Math.round(combined / sumHours) : '';
     return cols.map(c => {
       let v = '';
       if (c.key === 'day')          v = label1;
       else if (c.key === 'weekday') v = label2;
-      else if (c.key === 'salesToday')    v = sumSales || '';
+      else if (c.key === 'salesToday')    v = combined || '';
       else if (c.key === 'purchaseToday') v = sumPurch || '';
       else if (c.key === 'purchaseRate')  v = (sumPurch > 0) ? rate : '';
       else if (c.key === 'workHours')     v = sumHours || '';
@@ -2462,10 +2462,10 @@ function exportKanritableCSV() {
     const centralSales = Number(data.centralSales || 0);
     const purchaseToday = Number(data.purchaseToday || 0);
     const workHours = Number(data.workHours || 0);
-    const daySales = salesToday;
+    const daySales = salesToday + centralSales; // セントラル込み
     cumSales += daySales;
     cumPurch += purchaseToday;
-    wSales += salesToday; wPurch += purchaseToday; wHours += workHours;
+    wSales += salesToday; wCentral += centralSales; wPurch += purchaseToday; wHours += workHours;
     mSales += salesToday; mCentral += centralSales; mPurch += purchaseToday; mHours += workHours;
     mOtherTax += Number(data.otherSalesAmount || 0);
     const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : '';
@@ -2486,8 +2486,8 @@ function exportKanritableCSV() {
     csv += row + '\n';
     if (d % 7 === 0 || d === lastDay) {
       weekIdx++;
-      csv += buildSubtotal(`週${weekIdx}`, '小計', wSales, wPurch, wHours);
-      wSales = 0; wPurch = 0; wHours = 0;
+      csv += buildSubtotal(`週${weekIdx}`, '小計', wSales, wCentral, wPurch, wHours);
+      wSales = 0; wCentral = 0; wPurch = 0; wHours = 0;
     }
   }
   // その他売上行（税抜換算）＋ セントラル行（税抜）＋ 月合計行（両方を本年売上に合算）
@@ -2508,7 +2508,7 @@ function exportKanritableCSV() {
       return '"' + String(v).replace(/"/g, '""') + '"';
     }).join(',') + '\n';
   }
-  csv += buildSubtotal('月', '合計', mSales + mOtherNoTaxCsv + mCentral, mPurch, mHours);
+  csv += buildSubtotal('月', '合計', mSales + mOtherNoTaxCsv, mCentral, mPurch, mHours);
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
