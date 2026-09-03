@@ -3362,6 +3362,9 @@ function renderRamenGroupCard(orderId, grp) {
     const parts = [];
     if (p.atsumori) {
       parts.push(`<div class="rg-sec rg-sec-noodle"><span class="rg-qty" style="color:#c0392b;font-weight:900">あつ盛り変更</span></div>`);
+    } else {
+      // あつ盛り変更なし → ひやもり（青文字）で明示
+      parts.push(`<div class="rg-sec rg-sec-noodle"><span class="rg-qty" style="color:#1565c0;font-weight:900">ひやもり</span></div>`);
     }
     if (p.tsukemenSize) {
       let color = '';
