@@ -2316,7 +2316,7 @@ function renderModal(){
   // === 必須項目セクション開始 — 未選択がある場合は外側を1つの赤枠で囲む ===
   let reqHtml = '';
   if(isChahanSet(item)) reqHtml+=renderChahanSetOption();
-  if(c.top)        reqHtml+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
+  if(c.top && !isCurryItem(item)) reqHtml+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
   if(c.chashu){
     // 売り切れ食材（鶏/豚チャーシュー）の選択肢を非表示（選択解除は getMissingFields 前に実施済み）。
     const chashuList = availableChashuOpts(lang);
@@ -2663,6 +2663,11 @@ function hasRequiredFields(){
 function isEbiKingItem(item){
   return !!(item && (item.id === 10041 || item.id === 10042));
 }
+// カレー系判定（カレーラーメン／カレースペシャル 等）：商品名に「カレー」を含む
+// → とんかつ／チキンカツ選択を廃止し、常に「とんかつ」で提供
+function isCurryItem(item){
+  return !!(item && item.name && item.name.ja && item.name.ja.includes('カレー'));
+}
 // SKつけ麺判定：商品名に「つけ麺」を含む or id=10012（カスタム商品）
 function isTsukemenItem(item){
   if (!item) return false;
@@ -2679,7 +2684,7 @@ function getMissingFields(){
   // チャーハンセット：どのチャーハンかの選択が未選択なら必須
   if(isChahanSet(curItem) && !curOpts.chahanSetChoice) missing.push({key:'chahanSetChoice',label:(CHAHAN_SET_LABEL[lang]||CHAHAN_SET_LABEL.ja)});
   if(c.chashu && availableChashuOpts(lang).length && !curOpts.chashu) missing.push({key:'chashu',label:t.optChashu});
-  if(c.top    && !curOpts.top)    missing.push({key:'top',label:t.optTop});
+  if(c.top && !isCurryItem(curItem) && !curOpts.top) missing.push({key:'top',label:t.optTop});
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
   // 醤油・餃子定食は硬さセクションを非表示にしているため必須から除外
   if(c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku'
@@ -3370,7 +3375,9 @@ function addCart(){
 
   const opts=[];
   if(curOpts.chashu)     opts.push(curOpts.chashu);
-  if(curOpts.top)        opts.push(curOpts.top);
+  // カレー系はとんかつ／チキンカツ選択を廃止し、常に「とんかつ」で提供（キッチン伝票にとんかつ表示）
+  if(isCurryItem(curItem)) opts.push('とんかつ');
+  else if(curOpts.top)   opts.push(curOpts.top);
   if(curOpts.kata)       opts.push(curOpts.kata);
   if(curOpts.noodleSize) opts.push(curOpts.noodleSize);
   if(curOpts.rice)       opts.push(curOpts.rice);
