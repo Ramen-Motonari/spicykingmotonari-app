@@ -3043,16 +3043,11 @@ function isSpSeries(mainItem) {
   return /SP/.test(abbrev);
 }
 // チャーシュー枚数:
-//   カレースペシャル系 → 2枚（例外）
-//   その他のSP系（スペシャル系） → 3枚
-//   通常メニュー → 1枚
+//   SP系（スペシャル系。カレースペシャル含む） → 3枚
+//   通常メニュー（カレー／チーズカレー 等含む） → 1枚
 function getChashuCount(mainItem) {
   if (!mainItem) return 1;
-  const canon = MOTONARI.getMenuById(mainItem.itemId);
-  const nameJa = (canon && canon.name && canon.name.ja) || mainItem.name || '';
-  // カレー + スペシャル の組み合わせは 2枚
-  if (/カレー/.test(nameJa) && /スペシャル/.test(nameJa)) return 2;
-  // 一般 SP 系（スペシャル / 名前または abbrev にSP）→ 3枚
+  // カレースペシャルを含むSP系（スペシャル / 名前または abbrev にSP）→ 3枚
   if (isSpSeries(mainItem)) return 3;
   return 1;
 }
