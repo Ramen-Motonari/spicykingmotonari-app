@@ -2638,10 +2638,14 @@ function renderModal(){
   }
 
   if(isMainDish){
-    const addonTop  = addonSection('addonTopping',t.addonToppingLabel,'topping',t,true);
-    const addonSide = addonSection('addonSide',   t.addonSideLabel,   'side',   t,!addonTop);
-    const addonDrk  = addonSection('addonDrink',  t.addonDrinkLabel,  'drink',  t,!addonTop && !addonSide);
-    const addonHtml = addonTop + addonSide + addonDrk;
+    // 替え玉カテゴリー（店舗が管理APPで追加したカスタムカテゴリー）を
+    // 追加トッピングの上にアドオンとして表示する。カテゴリーkeyは名前(ja)で判定。
+    const kaedamaCat = (_customCategories.find(c => c.key && (((c.name && c.name.ja) || '').indexOf('替え玉') !== -1)) || {}).key || '';
+    const addonKae  = kaedamaCat ? addonSection('addonKaedama',(catLabels[lang] && catLabels[lang][kaedamaCat]) || '替え玉',kaedamaCat,t,true) : '';
+    const addonTop  = addonSection('addonTopping',t.addonToppingLabel,'topping',t,!addonKae);
+    const addonSide = addonSection('addonSide',   t.addonSideLabel,   'side',   t,!addonKae && !addonTop);
+    const addonDrk  = addonSection('addonDrink',  t.addonDrinkLabel,  'drink',  t,!addonKae && !addonTop && !addonSide);
+    const addonHtml = addonKae + addonTop + addonSide + addonDrk;
     if(addonHtml){
       // 必須項目とアドオンの間に明確な区切り（太いボーダー＋広い間隔）
       h+=`<div style="margin-top:32px;padding-top:24px;border-top:4px solid #1a1a1a">${addonHtml}</div>`;
@@ -3312,7 +3316,7 @@ function calcRiceExtra(){
 
 function calcAddonExtra(){
   let extra=0;
-  ['addonTopping','addonSide','addonDrink'].forEach(key=>{
+  ['addonKaedama','addonTopping','addonSide','addonDrink'].forEach(key=>{
     const items=curOpts[key+'Items'];
     if(!items) return;
     Object.entries(items).forEach(([id,qty])=>{
@@ -3462,7 +3466,7 @@ function addCart(){
 
   // アドオン（追加トッピング/サイド/ドリンク）— 売り切れはスキップしてユーザーに通知
   const skippedSoldout = [];
-  ['addonTopping','addonSide','addonDrink'].forEach(key=>{
+  ['addonKaedama','addonTopping','addonSide','addonDrink'].forEach(key=>{
     const items=curOpts[key+'Items'];
     if(!items) return;
     Object.entries(items).forEach(([itemId,qty])=>{
