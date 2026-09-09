@@ -927,6 +927,10 @@ function wrapLunchFree(m) {
 
 function rebuildMenu() {
   const merged = [];
+  // 店舗が管理APPで作成した「替え玉」カスタムカテゴリーのkey（名前(ja)に「替え玉」を含む）。
+  //   canonical 商品（替え玉 id=40／半替え玉 id=41）はカテゴリーが menu-canonical.js 固定で
+  //   管理APPから変更できないため、このkeyへコード側で再割当てする。未作成なら空文字。
+  const kaedamaCatKey = (_customCategories.find(c => c.key && (((c.name && c.name.ja) || '').indexOf('替え玉') !== -1)) || {}).key || '';
   // canonical + overrides
   MOTONARI.MENU_ITEMS.forEach((m, idx) => {
     const ov = _menuOverrides[String(m.id)] || {};
@@ -946,6 +950,8 @@ function rebuildMenu() {
     if (ov.descOverride && typeof ov.descOverride === 'object') item.desc = ov.descOverride;
     item.subCat = ov.subCatOverride || m.subCat || '';
     item._sortOrder = (typeof ov.sortOrder === 'number') ? ov.sortOrder : (idx * 10 + 1);
+    // 替え玉（id=40）／半替え玉（id=41）を「替え玉」カテゴリーへ移動
+    if ((m.id === 40 || m.id === 41) && kaedamaCatKey) item.cat = kaedamaCatKey;
     merged.push(wrapLunchFree(item));
   });
   // custom items
