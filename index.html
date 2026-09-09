@@ -1030,6 +1030,18 @@ function rebuildMenu() {
     if (!it.custom.chashu) it.custom.chashu = 1; // 豚/鶏 選択を付与（SK同様）
   });
 
+  // 替え玉カテゴリーの商品（赤替え玉／肉替え玉／海老替え玉 等）：
+  //   通常の替え玉と同様、麺の硬さ（かため/ふつう/やわ）を必須選択で付与する。
+  //   選択した硬さはキッチン伝票（替え玉カード）にそのまま表示される。
+  //   ※ 無料/追加替え玉フロー用の id=40/41 は専用モーダルで硬さ選択済みのため対象外。
+  menu.forEach(it => {
+    const nm = (it.name && it.name.ja) || '';
+    if (nm.indexOf('替え玉') === -1) return;
+    if (it.id === 40 || it.id === 41) return;
+    it.custom = { ...(it.custom || {}) };
+    if (!it.custom.kata) it.custom.kata = 1;    // 麺の硬さ選択を付与
+  });
+
   // カテゴリラベル更新（カスタムカテゴリのラベルを反映）
   _customCategories.forEach(c => {
     if (c.key) {
