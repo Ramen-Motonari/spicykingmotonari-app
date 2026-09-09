@@ -2843,6 +2843,24 @@ function pickAddonDrinkRefill(key, itemId, isRefill){
   renderModal();
 }
 
+// 替え玉アドオン：数量>0 のとき麺の硬さ（かため/ふつう/やわ）をインライン選択させる
+function renderAddonKataInline(key, item){
+  const sel = (curOpts[key+'Kata'] && curOpts[key+'Kata'][item.id]) || '';
+  const opts = kataOpts[lang] || kataOpts.ja;
+  const label = (T[lang] && T[lang].kaedamaHardness) || '麺の硬さ';
+  return `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px">${label}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">
+      ${opts.map(o=>{const on=sel===o;return `<button onclick="pickAddonKata('${key}',${item.id},'${o}')" style="padding:5px 9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ${on?'var(--accent)':'var(--border)'};background:${on?'rgba(200,134,10,.12)':'transparent'};color:${on?'var(--accent)':'#1a1a1a'}">${o}</button>`;}).join('')}
+    </div>
+  </div>`;
+}
+function pickAddonKata(key, itemId, label){
+  if(!curOpts[key+'Kata']) curOpts[key+'Kata']={};
+  curOpts[key+'Kata'][itemId]=label;
+  renderModal();
+}
+
 // ドリンクタブ（単品）：選択肢UI
 function renderDrinkOptsTab(item){
   let h='';
@@ -2970,7 +2988,9 @@ function addonSection(key,label,cat,t,isFirstShown){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
   items.forEach(item=>{
     const qty = (curOpts[key+'Items'] && curOpts[key+'Items'][item.id]) || 0;
-    const isKaedamaAddon = (item.id === 40); // 替え玉は専用UI
+    // id=40 の専用（先払い）UIはトッピング欄用。替え玉カテゴリー欄（addonKaedama）では
+    // 硬さ選択付きの通常アドオンとして扱うため、この分岐からは除外する。
+    const isKaedamaAddon = (item.id === 40 && key !== 'addonKaedama');
     if (isKaedamaAddon) {
       // 初回注文（ラーメンと一緒）の替え玉は硬さ選択・注釈なし
       h+=`<div style="display:flex;flex-direction:column;justify-content:space-between;padding:10px;border-radius:10px;border:1.5px solid ${qty>0?'var(--accent)':'var(--border)'};background:${qty>0?'rgba(200,134,10,.06)':'transparent'};min-height:96px">
@@ -3009,6 +3029,8 @@ function addonSection(key,label,cat,t,isFirstShown){
       // ドリンクで選択肢を持つもの（焼酎/ハイボール/緑茶割り）は数量>0の時に選択肢を表示
       const drinkOptsBlock = (cat==='drink' && qty>0 && (item.drinkOpt || item.drinkRefill))
         ? renderDrinkOptsInline(key, item) : '';
+      // 替え玉カテゴリー欄：数量>0 のとき麺の硬さをインライン選択
+      const kataBlock = (key==='addonKaedama' && qty>0) ? renderAddonKataInline(key, item) : '';
       h+=`<div style="display:flex;flex-direction:column;justify-content:space-between;padding:10px;border-radius:10px;border:1.5px solid ${qty>0?'var(--accent)':'var(--border)'};background:${qty>0?'rgba(200,134,10,.06)':'transparent'};min-height:96px">
         <div style="min-width:0">
           <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.3;word-break:break-word">${item.name[lang]}</div>
@@ -3020,6 +3042,7 @@ function addonSection(key,label,cat,t,isFirstShown){
           <button onclick="addonQty('${key}',${item.id},1)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:transparent;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent)">＋</button>
         </div>
         ${drinkOptsBlock}
+        ${kataBlock}
       </div>`;
     }
   });
@@ -3290,8 +3313,6 @@ function addonQty(key,itemId,delta){
   const next = Math.max(0,cur+delta);
   if(next===0) delete curOpts[key+'Items'][itemId];
   else curOpts[key+'Items'][itemId]=next;
-  // 替え玉アドオン数が0になったら硬さ選択もクリア
-  if (Number(itemId) === 40 && next === 0) delete curOpts.addonKaedamaKata;
   // ドリンクの数量が0になったら割り方/銘柄/中おかわりの選択もクリア
   if (next === 0) {
     if (curOpts[key+'Choice']) delete curOpts[key+'Choice'][itemId];
@@ -3299,6 +3320,8 @@ function addonQty(key,itemId,delta){
     if (curOpts[key+'Refill']) delete curOpts[key+'Refill'][itemId];
     // チャーハンの数量が0になったらミニ醤油ラーメンの選択もクリア
     if (curOpts.addonMiniShoyu) delete curOpts.addonMiniShoyu[itemId];
+    // 替え玉アドオンの数量が0になったら麺の硬さ選択もクリア
+    if (curOpts[key+'Kata']) delete curOpts[key+'Kata'][itemId];
   }
   renderModal();
 }
@@ -3390,6 +3413,17 @@ function addCart(){
     // 二次選択（ウイスキーの割り方など）が未選択なら確定不可
     if (dm && dm.drinkOpt2 && _adItems[idStr] > 0 && !(curOpts.addonDrinkChoice2 && curOpts.addonDrinkChoice2[did])) {
       showValidationMsg('🥃 ' + (dm.name[lang]||dm.name.ja) + '：' + (dm.drinkOpt2.label[lang]||dm.drinkOpt2.label.ja));
+      return;
+    }
+  }
+
+  // 替え玉カテゴリーのアドオン：数量>0 なのに麺の硬さが未選択なら確定不可
+  const _kaeItems = curOpts.addonKaedamaItems || {};
+  for (const idStr of Object.keys(_kaeItems)) {
+    const kid = parseInt(idStr,10);
+    if (_kaeItems[idStr] > 0 && !(curOpts.addonKaedamaKata && curOpts.addonKaedamaKata[kid])) {
+      const km = menu.find(m=>m.id===kid);
+      showValidationMsg('🍝 ' + ((km && (km.name[lang]||km.name.ja)) || '替え玉') + '：' + ((T[lang] && T[lang].kaedamaHardness) || '麺の硬さ'));
       return;
     }
   }
@@ -3487,8 +3521,9 @@ function addCart(){
           skippedSoldout.push(m.name[lang] || m.name.ja);
           return;
         }
-        // ラーメンと一緒に頼む初回注文の替え玉は硬さ選択なし（食後の追加注文時のみ硬さあり）
-        const isKaedamaAddon = (m.id === 40);
+        // 先払い（権利化）替え玉はトッピング欄用。替え玉カテゴリー欄（addonKaedama）で
+        // 追加された id=40 は、硬さ付きの通常アドオンとして扱う（下の通常パスへ）。
+        const isKaedamaAddon = (m.id === 40 && key !== 'addonKaedama');
         // 有料替え玉（id=40）：権利化（pendingKaedamaRightsPaid を主に追加）+ カート行も残す
         // カート行は「先払い・後で注文」フラグ付きで保存され、初回キッチン伝票では非表示。
         // 後にお客様が替え玉モーダルから注文確定したタイミングで、新規 isPendingKaedamaOrder
@@ -3536,7 +3571,12 @@ function addCart(){
           addonOpts.push(MINI_SHOYU_MARK);
           addonMiniShoyu = true;
         }
-        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:false, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:addonUnitPrice, total:addonUnitPrice*qty};
+        // 替え玉カテゴリー：選択した麺の硬さを opts に反映（キッチン伝票に表示）
+        if (key === 'addonKaedama' && curOpts.addonKaedamaKata && curOpts.addonKaedamaKata[m.id]) {
+          addonOpts.push(curOpts.addonKaedamaKata[m.id]);
+        }
+        const isKaedamaLine = (key === 'addonKaedama');
+        const cartItem = {id:Date.now()+Math.random(), groupId, isAddon:true, isKaedama:isKaedamaLine, parentItemId:curItem.id, itemId:m.id, name:m.name[lang], opts:addonOpts, qty, price:addonUnitPrice, total:addonUnitPrice*qty};
         if (addonMiniShoyu) cartItem.miniShoyu = true;
         cart.push(cartItem);
       }
