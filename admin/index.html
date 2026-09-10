@@ -1962,6 +1962,7 @@ function getKanritableColumns() {
     { key: 'weekday',       label: '曜日',         auto: true,  width: 36 },
     { key: 'weather',       label: '天気',         editable: true, type: 'weather', width: 56 },
     { key: 'salesToday',    label: '本年売上 当日', editable: true, fmt: 'num', width: 100 },
+    { key: 'centralSales',  label: 'セントラル 当日', editable: true, fmt: 'num', width: 96 },
     { key: 'salesCum',      label: '本年売上 累計', computed: true, fmt: 'num', width: 110 },
     { key: 'purchaseToday', label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90 },
     { key: 'purchaseCum',   label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110 },
@@ -2116,15 +2117,16 @@ function renderKanritableTable() {
     rows += `<tr>${otherCells}</tr>`;
   }
   // セントラル（他店卸し・税抜）行：月内合計を横軸1行で表示（その他売上行と同じスタイル）。合計の直前に挿入。
+  //   合計値は専用の「セントラル 当日」列の位置に揃える。
   if (mCentral > 0) {
-    const salesIdx = cols.findIndex(c => c.key === 'salesToday');
+    const centralIdx = cols.findIndex(c => c.key === 'centralSales');
     const centralCells = cols.map((c, i) => {
       const bg = 'rgba(230,126,34,0.20)';
       if (i === 0) {
-        return `<td colspan="${salesIdx}" style="padding:6px;border:1px solid var(--border);background:${bg};text-align:center;color:#e67e22;font-weight:800;font-size:11px">🥩 セントラル（税抜・他店卸し）</td>`;
+        return `<td colspan="${centralIdx}" style="padding:6px;border:1px solid var(--border);background:${bg};text-align:center;color:#e67e22;font-weight:800;font-size:11px">🥩 セントラル（税抜・他店卸し）</td>`;
       }
-      if (i > 0 && i < salesIdx) return '';
-      if (c.key === 'salesToday') {
+      if (i > 0 && i < centralIdx) return '';
+      if (c.key === 'centralSales') {
         return `<td style="padding:6px;border:1px solid var(--border);background:${bg};text-align:right;color:#e67e22;font-family:'Oswald',sans-serif;font-weight:800">${_fmt(mCentral, 'num')}</td>`;
       }
       return `<td style="padding:6px;border:1px solid var(--border);background:${bg}"></td>`;
