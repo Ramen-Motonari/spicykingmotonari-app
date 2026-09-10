@@ -829,7 +829,9 @@ if (item.cat === 'shouyu') return '醤油';
 if (item.cat === 'teishoku') return '定食';
 if (item.cat === 'takeout') return 'テイクアウト';
 if (item.cat === 'topping')return 'トッピング';
+if (item.cat === 'extranoodles') return '替え玉';
 if (item.cat === 'drink')return 'ドリンク';
+if (item.cat === 'goods') return 'グッズ';
 if (item.night)return '夜限定';
 return 'サイド';
 }
@@ -1359,7 +1361,7 @@ function closeSoldoutFullPage() { document.getElementById('soldoutFullPage').sty
 
 function renderSoldoutFullList() {
 const ids = getSoldoutIds();
-const catOrderArr = ['豚骨','醤油','定食','トッピング','サイド','夜限定','ドリンク','テイクアウト'];
+const catOrderArr = ['豚骨','醤油','定食','替え玉','トッピング','サイド','夜限定','ドリンク','テイクアウト','グッズ'];
 let html = '';
 catOrderArr.forEach(cat => {
 // 非表示は除外。各カテゴリ内は管理APP「表示順序」ページと同じく itemOrder で並べる。
@@ -1397,7 +1399,7 @@ html += `<div style="display:flex;align-items:center;justify-content:space-betwe
 </div>`;
 // ───── 食材の売り切れ（連動・選択肢非表示）─────
 const ingredientRows = [
-  { field: 'riceSoldout',          sold: riceSoldout,          name: 'ご飯',         note: 'ライス・半ライス・餃子2個+半ライス・餃子定食・つけ麺・ミニチャーシューエッグ丼を一括売り切れ' },
+  { field: 'riceSoldout',          sold: riceSoldout,          name: 'ご飯',         note: 'ライス・半ライス・餃子2個+半ライス・餃子定食・つけ麺・ミニチャーシュー丼を一括売り切れ' },
   { field: 'chickenChashuSoldout', sold: chickenChashuSoldout, name: '鶏チャーシュー', note: 'ラーメン選択画面で「鶏」の選択肢を非表示' },
   { field: 'porkChashuSoldout',    sold: porkChashuSoldout,    name: '豚チャーシュー', note: 'ラーメン選択画面で「豚」の選択肢を非表示' },
   { field: 'shoyuSoldout',         sold: shoyuSoldout,         name: '醤油',         note: '醤油ラーメンシリーズ（醤油・スパイシー醤油・ネギ玉等）を一括売り切れ' }
@@ -1468,7 +1470,7 @@ function renderRecommendedFullList() {
   if (!listEl) return;
   const ids = Array.isArray(recommendedIds) ? recommendedIds : [];
   const items = Array.isArray(allMenuItems) ? allMenuItems : [];
-  const catOrderArr = ['豚骨','醤油','定食','トッピング','サイド','夜限定','ドリンク','テイクアウト'];
+  const catOrderArr = ['豚骨','醤油','定食','替え玉','トッピング','サイド','夜限定','ドリンク','テイクアウト','グッズ'];
   let html = '';
   // 現在のおすすめ商品を上部に固定表示（並び順保持）
   if (ids.length > 0) {
@@ -3138,9 +3140,10 @@ function parseRamenOpts(opts, mainItem) {
     // エビキング系：粉チーズライス あり/なし（※「ライス」を含むので isRice ブロックより前に判定）
     if (/^粉チーズライス(あり|なし)$/.test(s)) { result.konaCheeseRice = s; return; }
 
-    // ライスを「ミニチャーシューエッグ丼」に変更（餃子定食）— 赤文字で強調表示
-    if (/(エッグ丼|チャーシューエッグ|Egg Bowl|鸡蛋盖饭|에그\s*동)/i.test(s)) {
-      result.riceChange = 'チャーエッグ丼変更';
+    // ライスを「ミニチャーシュー丼」に変更（餃子定食）— 赤文字で強調表示
+    //   ※ 旧「ミニチャーシューエッグ丼」表記の注文も後方互換で検出
+    if (/(チャーシュー丼|チャーシューエッグ|エッグ丼|Chashu Bowl|Egg Bowl|叉烧盖饭|鸡蛋盖饭|차슈\s*동|에그\s*동)/i.test(s)) {
+      result.riceChange = 'チャーシュー丼変更';
       return;
     }
     // つけ麺のライス有無（「ライスあり」「ライスなし」）→ 量ではなく有無なので専用フィールドへ。

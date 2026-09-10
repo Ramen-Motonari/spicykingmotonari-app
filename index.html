@@ -771,7 +771,7 @@ function availableChashuOpts(langArg){
 }
 const kataOpts   = {ja:['かため','ふつう','やわ'],en:['Firm','Medium','Soft'],zh:['硬','普通','软'],ko:['단단히','보통','부드럽게']};
 const topOpts    = {ja:['とんかつ','チキンカツ'],en:['Tonkatsu','Chicken Katsu'],zh:['炸猪排','炸鸡排'],ko:['돈카츠','치킨카츠']};
-const riceOpts   = {ja:['ライス並','ライス大盛り（無料）','ミニチャーシューエッグ丼に変更 +¥200'],en:['Rice Regular','Rice Large (Free)','Switch to Mini Chashu Egg Bowl +¥200'],zh:['米饭普通','米饭大碗（免费）','换成迷你叉烧鸡蛋盖饭 +¥200'],ko:['라이스 보통','라이스 곱배기（무료）','미니 차슈 에그 동으로 변경 +¥200']};
+const riceOpts   = {ja:['ライス並','ライス大盛り（無料）','ミニチャーシュー丼に変更 +¥100'],en:['Rice Regular','Rice Large (Free)','Switch to Mini Chashu Bowl +¥100'],zh:['米饭普通','米饭大碗（免费）','换成迷你叉烧盖饭 +¥100'],ko:['라이스 보통','라이스 곱배기（무료）','미니 차슈 동으로 변경 +¥100']};
 // 麺サイズ選択（とんこつ）：細麺(並・大盛り) / 平打ち麺(少・並・大盛り)
 const noodleSizeOptsWeekday = {
   ja:['細麺 並','細麺 大盛り 無料🎉','平打ち麺 少 +150円','平打ち麺 並 +150円','平打ち麺 大盛り +250円'],
@@ -1068,6 +1068,16 @@ function rebuildMenu() {
     _customCategories.forEach(c => {
       if (c.key && !newCatKeys.includes(c.key)) newCatKeys.push(c.key);
     });
+  }
+  // 替え玉（extranoodles）を「トッピング」の左に配置
+  {
+    const enIdx = newCatKeys.indexOf('extranoodles');
+    if (enIdx !== -1) {
+      newCatKeys.splice(enIdx, 1);
+      const topIdx = newCatKeys.indexOf('topping');
+      if (topIdx !== -1) newCatKeys.splice(topIdx, 0, 'extranoodles');
+      else newCatKeys.push('extranoodles');
+    }
   }
   allCatKeys = newCatKeys;
 
@@ -2099,7 +2109,15 @@ function buildTabs(){
   const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k)).map(k => ({
     k, l: (catLabels[lang] && catLabels[lang][k]) || k
   }));
-  const tabs = [...baseTabs, ...customTabs];
+  let tabs = [...baseTabs, ...customTabs];
+  // 替え玉（extranoodles）タブを「トッピング」の左に移動
+  const enIdx = tabs.findIndex(tb => tb.k === 'extranoodles');
+  if (enIdx !== -1) {
+    const [enTab] = tabs.splice(enIdx, 1);
+    const topIdx = tabs.findIndex(tb => tb.k === 'topping');
+    if (topIdx !== -1) tabs.splice(topIdx, 0, enTab);
+    else tabs.push(enTab);
+  }
   setHTML('tabsEl', tabs.map(tb=>
     `<button class="tab ${tb.k===currentCat?'active':''}" onclick="filterCat('${tb.k}')">${tb.l}</button>`
   ).join(''));
