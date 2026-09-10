@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-25-1">
+<meta name="app-build" content="2026-09-10-1">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -2558,6 +2558,22 @@ function serveTimerHtml(startMs, anyServed, tLabel) {
   const tblAttr = String(tLabel == null ? '' : tLabel).replace(/"/g, '&quot;');
   return `<div class="serve-timer ${cls}" data-start="${startMs}" data-served="${anyServed ? 1 : 0}" data-table="${tblAttr}">${ico}${_serveTimerFmt(el)}</div>`;
 }
+// 追加注文対応：タイマーの開始時刻は「未提供の商品が残っている最も古い注文」を基準にする。
+//   ・前の注文をすべて提供し終えた後に追加注文が入ると、開始時刻がその追加注文にリセットされ、
+//     8分カウントが最初からやり直しになる（＝前の注文の経過時間を引き継がない）。
+//   ・全商品が提供済みの場合は startMs=0 を返し、タイマー自体を非表示（リセット）にする。
+function serveTimerInputs(orderList) {
+  const _act = (i) => i && !i.served && !i.isPendingKaedamaPaid && !i._doneByEdit; // 未提供（キッチン対応要）
+  const arr = (orderList || [])
+    .map(o => ({ ms: _serveStartMs(o), items: Array.isArray(o.items) ? o.items : [] }))
+    .filter(x => x.ms > 0)
+    .sort((a, b) => a.ms - b.ms);
+  let startMs = 0;
+  for (const x of arr) { if (x.items.some(_act)) { startMs = x.ms; break; } }
+  if (!startMs) return { startMs: 0, anyServed: true }; // 全提供済み → タイマーをリセット
+  const anyServed = arr.filter(x => x.ms >= startMs).some(x => x.items.some(i => i.served));
+  return { startMs, anyServed };
+}
 function playServeAlarm() {
   try {
     const ctx = getAudioCtx();
@@ -2785,7 +2801,7 @@ ${isKaedamaTicket ? '<span class="ticket-new-flag" style="background:linear-grad
 <button class="tk-expand-btn" onclick="event.stopPropagation();toggleExpandTicket('${tLabel}')" title="伝票を横に広げて全商品を一度に表示">${expandBtnLabel}</button>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">
 <div class="ticket-time">${formatOrderTime(first)}</div>
-${serveTimerHtml(_serveStartMs(first), allItems.some(i => i.served), tLabel)}
+${(function(){ const _sti = serveTimerInputs(orderList); return serveTimerHtml(_sti.startMs, _sti.anyServed, tLabel); })()}
 </div>
 </div>
 </div>
@@ -3033,6 +3049,18 @@ function getAbbrevJa(item) {
   return ja;
 }
 
+// キッチン伝票の商品名：名前に含まれる「スパイシー」／「スパ」の部分だけを赤文字にする。
+//   ・長い方を優先（「スパイシー」を丸ごと赤字。無ければ「スパ」を赤字）。
+//   ・getAbbrevJa 由来のプレーンな商品名文字列を受け取り、HTML（spanタグ）を返す。
+function spicyRedName(name) {
+  const s = String(name == null ? '' : name);
+  return s.replace(/スパイシー|スパ/g, m => `<span style="color:#e74c3c">${m}</span>`);
+}
+// getAbbrevJa の結果を「スパ/スパイシー赤字」HTMLにして返す（伝票表示専用）
+function getAbbrevJaHtml(item) {
+  return spicyRedName(getAbbrevJa(item));
+}
+
 // SP系（チャーシュー3枚）判定
 function isSpSeries(mainItem) {
   if (!mainItem) return false;
@@ -3202,8 +3230,8 @@ function renderRamenGroupCard(orderId, grp) {
   const allServed = grp.items.every(i => i.served);
   const groupKey = getGroupKey(grp);
 
-  // メイン名は常に日本語のカノニカル名 → 省略形
-  const mainName = getAbbrevJa(main);
+  // メイン名は常に日本語のカノニカル名 → 省略形（スパ/スパイシーは赤字）
+  const mainName = getAbbrevJaHtml(main);
   const mainNameJa = (MOTONARI.getMenuById(main.itemId)?.name?.ja) || main.name || '';
 
   // 編集で削除されたラーメン：大きな✕とグレーアウトで表示
@@ -3414,7 +3442,7 @@ function renderRamenGroupCard(orderId, grp) {
       const aOpts = (aCat !== 'side' && aCat !== 'topping') ? buildOptsHtml(a.opts, a) : '';
       // チャーハン＋ミニ醤油ラーメン(¥300)：チャーハン名の下に区切り線＋「＋ミニ醤油」をスタック表示
       const aMini = a.miniShoyu ? `<div style="width:100%;margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:13px;font-weight:900;color:var(--accent2)">＋ミニ醤油</div>` : '';
-      return `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJa(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}${aOpts ? `<span class="ra-opts">${aOpts}</span>` : ''}${aMini}</div>`;
+      return `<div class="rg-attached-item"><span class="ra-bullet">＋</span><span class="ra-name">${getAbbrevJaHtml(a)}</span>${a.qty > 1 ? `<span class="ra-qty">×${a.qty}</span>` : ''}${aOpts ? `<span class="ra-opts">${aOpts}</span>` : ''}${aMini}</div>`;
     }).join('')}
   </div>` : '';
 
@@ -3444,7 +3472,7 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
   const miniShoyuTag = miniShoyu ? `<div class="tc-mini-shoyu" style="margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:13px;font-weight:900;color:var(--accent2)">＋ミニ醤油</div>` : '';
   const optsHtml = buildOptsHtml(optsForDisp, main);
   // アドオンが付いている場合（理論上少ないが）はメインの後に追記
-  const subAddons = (grp.addons || []).map(a => `${getAbbrevJa(a)}${a.qty>1?` ×${a.qty}`:''}`).join(' / ');
+  const subAddons = (grp.addons || []).map(a => `${getAbbrevJaHtml(a)}${a.qty>1?` ×${a.qty}`:''}`).join(' / ');
   const qty = main.qty || 1;
   // 数量表示：
   //   - 追加注文 (isNewOrder): 「＋N追加」表記（赤）
@@ -3467,7 +3495,7 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
       </div>
       <div class="tc-check"></div>
       <div class="tc-info">
-        <div class="tc-name" style="text-decoration:line-through">${getAbbrevJa(main)}</div>
+        <div class="tc-name" style="text-decoration:line-through">${getAbbrevJaHtml(main)}</div>
         ${optsHtml || subAddons ? `<div class="tc-opts" style="text-decoration:line-through">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
       </div>
       <div class="tc-qty" style="background:var(--accent2);color:#fff;font-weight:900">取消</div>
@@ -3479,7 +3507,7 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
   return `<div class="ticket-compact-card ${allServed?'served':''} ${isKaedamaMain?'kaedama':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="tc-check"></div>
 <div class="tc-info">
-<div class="tc-name">${getAbbrevJa(main)}</div>
+<div class="tc-name">${getAbbrevJaHtml(main)}</div>
 ${optsHtml || subAddons ? `<div class="tc-opts">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
 ${miniShoyuTag}
 </div>
@@ -3631,7 +3659,7 @@ function _listSeatParts(rawLabel) {
 function renderKaedamaListCard(order, item, itemIdx, unitIdx) {
   const tLabel = order.tableLabel || order.table || '?';
   const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
-  const name = getAbbrevJa(item);
+  const name = getAbbrevJaHtml(item);
   const isServed = (Array.isArray(item.servedIndices) && item.servedIndices.includes(unitIdx)) || ((Number(item.qty) || 1) <= 1 && item.served);
   // オプション（硬さ等）を補足表示
   const opts = Array.isArray(item.opts) ? item.opts.filter(o => o != null && String(o).trim() !== '') : [];
@@ -3674,7 +3702,7 @@ function getKaedamaRightBadgeSmall(main) {
 function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   const tLabel = order.tableLabel || order.table || '?';
   const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
-  const mainName = getAbbrevJa(main);
+  const mainName = getAbbrevJaHtml(main);
   const kaedamaBadge = getKaedamaRightBadgeSmall(main);
   const addBadge = isAdditional ? `<span class="rlist-add-badge">追加</span>` : '';
   // 辛さデフォルト補完
@@ -3731,7 +3759,7 @@ function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
     ? infoBlocks.map(b => `<span class="rlist-sep">/</span>${b}`).join('')
     : '';
   // 2行目：追加トッピング
-  const row2Items = addons.map(a => `<span>＋${getAbbrevJa(a)}${a.qty > 1 ? ` ×${a.qty}` : ''}</span>`);
+  const row2Items = addons.map(a => `<span>＋${getAbbrevJaHtml(a)}${a.qty > 1 ? ` ×${a.qty}` : ''}</span>`);
   const row2Html = row2Items.length ? row2Items.join('') : '';
   const row2Class = row2Items.length ? 'rlist-line2' : 'rlist-line2 rlist-line2-empty';
   // タップで提供済トグル（既存の toggleGroupServed を呼ぶ）
@@ -3819,7 +3847,7 @@ function renderSideList() {
 function renderSideListCard(order, item, itemIdx, unitIdx) {
   const tLabel = order.tableLabel || order.table || '?';
   const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
-  const name = getAbbrevJa(item);
+  const name = getAbbrevJaHtml(item);
   // qty>1 の場合は servedIndices で個別管理（タップで item 全体トグル）
   const isServed = (Array.isArray(item.servedIndices) && item.servedIndices.includes(unitIdx)) || ((Number(item.qty) || 1) <= 1 && item.served);
   // オプション（温/冷・サイズ等）を補足表示
