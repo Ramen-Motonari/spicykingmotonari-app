@@ -2567,6 +2567,22 @@ function renderModal(){
   // エビキング系（id 10041 / 10042）専用オプション
   //   ① あつ盛りに変更（トグル）② 麺の量（小140g/並180g/大240g）③ 粉チーズライス あり/なし
   if(isEbiKingItem(item)) {
+    // ⓪ 海老KINGつけ麺(id 10041)のみ：スパイシー海老KINGつけ麺（¥1,400）に変更トグル
+    //    ※ id 10042（辛エビキング）は元々スパイシーなので非表示。ONで価格を¥1,400へ上書き。
+    if(item.id === 10041){
+      const ebiSpicyLabel = ({
+        ja:'🌶️ スパイシー海老KINGつけ麺に変更（¥1,400）',
+        en:'🌶️ Change to Spicy Ebi KING Tsukemen (¥1,400)',
+        zh:'🌶️ 更换为香辣海老KING蘸面（¥1,400）',
+        ko:'🌶️ 스파이시 새우 KING 츠케멘으로 변경（¥1,400）'
+      }[lang] || '🌶️ スパイシー海老KINGつけ麺に変更（¥1,400）');
+      const ebiSpicyOn = !!curOpts.ebiSpicy;
+      reqHtml += `<div class="option-group" id="field-ebiSpicy" style="border:none;padding:6px 0">
+        <div class="option-btns">
+          <button class="option-btn ${ebiSpicyOn?'selected':''}" onclick="toggleEbiSpicy()">${ebiSpicyLabel}</button>
+        </div>
+      </div>`;
+    }
     // ① あつ盛りに変更（トグル）
     const atsumoriLabel = ({
       ja:'あつ盛りに変更',
@@ -3287,6 +3303,9 @@ function pickTsukeRice(v){ curOpts.tsukeRice = v; renderModal(); }
 // エビキング系：あつ盛り変更トグル / 粉チーズライス あり・なし
 function toggleEbiAtsumori(){ curOpts.ebiAtsumori = !curOpts.ebiAtsumori; renderModal(); }
 function pickKonaCheeseRice(v){ curOpts.konaCheeseRice = v; renderModal(); }
+// 海老KINGつけ麺(10041)：スパイシー海老KINGつけ麺への変更（ONで価格を¥1,400へ上書き）
+const EBI_SPICY_PRICE = 1400;
+function toggleEbiSpicy(){ curOpts.ebiSpicy = !curOpts.ebiSpicy; renderModal(); }
 function pickKarasa(){ curOpts.karasa='pick'; renderModal(); } // 互換のため残す（現UIでは未使用）
 function pickSpicy(l,p){
   if (l === '0辛') {
@@ -3378,6 +3397,8 @@ function calcTotal(){
   if(curItem.drinkRefill && curOpts.drinkRefill) base = curItem.drinkRefill.price;
   // チャーハンセット：選択したチャーハンのセット価格を基準に（未選択時は表示上の基準価格）
   if(isChahanSet(curItem)){ const ch=getChahanSetChoice(); base = ch ? ch.price : curItem.price; }
+  // 海老KINGつけ麺(10041)：スパイシーに変更で価格を¥1,400へ上書き（麺の量/粉チーズライス/あつ盛りは無料）
+  if(curItem.id===10041 && curOpts.ebiSpicy) base = EBI_SPICY_PRICE;
   const extra = (curOpts.spicyPr||0) + calcNoodleExtra() + calcRiceExtra() + calcAddonExtra() + calcTsukemenSpicyExtra() + calcMiniShoyuExtra();
   return (base+extra)*curQty;
 }
@@ -3445,7 +3466,8 @@ function addCart(){
   if(curOpts.tsukemenSize) opts.push(curOpts.tsukemenSize); // SKつけ麺の麺の量
   if(curOpts.natto) opts.push(curOpts.natto==='yes'?'納豆あり':'納豆なし'); // つけ出汁に納豆IN
   if(curOpts.tsukeRice) opts.push(curOpts.tsukeRice==='yes'?'ライスあり':'ライスなし'); // つけ麺のライス
-  // エビキング系：あつ盛り変更 / 粉チーズライス あり・なし（麺の量は上の tsukemenSize で push 済み）
+  // エビキング系：スパイシー変更(10041のみ) / あつ盛り変更 / 粉チーズライス あり・なし（麺の量は上の tsukemenSize で push 済み）
+  if(curItem.id===10041 && curOpts.ebiSpicy) opts.push('スパイシー海老KINGつけ麺に変更');
   if(curOpts.ebiAtsumori) opts.push('あつ盛りに変更');
   if(curOpts.konaCheeseRice) opts.push(curOpts.konaCheeseRice==='yes'?'粉チーズライスあり':'粉チーズライスなし');
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
@@ -3465,11 +3487,13 @@ function addCart(){
   // チャーハンセット：選択したチャーハンのセット価格・itemId・名称で保存する
   //   → キッチン伝票は「チャーハン名＋ミニ醤油」、集計はチャーハン単品＋ミニ醤油ラーメン別集計
   const _chSet = isChahanSet(curItem) ? getChahanSetChoice() : null;
-  const basePrice = _chSet
+  const basePriceRaw = _chSet
     ? (Number(_chSet.price) || 0)
     : (curItem.drinkRefill && curOpts.drinkRefill)
       ? (Number(curItem.drinkRefill.price) || 0)
       : (Number(curItem.price) || 0);
+  // 海老KINGつけ麺(10041)：スパイシーに変更で価格を¥1,400へ上書き（calcTotal と一致させる）
+  const basePrice = (curItem.id===10041 && curOpts.ebiSpicy) ? EBI_SPICY_PRICE : basePriceRaw;
   const spicyExtra = Number(curOpts.spicyPr) || 0;
   const noodleExtra = Number(calcNoodleExtra()) || 0;
   const riceExtra = Number(calcRiceExtra()) || 0;
