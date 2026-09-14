@@ -1879,6 +1879,8 @@ function subscribeDailyReportsForMonth(yyyyMm) {
   _dailyReportsUnsub = onSnapshot(q, snap => {
     _dailyReports = {};
     snap.forEach(d => { _dailyReports[d.id] = { docId: d.id, ...d.data() }; });
+    // 日次データが更新されたら売上分析のキャッシュを無効化（次回描画で再取得）
+    _analyticsReportsCacheKey = null;
     if (document.getElementById('page-kanritable')?.classList.contains('active')) {
       renderKanritableTable();
     }
@@ -3866,11 +3868,41 @@ function getAnalyticsRange() {
   return { keys: months.map(m => m.label), labelFn: l => l, months, mode: 'month', start, end };
 }
 
+// 売上分析の期間分 dailyReports キャッシュ。
+//   _dailyReports は「単月購読」のため、分析期間が購読中の月と異なると
+//   セントラル・その他売上・前年対比が集計されない。分析期間全体を Firestore から取得して使う。
+let _analyticsReportsCache = null;
+let _analyticsReportsCacheKey = null;
+async function fetchAnalyticsReportsMap(range) {
+  const { collection, query, where, getDocs } = window.fbApi;
+  const startStr = dateKey(range.start);
+  const endStr = dateKey(range.end);
+  const q = query(collection(window.fb.db, 'dailyReports'), where('date', '>=', startStr), where('date', '<=', endStr));
+  const snap = await getDocs(q);
+  const map = {};
+  snap.forEach(d => { map[d.id] = { docId: d.id, ...d.data() }; });
+  return map;
+}
+
 function renderAnalytics() {
   populateAnalyticsMonthSelects();
   const session = currentSession['analytics-chart'] || 'all';
   const range = getAnalyticsRange();
   const filtered = paidOrders.filter(o => session === 'all' || getSession(o) === session);
+  // セントラル・その他売上・前年対比は日次レポート依存。分析期間全体の dailyReports を
+  // Firestore から取得してキャッシュに載せてから集計する（未取得の間は購読中の月で暫定表示）。
+  const _anRangeKey = dateKey(range.start) + '_' + dateKey(range.end);
+  let reports;
+  if (_analyticsReportsCacheKey === _anRangeKey && _analyticsReportsCache) {
+    reports = _analyticsReportsCache;
+  } else {
+    reports = _dailyReports || {};
+    fetchAnalyticsReportsMap(range).then(map => {
+      _analyticsReportsCache = map;
+      _analyticsReportsCacheKey = _anRangeKey;
+      renderAnalytics();
+    }).catch(err => console.error('fetchAnalyticsReportsMap:', err));
+  }
 
   // KPI：期間内 (start <= d <= end) で絞り込み
   const endIncl = new Date(range.end.getTime() + 86399999);
@@ -3947,12 +3979,12 @@ function renderAnalytics() {
   let uberCount = 0, uberSales = 0;
   let otherSalesTaxIncl = 0; // その他売上（臨時・税込・期間内合計）
   let centralSalesNoTax = 0; // セントラル（チャーシュー卸し・税抜・期間内合計）
-  if (typeof _dailyReports === 'object' && _dailyReports) {
+  if (typeof reports === 'object' && reports) {
     // 範囲内の日付に対する前年売上合計
     const cursor = new Date(range.start);
     while (cursor <= range.end) {
       const k = dateKey(cursor);
-      const dr = _dailyReports[k];
+      const dr = reports[k];
       if (dr && typeof dr.prevYearSalesToday === 'number') {
         prevYearSales += dr.prevYearSalesToday;
         hasPrevYearData = true;
