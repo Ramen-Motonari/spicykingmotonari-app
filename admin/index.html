@@ -1965,13 +1965,13 @@ function getKanritableColumns() {
     { key: 'day',           label: '日',           auto: true,  width: 30, pw: 3 },
     { key: 'weekday',       label: '曜日',         auto: true,  width: 30, pw: 3.5 },
     { key: 'weather',       label: '天気',         editable: true, type: 'weather', width: 42, pw: 4.5 },
-    { key: 'salesToday',    label: '本年売上 当日', editable: true, fmt: 'num', width: 100, pw: 13 },
-    { key: 'salesCum',      label: '本年売上 累計', computed: true, fmt: 'num', width: 110, pw: 13.5 },
-    { key: 'purchaseToday', label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90, pw: 12 },
-    { key: 'purchaseCum',   label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110, pw: 13.5 },
-    { key: 'purchaseRate',  label: '仕入率',       computed: true, fmt: 'pct1', width: 64, pw: 9.5 },
+    { key: 'salesToday',    label: '本年売上 当日', editable: true, fmt: 'num', width: 100, pw: 14.5 },
+    { key: 'salesCum',      label: '本年売上 累計', computed: true, fmt: 'num', width: 110, pw: 15 },
+    { key: 'purchaseToday', label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90, pw: 13.5 },
+    { key: 'purchaseCum',   label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110, pw: 15 },
+    { key: 'purchaseRate',  label: '仕入率',       computed: true, fmt: 'pct1', width: 64, pw: 10.5 },
     { key: 'workHours',     label: '労働時間',     editable: true, fmt: 'num1', width: 80, pw: 10.5 },
-    { key: 'salesPerHour',  label: '人時売上',     computed: true, fmt: 'yen', width: 90, pw: 17 }
+    { key: 'salesPerHour',  label: '人時売上',     computed: true, fmt: 'yen', width: 64, pw: 10 }
   ];
 }
 
@@ -6228,21 +6228,25 @@ async function exportElementToPDF(elementId, filename, opts) {
   void el.offsetWidth; // レイアウト確定
   const rect = el.getBoundingClientRect();
   const elWidth = Math.max(el.scrollWidth, el.offsetWidth, Math.ceil(rect.width));
-  // 切り出し開始位置を要素の左端に合わせ、切り出し幅を要素の実幅ちょうどに固定する。
-  // windowWidth だけ広げても html2canvas の既定切り出し幅が要素幅に届かず
-  // 右端（右寄せの人時売上）が欠けるため、x と width を明示して全幅を確実に取り込む。
-  const captureX = Math.floor(rect.left + window.scrollX);
+  // ブラウザ差で html2canvas の切り出し位置/幅が数十px ずれ、左右どちらかが欠ける事例が続いた。
+  // ずれても内容が切れないよう、要素の左右に十分な余白(PAD)を付けて“広めに”切り出す。
+  // 背景は白なので余分に取り込んだ部分は白い余白になるだけで、内容が欠けることはない。
+  const PAD = 80;
+  const docLeft = rect.left + window.scrollX;
+  const startX = Math.max(0, Math.floor(docLeft - PAD));
+  const endX = Math.ceil(docLeft + elWidth + PAD);
+  const captureW = endX - startX;
   const windowW = Math.max(
     document.documentElement.scrollWidth,
-    captureX + elWidth + 60,
-    elWidth + 60
+    endX + 60,
+    elWidth + 160
   );
   try {
     await html2pdf().set({
       margin: [8, 8, 8, 8],
       filename,
       image: { type: 'jpeg', quality: 0.92 },
-      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: windowW, width: elWidth, x: captureX, scrollX: 0, scrollY: 0 },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: windowW, width: captureW, x: startX, scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
       pagebreak
     }).from(el).save();
