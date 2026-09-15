@@ -6213,16 +6213,24 @@ async function exportElementToPDF(elementId, filename, opts) {
   // 印刷モードを一時的に有効にして見た目を白黒に
   el.classList.add('print-target');
   document.body.classList.add('pdf-export-mode');
-  // ビューポート幅が対象要素より狭いと html2canvas が右側の列を切り落とすため、
-  // 要素の実際の横幅をキャプチャ幅として明示的に指定する。
+  // ビューポート幅が対象要素より狭いと html2canvas が右側の列を切り落とし、
+  // 逆に width で切り出し幅を固定すると要素の左位置とズレて左側が欠ける。
+  // そこで「切り出し幅は固定せず、レンダリング用のウィンドウ幅だけを
+  // 要素の左端＋実幅より十分広く取る」ことで、左右とも欠けないようにする。
   void el.offsetWidth; // レイアウト確定
-  const captureWidth = Math.max(el.scrollWidth, el.offsetWidth, el.getBoundingClientRect().width) || undefined;
+  const rect = el.getBoundingClientRect();
+  const elWidth = Math.max(el.scrollWidth, el.offsetWidth, Math.ceil(rect.width));
+  const windowW = Math.max(
+    document.documentElement.scrollWidth,
+    Math.ceil(rect.left + window.scrollX + elWidth) + 60,
+    elWidth + 60
+  );
   try {
     await html2pdf().set({
       margin: [8, 8, 8, 8],
       filename,
       image: { type: 'jpeg', quality: 0.92 },
-      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: captureWidth, width: captureWidth, scrollX: 0, scrollY: 0 },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: windowW, scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
       pagebreak
     }).from(el).save();
