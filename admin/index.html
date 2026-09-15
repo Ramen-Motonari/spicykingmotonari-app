@@ -845,6 +845,7 @@ window.adminLogout = adminLogout;
     <div class="card" id="kanritableWrap" style="display:none;overflow:auto;max-height:calc(100vh - 200px)">
       <div style="overflow-x:auto">
         <table id="kanritableTable" style="width:100%;min-width:1500px;border-collapse:collapse;font-size:11px">
+          <colgroup id="kanritableColgroup"></colgroup>
           <thead id="kanritableHead" style="position:sticky;top:0;background:var(--surface);z-index:5"></thead>
           <tbody id="kanritableBody"></tbody>
         </table>
@@ -1959,17 +1960,18 @@ function loadKanritableData() {
 
 // 列定義（簡素化版：当日入力 + 自動計算累計・仕入率・人時売上）
 function getKanritableColumns() {
+  // width: 画面表示時の最小幅(px)。 pw: PDF/印刷時の列幅(%)。日・曜日・天気は大幅に狭める。
   return [
-    { key: 'day',           label: '日',           auto: true,  width: 36 },
-    { key: 'weekday',       label: '曜日',         auto: true,  width: 36 },
-    { key: 'weather',       label: '天気',         editable: true, type: 'weather', width: 56 },
-    { key: 'salesToday',    label: '本年売上 当日', editable: true, fmt: 'num', width: 100 },
-    { key: 'salesCum',      label: '本年売上 累計', computed: true, fmt: 'num', width: 110 },
-    { key: 'purchaseToday', label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90 },
-    { key: 'purchaseCum',   label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110 },
-    { key: 'purchaseRate',  label: '仕入率',       computed: true, fmt: 'pct1', width: 64 },
-    { key: 'workHours',     label: '労働時間',     editable: true, fmt: 'num1', width: 80 },
-    { key: 'salesPerHour',  label: '人時売上',     computed: true, fmt: 'yen', width: 90 }
+    { key: 'day',           label: '日',           auto: true,  width: 30, pw: 3 },
+    { key: 'weekday',       label: '曜日',         auto: true,  width: 30, pw: 3.5 },
+    { key: 'weather',       label: '天気',         editable: true, type: 'weather', width: 42, pw: 4.5 },
+    { key: 'salesToday',    label: '本年売上 当日', editable: true, fmt: 'num', width: 100, pw: 13 },
+    { key: 'salesCum',      label: '本年売上 累計', computed: true, fmt: 'num', width: 110, pw: 13.5 },
+    { key: 'purchaseToday', label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90, pw: 12 },
+    { key: 'purchaseCum',   label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110, pw: 13.5 },
+    { key: 'purchaseRate',  label: '仕入率',       computed: true, fmt: 'pct1', width: 64, pw: 9.5 },
+    { key: 'workHours',     label: '労働時間',     editable: true, fmt: 'num1', width: 80, pw: 10.5 },
+    { key: 'salesPerHour',  label: '人時売上',     computed: true, fmt: 'yen', width: 90, pw: 17 }
   ];
 }
 
@@ -1997,6 +1999,12 @@ function renderKanritableTable() {
   const [y, m] = monthEl.value.split('-').map(Number);
   const lastDay = new Date(y, m, 0).getDate();
   const cols = getKanritableColumns();
+
+  // 列幅（%）を colgroup で固定 → table-layout:fixed（PDF/印刷時）で枠内に必ず収める
+  const colgroupEl = document.getElementById('kanritableColgroup');
+  if (colgroupEl) {
+    colgroupEl.innerHTML = cols.map(c => `<col style="width:${c.pw}%">`).join('');
+  }
 
   // ヘッダ
   headEl.innerHTML = `<tr>${cols.map(c => {
