@@ -6214,12 +6214,16 @@ async function exportElementToPDF(elementId, filename, opts) {
   // 印刷モードを一時的に有効にして見た目を白黒に
   el.classList.add('print-target');
   document.body.classList.add('pdf-export-mode');
+  // ビューポート幅が対象要素より狭いと html2canvas が右側の列を切り落とすため、
+  // 要素の実際の横幅をキャプチャ幅として明示的に指定する。
+  void el.offsetWidth; // レイアウト確定
+  const captureWidth = Math.max(el.scrollWidth, el.offsetWidth, el.getBoundingClientRect().width) || undefined;
   try {
     await html2pdf().set({
       margin: [8, 8, 8, 8],
       filename,
       image: { type: 'jpeg', quality: 0.92 },
-      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: captureWidth, width: captureWidth, scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
       pagebreak
     }).from(el).save();
