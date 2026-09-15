@@ -6228,9 +6228,13 @@ async function exportElementToPDF(elementId, filename, opts) {
   void el.offsetWidth; // レイアウト確定
   const rect = el.getBoundingClientRect();
   const elWidth = Math.max(el.scrollWidth, el.offsetWidth, Math.ceil(rect.width));
+  // 切り出し開始位置を要素の左端に合わせ、切り出し幅を要素の実幅ちょうどに固定する。
+  // windowWidth だけ広げても html2canvas の既定切り出し幅が要素幅に届かず
+  // 右端（右寄せの人時売上）が欠けるため、x と width を明示して全幅を確実に取り込む。
+  const captureX = Math.floor(rect.left + window.scrollX);
   const windowW = Math.max(
     document.documentElement.scrollWidth,
-    Math.ceil(rect.left + window.scrollX + elWidth) + 60,
+    captureX + elWidth + 60,
     elWidth + 60
   );
   try {
@@ -6238,7 +6242,7 @@ async function exportElementToPDF(elementId, filename, opts) {
       margin: [8, 8, 8, 8],
       filename,
       image: { type: 'jpeg', quality: 0.92 },
-      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: windowW, scrollX: 0, scrollY: 0 },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: windowW, width: elWidth, x: captureX, scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
       pagebreak
     }).from(el).save();
