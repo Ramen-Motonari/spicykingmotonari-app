@@ -257,19 +257,21 @@ body.pdf-export-mode .print-target#page-analytics .card,
 body.print-mode .print-target#page-analytics .card{ padding:2mm 3mm !important; margin-bottom:1.6mm !important; }
 body.pdf-export-mode .print-target#page-analytics .card-title,
 body.print-mode .print-target#page-analytics .card-title{ padding-bottom:1mm !important; margin-bottom:1.2mm !important; }
-/* 要素幅ちょうどで切り出すため、左右に安全余白を確保（多少ズレても内容が欠けない） */
-body.pdf-export-mode .print-target#page-analytics,
-body.print-mode .print-target#page-analytics{ padding-left:8mm !important; padding-right:8mm !important; box-sizing:border-box !important; }
 body.pdf-export-mode .print-target#page-analytics .page-title,
-body.print-mode .print-target#page-analytics .page-title{ font-size:16pt !important; padding:0 0 1.5mm !important; margin:0 0 1.5mm !important; }
+body.print-mode .print-target#page-analytics .page-title{ font-size:15pt !important; padding:0 0 1mm !important; margin:0 0 1mm !important; }
 body.pdf-export-mode .print-target#page-analytics .page-sub,
-body.print-mode .print-target#page-analytics .page-sub{ margin-bottom:2mm !important; }
+body.print-mode .print-target#page-analytics .page-sub{ margin-bottom:1.5mm !important; }
+/* KPIは6列にして1段に収める（6枚グリッドが2段→1段に）＋カード/文字を小さめに→1枚目に確実に収める */
 body.pdf-export-mode .print-target#page-analytics .an-kpi-grid,
-body.print-mode .print-target#page-analytics .an-kpi-grid{ gap:1.5mm !important; margin-bottom:2mm !important; }
+body.print-mode .print-target#page-analytics .an-kpi-grid{ grid-template-columns:repeat(6, 1fr) !important; gap:1.2mm !important; margin-bottom:1.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .an-kpi-card,
-body.print-mode .print-target#page-analytics .an-kpi-card{ padding:2mm !important; }
+body.print-mode .print-target#page-analytics .an-kpi-card{ padding:1.5mm !important; }
+body.pdf-export-mode .print-target#page-analytics .an-kpi-label,
+body.print-mode .print-target#page-analytics .an-kpi-label{ font-size:8pt !important; margin-bottom:0.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .an-kpi-value,
-body.print-mode .print-target#page-analytics .an-kpi-value{ font-size:20pt !important; }
+body.print-mode .print-target#page-analytics .an-kpi-value{ font-size:16pt !important; }
+body.pdf-export-mode .print-target#page-analytics .an-kpi-prev,
+body.print-mode .print-target#page-analytics .an-kpi-prev{ font-size:6.5pt !important; margin-top:0.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .rank-row,
 body.print-mode .print-target#page-analytics .rank-row{ padding:1mm 0 !important; }
 /* カテゴリ別売上：さらに小さくして1枚目(KPIの下)に収める */
@@ -6260,9 +6262,9 @@ async function exportElementToPDF(elementId, filename, opts) {
     html2canvasOpts.width = endX - startX;
     html2canvasOpts.windowWidth = Math.max(document.documentElement.scrollWidth, endX + 60, elWidth + 160);
   } else {
-    // 要素幅ちょうど（x=要素左端, width=要素幅）で切り出し、比率を保つ→改ページが正しく効く
-    html2canvasOpts.x = Math.max(0, Math.floor(rect.left + window.scrollX));
-    html2canvasOpts.width = elWidth;
+    // 複数ページ出力：x/width を指定せず html2canvas に要素を“自然に”取り込ませる。
+    //   → 切り出し位置のズレによる左右欠けが起きず、キャンバス幅＝要素幅で比率も正しく、
+    //     改ページ計算がズレない。レイアウトが崩れない十分な windowWidth だけ確保する。
     html2canvasOpts.windowWidth = Math.max(document.documentElement.scrollWidth, Math.ceil(rect.left + window.scrollX + elWidth) + 60, elWidth + 60);
   }
   try {
