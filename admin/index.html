@@ -257,6 +257,9 @@ body.pdf-export-mode .print-target#page-analytics .card,
 body.print-mode .print-target#page-analytics .card{ padding:2mm 3mm !important; margin-bottom:1.6mm !important; }
 body.pdf-export-mode .print-target#page-analytics .card-title,
 body.print-mode .print-target#page-analytics .card-title{ padding-bottom:1mm !important; margin-bottom:1.2mm !important; }
+/* 要素幅ちょうどで切り出すため、左右に安全余白を確保（多少ズレても内容が欠けない） */
+body.pdf-export-mode .print-target#page-analytics,
+body.print-mode .print-target#page-analytics{ padding-left:8mm !important; padding-right:8mm !important; box-sizing:border-box !important; }
 body.pdf-export-mode .print-target#page-analytics .page-title,
 body.print-mode .print-target#page-analytics .page-title{ font-size:16pt !important; padding:0 0 1.5mm !important; margin:0 0 1.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .page-sub,
@@ -6240,25 +6243,34 @@ async function exportElementToPDF(elementId, filename, opts) {
   void el.offsetWidth; // レイアウト確定
   const rect = el.getBoundingClientRect();
   const elWidth = Math.max(el.scrollWidth, el.offsetWidth, Math.ceil(rect.width));
-  // ブラウザ差で html2canvas の切り出し位置/幅が数十px ずれ、左右どちらかが欠ける事例が続いた。
-  // ずれても内容が切れないよう、要素の左右に十分な余白(PAD)を付けて“広めに”切り出す。
-  // 背景は白なので余分に取り込んだ部分は白い余白になるだけで、内容が欠けることはない。
-  const PAD = 80;
-  const docLeft = rect.left + window.scrollX;
-  const startX = Math.max(0, Math.floor(docLeft - PAD));
-  const endX = Math.ceil(docLeft + elWidth + PAD);
-  const captureW = endX - startX;
-  const windowW = Math.max(
-    document.documentElement.scrollWidth,
-    endX + 60,
-    elWidth + 160
-  );
+  // html2canvas の切り出し設定。
+  //   ・単ページ出力（デイリー表など fullWidthCapture:true）→ ブラウザ差で左右が欠けるのを防ぐため
+  //     要素の左右に余白(PAD)を付けて“広めに”切り出す。背景は白なので欠けない。
+  //   ・複数ページ出力（売上分析など）→ 広め切り出しは「キャンバス幅≠要素幅」となり
+  //     html2pdf の改ページ位置計算がズレて空白ページが出る。よって要素幅ちょうどで
+  //     自然に切り出し、比率を保って正しく改ページさせる。
+  const fullCap = !!(opts && opts.fullWidthCapture);
+  const html2canvasOpts = { scale: 2, backgroundColor: '#ffffff', useCORS: true, scrollX: 0, scrollY: 0 };
+  if (fullCap) {
+    const PAD = 80;
+    const docLeft = rect.left + window.scrollX;
+    const startX = Math.max(0, Math.floor(docLeft - PAD));
+    const endX = Math.ceil(docLeft + elWidth + PAD);
+    html2canvasOpts.x = startX;
+    html2canvasOpts.width = endX - startX;
+    html2canvasOpts.windowWidth = Math.max(document.documentElement.scrollWidth, endX + 60, elWidth + 160);
+  } else {
+    // 要素幅ちょうど（x=要素左端, width=要素幅）で切り出し、比率を保つ→改ページが正しく効く
+    html2canvasOpts.x = Math.max(0, Math.floor(rect.left + window.scrollX));
+    html2canvasOpts.width = elWidth;
+    html2canvasOpts.windowWidth = Math.max(document.documentElement.scrollWidth, Math.ceil(rect.left + window.scrollX + elWidth) + 60, elWidth + 60);
+  }
   try {
     await html2pdf().set({
       margin: [8, 8, 8, 8],
       filename,
       image: { type: 'jpeg', quality: 0.92 },
-      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: windowW, width: captureW, x: startX, scrollX: 0, scrollY: 0 },
+      html2canvas: html2canvasOpts,
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
       pagebreak
     }).from(el).save();
@@ -6460,7 +6472,8 @@ function exportKanritablePDF() {
   // 1ヶ月分の縦長テーブルは複数ページに分割（行 tr の途中で切らない）。
   // avoid-all だと1ページに収めようとして下部が切れるため、行単位の改ページに変更。
   exportElementToPDF('page-kanritable', `デイリー_${m}.pdf`, {
-    pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
+    pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
+    fullWidthCapture: true
   });
 }
 
