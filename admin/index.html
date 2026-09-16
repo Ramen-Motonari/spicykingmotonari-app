@@ -269,12 +269,24 @@ body.pdf-export-mode .print-target#page-analytics .an-kpi-value,
 body.print-mode .print-target#page-analytics .an-kpi-value{ font-size:20pt !important; }
 body.pdf-export-mode .print-target#page-analytics .rank-row,
 body.print-mode .print-target#page-analytics .rank-row{ padding:1mm 0 !important; }
+/* カテゴリ別売上：さらに小さくして1枚目(KPIの下)に収める */
+body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-row,
+body.print-mode .print-target#page-analytics #cat-ranking .rank-row{ padding:0.4mm 0 !important; gap:6px !important; border-bottom:1px solid #bbb !important; }
+body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-name,
+body.print-mode .print-target#page-analytics #cat-ranking .rank-name{ font-size:8pt !important; }
+body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-val,
+body.print-mode .print-target#page-analytics #cat-ranking .rank-val{ font-size:9pt !important; }
+body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-num,
+body.print-mode .print-target#page-analytics #cat-ranking .rank-num{ font-size:8pt !important; width:5mm !important; height:5mm !important; line-height:5mm !important; }
+/* 商品カウント：2枚目の頭から開始（手前で強制改ページ）＋1枚に収まるよう5列・小さめ */
+body.pdf-export-mode .print-target#page-analytics #analytics-menu-card,
+body.print-mode .print-target#page-analytics #analytics-menu-card{ break-before:page !important; page-break-before:always !important; margin-top:0 !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count,
-body.print-mode .print-target#page-analytics #analytics-menu-count{ column-count:4 !important; column-gap:4mm !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count{ column-count:5 !important; column-gap:3mm !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div,
-body.print-mode .print-target#page-analytics #analytics-menu-count > div{ font-size:8pt !important; padding:0.3mm 1.5mm !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count > div{ font-size:7.5pt !important; padding:0.2mm 1.2mm !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div span:last-child,
-body.print-mode .print-target#page-analytics #analytics-menu-count > div span:last-child{ font-size:10pt !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count > div span:last-child{ font-size:9pt !important; }
 /* 管理表：A4横1枚に収める（表のみ・余白詰め） */
 /* 表以外（操作UI・説明文・サブ見出し・プレースホルダ）はPDF/印刷で非表示 */
 body.pdf-export-mode .print-target .kt-noprint,
@@ -758,7 +770,7 @@ window.adminLogout = adminLogout;
       <div class="card-title">カテゴリ別売上</div>
       <div class="rank-list" id="cat-ranking"></div>
     </div>
-    <div class="card">
+    <div class="card" id="analytics-menu-card">
       <div class="card-title"><span>全メニュー 販売数カウント</span><span style="font-size:11px;color:var(--muted);font-weight:400">期間内の販売数（注文ゼロ含む全品目）</span></div>
       <div id="analytics-menu-count" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
     </div>
@@ -6264,7 +6276,10 @@ function exportAnalyticsPDF() {
   // 期間情報をファイル名に含める
   const f = document.getElementById('analyticsDateFrom')?.value || '';
   const t = document.getElementById('analyticsDateTo')?.value || '';
-  exportElementToPDF('page-analytics', `売上分析_${f}_${t}.pdf`);
+  // 1枚目: KPI＋カテゴリ別売上 / 2枚目以降: 商品カウント（手前で強制改ページ）
+  exportElementToPDF('page-analytics', `売上分析_${f}_${t}.pdf`, {
+    pagebreak: { mode: ['css', 'legacy'], before: '#analytics-menu-card' }
+  });
 }
 // スープランキング印刷用シンプルレイアウト（テキストのみ、装飾なし）
 function buildSoupRankingPrintHTML() {
