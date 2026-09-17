@@ -2096,17 +2096,38 @@ function leaveMenu(){
 }
 
 /* ========== MENU RENDERING ========== */
+// ===== スパキン海老祭り（期間限定）=====
+//   管理APPで「スパキン海老祭り」カテゴリ（名前に「海老祭」を含む）を作成している間だけ開催。
+//   開催中は「おすすめ」をTOP/タブから外し、代わりに海老祭りをその位置に表示する。
+//   祭り期間を終える時はそのカテゴリを削除するだけでよい（=自動的に元へ戻る）。
+//   商品は「名前に海老（またはエビ）を含む」全メニュー。各商品は本来のカテゴリにも残る（両方に表示）。
+function ebiFestivalCatKey(){
+  const c = (_customCategories || []).find(c => c.key && (((c.name && c.name.ja) || '').indexOf('海老祭') !== -1));
+  return c ? c.key : '';
+}
+function ebiFestivalItems(){
+  return menu.filter(m => {
+    const nm = (m.name && m.name.ja) || '';
+    return nm.indexOf('海老') !== -1 || nm.indexOf('エビ') !== -1;
+  });
+}
+
 function buildTabs(){
   const t=T[lang];
   const recLabel = (catLabels[lang] && catLabels[lang].recommended) || '⭐ おすすめ';
+  // 海老祭り開催中は「おすすめ」タブを海老祭りタブに置き換える
+  const festKey = ebiFestivalCatKey();
+  const topTab = festKey
+    ? { k: festKey, l: (catLabels[lang] && catLabels[lang][festKey]) || 'スパキン海老祭り' }
+    : { k:'recommended', l: recLabel };
   const baseTabs = [
     {k:'all',l:t.tabAll},
-    {k:'recommended',l:recLabel},
+    topTab,
     {k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
     {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink},{k:'takeout',l:t.tabTakeout}
   ];
-  // カスタムカテゴリをタブに追加（基本カテゴリ以外）
-  const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k)).map(k => ({
+  // カスタムカテゴリをタブに追加（基本カテゴリ以外／海老祭りは上で追加済みなので除外）
+  const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k) && k !== festKey).map(k => ({
     k, l: (catLabels[lang] && catLabels[lang][k]) || k
   }));
   let tabs = [...baseTabs, ...customTabs];
@@ -2138,8 +2159,12 @@ function renderMenu(){
   const t=T[lang], cl=catLabels[lang] || {};
   // 「すべて」表示では、おすすめ（recommended）を常にページ最上部に表示する
   //   ※ 管理APPのカテゴリ並び順に recommended が含まれない場合でも先頭に固定
+  //   海老祭り開催中は「おすすめ」をTOPから外し、代わりに海老祭りを先頭に固定する
+  const festKey = ebiFestivalCatKey();
   const cats = currentCat==='all'
-    ? ['recommended', ...allCatKeys.filter(k => k !== 'recommended')]
+    ? (festKey
+        ? [festKey, ...allCatKeys.filter(k => k !== 'recommended' && k !== festKey)]
+        : ['recommended', ...allCatKeys.filter(k => k !== 'recommended')])
     : [currentCat];
 
   // メニューアイテムカードを生成するヘルパー
@@ -2178,7 +2203,19 @@ function renderMenu(){
   cats.forEach(cat=>{
     // ⭐ おすすめカテゴリ：recommendedIds に対応する商品（最大3件、登録順）
     let items;
-    if (cat === 'recommended') {
+    if (festKey && cat === festKey) {
+      // 🦐 スパキン海老祭り：名前に「海老/エビ」を含む全商品（本来のカテゴリにも残る）
+      items = ebiFestivalItems();
+      if (!items.length) {
+        if (currentCat === festKey) {
+          const sec=document.createElement('div');
+          const emptyMsg = ({ja:'該当商品がありません',en:'No items',zh:'暂无商品',ko:'해당 상품이 없습니다'}[lang] || '');
+          sec.innerHTML = `<div class="section-title">${cl[cat] || cat}</div><div style="text-align:center;color:#888;padding:24px 12px;font-size:13px">${emptyMsg}</div>`;
+          el.appendChild(sec);
+        }
+        return;
+      }
+    } else if (cat === 'recommended') {
       items = recommendedIds
         .map(id => menu.find(m => m.id === id))
         .filter(Boolean);
@@ -2203,8 +2240,8 @@ function renderMenu(){
     if((cat==='tonkotsu'||cat==='shouyu') && currentCat!=='all')
       sec.innerHTML+=`<div class="night-notice">${t.nightNote}</div>`;
 
-    // おすすめカテゴリはサブカテゴリ機能を使わずフラット表示
-    if (cat === 'recommended') {
+    // おすすめ・海老祭りカテゴリはサブカテゴリ機能を使わずフラット表示
+    if (cat === 'recommended' || (festKey && cat === festKey)) {
       items.forEach(item => sec.appendChild(buildItemEl(item)));
       el.appendChild(sec);
       return;
