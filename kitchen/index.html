@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-09-10-1">
+<meta name="app-build" content="2026-09-15-1">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -2413,6 +2413,8 @@ const OPT_TRANS = {
 
 function translateOptToLang(opt) {
   if (!opt) return '';
+  // 学生ラーメン(#10051)の「細麺（170g）」はそのまま表示（麺サイズ正規化で潰さない）
+  if (/細麺（170g）|細麺（大盛りサイズ）に変更/.test(opt)) return '細麺（170g）';
   // 「N辛 +¥XX」「N辛」のパターン
   const spicyMatch = opt.match(/^(\d+)辛\s*(\+¥[\d,]+)?\s*$/);
   if (spicyMatch) {
@@ -2961,6 +2963,8 @@ function ticketNoodleOpt(opt, mainItem) {
 function transformOptForTicket(opt, mainItem) {
   if (!opt) return '';
   let s = String(opt).trim();
+  // 学生ラーメン(#10051)の「細麺（170g）」は麺サイズ正規化で潰れる/消えるため、先に確定表示
+  if (/細麺（170g）|細麺（大盛りサイズ）に変更/.test(s)) return '細麺（170g）';
   if (SPICY_TSUKEMEN_RE.test(s)) return '';
   s = s.replace(/\s*(無料🎉|FREE🎉|免费🎉|무료🎉)\s*/g, '').trim();
   // 単独の「並」（デフォルト量）は伝票非表示
