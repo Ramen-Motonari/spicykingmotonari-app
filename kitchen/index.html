@@ -3092,6 +3092,7 @@ function parseRamenOpts(opts, mainItem) {
     spice: '',           // '4辛' / '0辛'
     noodleType: '',      // '細麺' / '平打ち麺'
     noodleChanged: false,// デフォルトから変更されたか
+    noodleExact: '',     // 学生ラーメン(#10051)の「細麺（170g）」等、そのまま確定表示する麺表記
     qty: '',             // '大盛り' / '無料大盛り' / '少'  ← 麺の量
     rice: '',            // '並' / '大盛り' / '無料大盛り'    ← ライスの量（定食用）
     riceChange: '',      // 'チャーエッグ丼変更'              ← ライスをミニチャーシューエッグ丼に変更
@@ -3122,6 +3123,9 @@ function parseRamenOpts(opts, mainItem) {
          .replace(/[（(][\s]*[）)]/g, '')
          .trim();
     if (!s) return;
+    // 学生ラーメン(#10051)の「細麺（170g）」は cat 未解決(getMenuById→null)で noodleChanged=false になり
+    // 麺量正規化(大盛り/少/並いずれも非該当)で表示が消えてしまうため、専用フィールドへ確定表示。
+    if (/細麺（170g）|細麺（大盛りサイズ）に変更/.test(s)) { result.noodleExact = '細麺（170g）'; noodleQtySet = true; return; }
     // 「スパイシーつけ麺に変更」マーカーは伝票名（getAbbrevJa）で処理済み → オプションとしては非表示
     if (/スパイシーつけ麺に変更/.test(s)) return;
     // 並は表示しない（デフォルト量）— 旧データ単体「並」もスキップ
@@ -3344,7 +3348,10 @@ function renderRamenGroupCard(orderId, grp) {
   const mainCanon = MOTONARI.getMenuById(main.itemId);
   const isTeishokuItem = mainCanon && mainCanon.cat === 'teishoku';
   const noodleParts = [];
-  if (p.noodleType && p.noodleChanged) {
+  if (p.noodleExact) {
+    // 学生ラーメン(#10051)の「細麺（170g）」など、そのまま確定表示する麺表記
+    noodleParts.push(`<span class="rg-noodle-change">${p.noodleExact}</span>`);
+  } else if (p.noodleType && p.noodleChanged) {
     noodleParts.push(`<span class="rg-noodle-change">${p.noodleType}変更</span>`);
   }
   if (p.qty) {
