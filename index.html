@@ -562,6 +562,19 @@ body.dark-bg{background:#111}
   </div>
 </div>
 
+<!-- 学生ラーメン（#10051）：注文前の「学生さんですか？」確認ダイアログ -->
+<div id="studentGateOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:790;display:none;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:18px;width:100%;max-width:360px;padding:26px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.4)">
+    <div style="font-size:42px;line-height:1">🎓</div>
+    <div id="studentGateQ" style="font-size:20px;color:#1565c0;font-weight:900;letter-spacing:1px;margin-top:10px">学生さんですか？</div>
+    <div id="studentGateSub" style="font-size:12px;color:#666;margin:8px 0 20px;line-height:1.6">学生証のご提示をお願いする場合があります</div>
+    <div style="display:flex;gap:10px">
+      <button id="studentGateNo" onclick="studentGateNo()" style="flex:1;padding:14px;border-radius:10px;border:1.5px solid #ccc;background:#fff;color:#666;font-size:15px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif">いいえ</button>
+      <button id="studentGateYes" onclick="studentGateYes()" style="flex:1;padding:14px;border-radius:10px;border:none;background:#1565c0;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">はい</button>
+    </div>
+  </div>
+</div>
+
 <!-- Admin Modal -->
 <div class="modal-overlay" id="adminModal" onclick="if(event.target===this)closeAdmin()">
   <div class="modal" style="max-height:90vh">
@@ -814,11 +827,24 @@ const tsukemenSizeOpts = {
   zh:['小份 140g','普通 180g','大份 240g'],
   ko:['소 140g','보통 180g','대 240g']
 };
-function getNoodleSizeOpts(l, cat){
+// 麺サイズ選択（学生ラーメン #10051）：醤油(平打ち麺のみ)＋「細麺（大盛りサイズ）に変更」を追加
+//   ・「細麺（大盛りサイズ）に変更」は追加料金なし（ラベルに +金額 を含めない）。
+//   ・選択時のキッチン伝票表記は「細麺（170g）」に変換する（addCart のペイロード構築側）。
+const noodleSizeOptsGakusei = {
+  ja:['平打ち麺 小','平打ち麺 並','平打ち麺 大盛り +150円','細麺（大盛りサイズ）に変更'],
+  en:['Flat Small','Flat Regular','Flat Large +¥150','Change to Thin (Large size)'],
+  zh:['宽面少量','宽面普通','宽面大碗+¥150','更换为细面（大碗份量）'],
+  ko:['넓은면 적게','넓은면 보통','넓은면 곱배기+¥150','가는면（곱배기 양）으로 변경']
+};
+function getNoodleSizeOpts(l, cat, id){
+  if (id === 10051) return noodleSizeOptsGakusei[l];   // 学生ラーメン：醤油＋細麺変更
   if (cat === 'shouyu') return noodleSizeOptsShouyu[l];
   if (cat === 'teishoku') return isLunchWeekday() ? noodleSizeOptsTeishokuWeekday[l] : noodleSizeOptsTeishokuWeekend[l];
   return isLunchWeekday() ? noodleSizeOptsWeekday[l] : noodleSizeOptsWeekend[l];
 }
+// 学生ラーメン(#10051)判定。醤油と全く同じUIにするため、醤油系の各分岐で醤油と同列に扱う。
+function isGakuseiRamen(item){ return !!item && item.id === 10051; }
+function actsAsShouyu(item){ return !!item && (item.cat === 'shouyu' || isGakuseiRamen(item)); }
 // 学生大盛り無料／平日ランチ大盛り無料 用の「無料大盛り」表記を返す（曜日に依存せず無料版を返す）
 //   ・醤油は大盛り無料の対象外（''）
 function getFreeLargeNoodleOpt(cat, l){
@@ -878,7 +904,7 @@ function optToJa(opt, fromLang, item){
     const hit = lookup(dict); if(hit) return hit;
   }
   // 麺サイズ（3種類のリスト）
-  for(const dict of [noodleSizeOptsWeekday, noodleSizeOptsWeekend, noodleSizeOptsShouyu, tsukemenSizeOpts]){
+  for(const dict of [noodleSizeOptsWeekday, noodleSizeOptsWeekend, noodleSizeOptsShouyu, noodleSizeOptsGakusei, tsukemenSizeOpts]){
     const hit = lookup(dict); if(hit) return hit;
   }
   // ドリンクの割り方/銘柄（drinkOpt / drinkOpt2）：選択肢は {ja,en,zh,ko} オブジェクトのため
@@ -1023,6 +1049,16 @@ function rebuildMenu() {
     if (!it.custom.chashu)     it.custom.chashu = 1;
     if (!it.custom.noodleSize) it.custom.noodleSize = 1;
     if (nm.indexOf('ワイルドナガサワ') !== -1 && !it.spicy) it.spicy = true;
+  });
+
+  // 学生ラーメン（#10051）：醤油と全く同じUIにするため custom を醤油同等に注入。
+  //   ・チャーシュー選択（豚/鶏 必須）＋麺サイズ選択。管理APPで既に設定済みなら上書きしない。
+  //   ・麺サイズは getNoodleSizeOpts(id=10051) が「醤油＋細麺（大盛りサイズ）に変更」を返す。
+  menu.forEach(it => {
+    if (it.id !== 10051) return;
+    it.custom = { ...(it.custom || {}) };
+    if (!it.custom.chashu)     it.custom.chashu = 1;
+    if (!it.custom.noodleSize) it.custom.noodleSize = 1;
   });
 
   // カレー系（カレー／カレースペシャル／チーズカレー 等）：
@@ -2318,6 +2354,17 @@ function openItem(id){
     openStaffLock(id);
     return;
   }
+  // 学生ラーメン（#10051）：注文ページへ進む前に「学生さんですか？」を確認。
+  //   はい → そのまま注文ページ（モーダル）へ ／ いいえ → TOP（メニュー）へ戻る
+  if(isGakuseiRamen(item)){
+    openStudentGate(item);
+    return;
+  }
+  _openItemModal(item);
+}
+
+// 商品モーダルを実際に開く（各種ゲート通過後に呼ぶ）
+function _openItemModal(item){
   curItem=item; curOpts={}; curQty=1;
   chaahanSeriesOpen=false; // モーダルを開くたびに鉄板チャーハンシリーズは閉じた状態から
   studentSectionExpanded=false; // モーダルを開くたびに学生替え玉セクションは閉じた状態から
@@ -2332,6 +2379,35 @@ function openItem(id){
     requestAnimationFrame(()=>{ modalEl.scrollTop = 0; });
   }
 }
+
+// 学生ラーメン用「学生さんですか？」確認ダイアログ
+function openStudentGate(item){
+  window._studentGateItemId = item.id;
+  const q = ({ja:'学生さんですか？',en:'Are you a student?',zh:'您是学生吗？',ko:'학생이신가요?'}[lang]) || '学生さんですか？';
+  const sub = ({ja:'学生証のご提示をお願いする場合があります',en:'You may be asked to show your student ID',zh:'可能会要求出示学生证',ko:'학생증 제시를 요청할 수 있습니다'}[lang]) || '';
+  const yes = ({ja:'はい',en:'Yes',zh:'是',ko:'예'}[lang]) || 'はい';
+  const no  = ({ja:'いいえ',en:'No',zh:'否',ko:'아니오'}[lang]) || 'いいえ';
+  const ov = document.getElementById('studentGateOverlay');
+  if(!ov) return;
+  ov.querySelector('#studentGateQ').textContent = q;
+  ov.querySelector('#studentGateSub').textContent = sub;
+  ov.querySelector('#studentGateYes').textContent = yes;
+  ov.querySelector('#studentGateNo').textContent = no;
+  ov.style.display = 'flex';
+}
+function studentGateYes(){
+  const ov = document.getElementById('studentGateOverlay');
+  if(ov) ov.style.display = 'none';
+  const item = menu.find(m=>m.id===window._studentGateItemId);
+  if(item) _openItemModal(item);   // そのまま注文ページへ
+}
+function studentGateNo(){
+  const ov = document.getElementById('studentGateOverlay');
+  if(ov) ov.style.display = 'none';
+  window._studentGateItemId = null; // TOP（メニュー）へ戻る（何も開かない）
+}
+window.studentGateYes = studentGateYes;
+window.studentGateNo = studentGateNo;
 
 function maybeCloseItem(e){
   if(e && e.target!==$('itemModal')) return;
@@ -2357,7 +2433,7 @@ function renderModal(){
   $('modalImg').innerHTML = imgInner + closeBtnHtml;
 
   const c=item.custom;
-  const isMainDish=['tonkotsu','shouyu','teishoku'].includes(item.cat);
+  const isMainDish=['tonkotsu','shouyu','teishoku'].includes(item.cat) || isGakuseiRamen(item);
   // 売り切れ食材（鶏/豚チャーシュー）で選択肢が消えた場合、選択済みの値を先に解除しておく
   // （getMissingFields より前に行うことで、案内バナーと選択状態の不整合を防ぐ）
   if(c && c.chashu && curOpts.chashu && !availableChashuOpts(lang).includes(curOpts.chashu)) delete curOpts.chashu;
@@ -2409,7 +2485,7 @@ function renderModal(){
   if(c.kata && !c.noodleSize) reqHtml+=optGrpReq(t.optNoodle,'kata',kataOpts[lang],missing);
   if(c.noodleSize) {
     // 平日ランチのとんこつ・定食では「細麺 大盛り 無料🎉」は上のボタンで選択するため、picker からは除外（重複防止）
-    let noodleOpts = getNoodleSizeOpts(lang, curItem&&curItem.cat);
+    let noodleOpts = getNoodleSizeOpts(lang, curItem&&curItem.cat, curItem&&curItem.id);
     if (curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')) {
       if (isLunchWeekday()) {
         // 平日ランチ「大盛り無料」は専用ボタンで選択 → picker から無料大盛りを除外
@@ -2433,7 +2509,7 @@ function renderModal(){
     reqHtml+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
   }
   // 平日ランチ特典：替え玉無料 / 大盛り無料（麺サイズの直下に配置）
-  if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu' || item.cat === 'teishoku')){
+  if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || actsAsShouyu(item) || item.cat === 'teishoku')){
     const choice = curOpts.lunchFreeChoice || '';
     const isTonkotsu = (item.cat === 'tonkotsu');
     const isTeishoku = (item.cat === 'teishoku');
@@ -2482,7 +2558,7 @@ function renderModal(){
   // 学生替え玉（無料）：平日ランチ特典の下に常時表示。表示内容は曜日で切替
   //   ・平日ランチ時　：替え玉 / 半替え玉（平日ランチ特典とは別に1つ選択可能）
   //   ・土日祝・その他：替え玉 / 半替え玉 / 大盛り　どれか1つ無料
-  if(c.noodleSize && (item.cat === 'tonkotsu' || item.cat === 'shouyu' || item.cat === 'teishoku')){
+  if(c.noodleSize && (item.cat === 'tonkotsu' || actsAsShouyu(item) || item.cat === 'teishoku')){
     const sChoice = curOpts.studentFreeChoice || '';
     const sIsTonkotsu = (item.cat === 'tonkotsu');
     const sIsTeishoku = (item.cat === 'teishoku');
@@ -2544,7 +2620,7 @@ function renderModal(){
   //   ・豚骨（tonkotsu）：常時表示。平打ち選択時はグレーアウト
   //   ・醤油（shouyu） / 餃子定食（teishoku）：硬さセクション自体を非表示
   //   ・その他（noodleSize あり）：豚骨と同じ扱い
-  if(c.noodleSize && item.cat !== 'shouyu' && item.cat !== 'teishoku') {
+  if(c.noodleSize && !actsAsShouyu(item) && item.cat !== 'teishoku') {
     const isFlatNoodle = curOpts.noodleSize && /(平打ち麺|Flat|宽面|넓은면)/i.test(curOpts.noodleSize);
     const kataDisabled = isFlatNoodle || !curOpts.noodleSize;
     const kataLabel = ({ja:'麺の硬さ（細麺のみ）（必須選択）',en:'Noodle Firmness (Thin only, Required)',zh:'面条软硬（仅细面・必选）',ko:'면 굵기（가는면 한정・필수 선택）'}[lang] || '麺の硬さ（細麺のみ）（必須選択）');
@@ -2786,10 +2862,10 @@ function getMissingFields(){
   if(c.top    && !curOpts.top)    missing.push({key:'top',label:t.optTop});
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
   // 醤油・餃子定食は硬さセクションを非表示にしているため必須から除外
-  if(c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku'
+  if(c.noodleSize && !actsAsShouyu(curItem) && cat !== 'teishoku'
      && curOpts.noodleSize && /(細麺|Thin|细面|가는면)/i.test(curOpts.noodleSize) && !curOpts.kata)
     missing.push({key:'kata',label:'麺の硬さ'});
-  if(c.kata && !c.noodleSize && cat !== 'shouyu' && cat !== 'teishoku' && !curOpts.kata)
+  if(c.kata && !c.noodleSize && !actsAsShouyu(curItem) && cat !== 'teishoku' && !curOpts.kata)
     missing.push({key:'kata',label:t.optNoodle});
   if(c.rice && !curOpts.rice) missing.push({key:'rice',label:t.optRice});
   // ドリンク単品：割り方/銘柄の必須選択
@@ -3303,13 +3379,13 @@ function pickLunchFree(choice){
     curOpts.lunchFreeChoice = choice;
     // 大盛り希望なら 細麺 大盛り 無料 を自動選択（とんこつ・定食の細麺の場合）
     if(choice === 'oomori' && curItem && (curItem.cat === 'tonkotsu' || curItem.cat === 'teishoku')){
-      const noodleOpts = getNoodleSizeOpts(lang, curItem.cat);
+      const noodleOpts = getNoodleSizeOpts(lang, curItem.cat, curItem.id);
       const freeOpt = noodleOpts.find(o => /無料|FREE|免费|무료/i.test(o));
       if(freeOpt) curOpts.noodleSize = freeOpt;
     }
     // 替え玉 or 半替え玉希望なら、もし大盛り無料を選択中だったら 細麺 並 に戻す
     if((choice === 'kaedama' || choice === 'kaedamaHalf') && curOpts.noodleSize && /無料|FREE|免费|무료/i.test(curOpts.noodleSize)){
-      const noodleOpts = getNoodleSizeOpts(lang, curItem.cat);
+      const noodleOpts = getNoodleSizeOpts(lang, curItem.cat, curItem.id);
       const regularOpt = noodleOpts.find(o => /細麺.*並|Thin.*Regular|细面普通|가는면.*보통/i.test(o));
       if(regularOpt) curOpts.noodleSize = regularOpt;
     }
@@ -3846,7 +3922,11 @@ async function placeOrder(){
         // 伝票表示はすべて日本語に統一：name と opts を日本語へ変換
         const canon = i.itemId != null ? menu.find(m=>m.id===i.itemId) : null;
         const nameJa = (canon && canon.name && canon.name.ja) || i.name;
-        const optsJa = (i.opts || []).map(o => optToJa(o, lang, canon));
+        const optsJa = (i.opts || []).map(o => {
+          const ja = optToJa(o, lang, canon);
+          // 学生ラーメンの「細麺（大盛りサイズ）に変更」→ キッチン伝票は「細麺（170g）」表記に統一
+          return /細麺（大盛りサイズ）に変更|Change to Thin \(Large size\)|更换为细面（大碗份量）|가는면（곱배기 양）으로 변경/.test(ja) ? '細麺（170g）' : ja;
+        });
         const out = {
           itemId: i.itemId||null,
           name: nameJa,
