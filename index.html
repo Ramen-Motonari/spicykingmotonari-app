@@ -1278,7 +1278,9 @@ function _nthMonday(year, month, n){
   const offset = (1 - d.getDay() + 7) % 7; // 1日が月曜から何日離れているか
   return 1 + offset + (n - 1) * 7;
 }
-function isJapaneseHoliday(date){
+// 「本来の祝日」（固定日・ハッピーマンデー・春分/秋分）のみを判定。
+// 振替休日・国民の休日は含めない（isJapaneseHoliday 側で本関数を使って算出）。
+function _isBaseHoliday(date){
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   const d = date.getDate();
@@ -1304,6 +1306,28 @@ function isJapaneseHoliday(date){
   // 春分・秋分
   if (m === 3 && d === _vernalEquinoxDay(y)) return true;  // 春分の日
   if (m === 9 && d === _autumnEquinoxDay(y)) return true;  // 秋分の日
+  return false;
+}
+function isJapaneseHoliday(date){
+  // 本来の祝日
+  if (_isBaseHoliday(date)) return true;
+  const ONE_DAY = 86400000;
+  // 振替休日：祝日が日曜に当たった場合、その後の最も近い「祝日でない日」を休日とする。
+  //   当日から遡って連続する本来の祝日をたどり、起点が日曜なら当日は振替休日。
+  if (date.getDay() !== 0) {
+    let prev = new Date(date.getTime() - ONE_DAY);
+    while (_isBaseHoliday(prev)) {
+      if (prev.getDay() === 0) return true; // 連続祝日の起点が日曜 → 振替休日
+      prev = new Date(prev.getTime() - ONE_DAY);
+    }
+  }
+  // 国民の休日：前日・翌日がともに本来の祝日で、当日が日曜でも祝日でもない場合は休日。
+  //   （例：敬老の日(月) と 秋分の日(水) に挟まれた火曜など）
+  if (date.getDay() !== 0) {
+    const prev = new Date(date.getTime() - ONE_DAY);
+    const next = new Date(date.getTime() + ONE_DAY);
+    if (_isBaseHoliday(prev) && _isBaseHoliday(next)) return true;
+  }
   return false;
 }
 
