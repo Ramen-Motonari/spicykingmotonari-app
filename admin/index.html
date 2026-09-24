@@ -3099,6 +3099,7 @@ function buildMenuSections(mode) {
       { key: 'ramen',    label: '🍜 ラーメン' },
       { key: 'teishoku', label: '🥢 つけ麺・定食' },
       { key: 'sidetop',  label: '🥟 サイド・トッピング' },
+      { key: 'extranoodles', label: '🍜 替え玉' },
       { key: 'drink',    label: '🍺 ドリンク' },
       { key: 'goods',    label: '🛍️ グッズ' }
     ];
@@ -3106,7 +3107,7 @@ function buildMenuSections(mode) {
       const k = getDinnerSectionKey(m);
       if (k === 'tonkotsu' || k === 'curry' || k === 'shouyu') return 'ramen';
       if (k === 'side' || k === 'topping') return 'sidetop';
-      return (k === 'teishoku' || k === 'drink' || k === 'goods') ? k : null;
+      return (k === 'teishoku' || k === 'drink' || k === 'goods' || k === 'extranoodles') ? k : null;
     };
   } else {
     // 夜営業／合算／売上分析：ラーメン(豚骨→カレー→醤油)→定食→トッピング→サイド→ドリンク→グッズ
@@ -3116,6 +3117,7 @@ function buildMenuSections(mode) {
       { key: 'shouyu',   label: '🍜 ラーメン - 醤油' },
       { key: 'teishoku', label: '🥢 つけ麺・定食' },
       { key: 'topping',  label: '🥄 追加トッピング' },
+      { key: 'extranoodles', label: '🍜 替え玉' },
       { key: 'side',     label: '🥟 サイド' },
       { key: 'drink',    label: '🍺 ドリンク' },
       { key: 'goods',    label: '🛍️ グッズ' }
@@ -3267,6 +3269,7 @@ function getDinnerSectionKey(item) {
   if (item.cat === 'topping') return 'topping';
   if (item.cat === 'side') return 'side';
   if (item.cat === 'drink') return 'drink';
+  if (item.cat === 'extranoodles') return 'extranoodles'; // 味変替え玉(海老/肉/赤/ノリノリ等)は【替え玉】枠へ。グッズと分離。
   if (item.cat === 'takeout') return null; // テイクアウトは従来通り夜の商品カウント対象外
   // それ以外のカスタムカテゴリ（グッズ等）は末尾の「グッズ」枠に集約
   if (item.cat) return 'goods';
@@ -3635,16 +3638,16 @@ function buildReportText(session) {
   // メニュー一覧：豚骨/カレー/醤油/定食/トッピング/サイド/ドリンク の順
   const sectionEmojis = {
     tonkotsu: '【豚骨】', curry: '【カレー】', shouyu: '【醤油】', teishoku: '【定食】',
-    topping: '【追加トッピング】', side: '【サイド】', drink: '【ドリンク】', goods: '【グッズ】'
+    topping: '【追加トッピング】', extranoodles: '【替え玉】', side: '【サイド】', drink: '【ドリンク】', goods: '【グッズ】'
   };
   const visible = getVisibleMenuItems();
   // セクション別にグルーピング
-  const grouped = { tonkotsu: [], curry: [], shouyu: [], teishoku: [], topping: [], side: [], drink: [], goods: [] };
+  const grouped = { tonkotsu: [], curry: [], shouyu: [], teishoku: [], topping: [], extranoodles: [], side: [], drink: [], goods: [] };
   visible.forEach(item => {
     const key = getDinnerSectionKey({ cat: item.cat, name: { ja: item.name } });
     if (key && grouped[key]) grouped[key].push(item);
   });
-  ['tonkotsu','curry','shouyu','teishoku','topping','side','drink','goods'].forEach(key => {
+  ['tonkotsu','curry','shouyu','teishoku','topping','extranoodles','side','drink','goods'].forEach(key => {
     if (!grouped[key].length) return;
     txt += `${sectionEmojis[key]}\n`;
     grouped[key].forEach(item => {
