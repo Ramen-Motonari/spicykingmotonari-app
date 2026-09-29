@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-08-13-2">
+<meta name="app-build" content="2026-09-29-1">
 <title>MOTONARI — Order</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700&display=swap" rel="stylesheet">
 <style>
@@ -164,6 +164,8 @@ body.dark-bg{background:#111}
 .btn-primary.disabled{background:#ccc}
 .btn-primary:disabled{background:#ccc;cursor:not-allowed}
 .btn-secondary{width:100%;margin-top:10px;padding:14px;border-radius:14px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+/* 閲覧専用モード：詳細内の選択肢は「見えるが操作できない」。戻るボタンだけ操作可。 */
+#modalBody.vo button:not(.btn-secondary){pointer-events:none;cursor:default}
 
 /* Bottom bar */
 .cart-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--bg);border-top:1px solid var(--border);z-index:90;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
@@ -1219,6 +1221,10 @@ function normalizeTable(raw) {
 
 const _rawTableParam = new URLSearchParams(location.search).get('table');
 const isAdminMode = new URLSearchParams(location.search).get('admin')==='1';
+// 閲覧専用モード：?view=1 でアクセス。メニューは見られるが注文は一切できない（詳細ページは戻るのみ）。
+//   ・テーブル番号／セッション不要。言語選択後すぐメニューへ。
+//   ・商品タップ→詳細（麺カスタマイズ等は表示のみ・選択不可）。追加トッピング等のアドオンは非表示。
+const isViewOnly = new URLSearchParams(location.search).get('view')==='1';
 // テストモード：?test=1 でアクセス。注文は通常通り送信されるが testMode: true フラグが付き売上分析から除外
 const isTestMode = new URLSearchParams(location.search).get('test')==='1';
 // テストモード時はテーブル認識・表記とも "TEST" に固定（実テーブルに影響しない）
@@ -1774,6 +1780,8 @@ function applyLang(){
 
 function selectLang(l){
   lang=l;
+  // 閲覧専用モード：来店確認（初めて/2回目）をスキップし、そのままメニューへ（セッション作成なし）。
+  if(isViewOnly){ enterViewOnlyMenu(); return; }
   const t=T[l];
   setText('visitTitle',t.visitTitle);
   setText('visitSub',t.visitSub);
@@ -1782,6 +1790,18 @@ function selectLang(l){
   setText('lblRepeat',t.lblRepeat);
   setText('subRepeat',t.subRepeat);
   showScreen('visitScreen');
+}
+
+// 閲覧専用モードのメニュー表示（セッション・注文リスナー・カートは一切起動しない）
+function enterViewOnlyMenu(){
+  applyLang();
+  updateLangSwitchFlag();
+  buildTabs();
+  renderMenu();
+  showScreen('menuScreen');
+  // 注文系UIは完全に隠す（カートバー／替え玉フローティング）
+  const cb=$('cartBar'); if(cb) cb.style.display='none';
+  const kf=$('kaedamaFloatBtn'); if(kf) kf.style.display='none';
 }
 
 // メニュー画面の言語切替アコーディオン
@@ -1922,6 +1942,7 @@ let _recoveryRetries = 0;         // 認証直後の取りこぼし用リトラ�
 const RECOVERY_MAX_RETRIES = 6;   // 認証直後の Firestore 反映待ちを想定
 const RECOVERY_RETRY_DELAY_MS = 700;
 async function tryStartRecovery(){
+  if(isViewOnly){ _recoveryAttempted = true; return; } // 閲覧専用モードはセッション復元しない
   if(_recoveryAttempted || _recoveryInFlight) return;
   rtrace(`tryStartRecovery fbReady=${fbReady} user=${!!currentUser} table=${tableNum}`);
   if(!fbReady || !currentUser) {
@@ -2366,10 +2387,12 @@ function renderMenu(){
 
 /* ========== ITEM MODAL ========== */
 function openItem(id){
-  // 会計済みセッションでは商品モーダルを開かせず、会計済み画面へ
-  if(!sessionActive){ showPaidScreen(); return; }
   const item=menu.find(m=>m.id===id);
   if(!item) return;
+  // 閲覧専用モード：各種ゲート（会計済み/売切れ/夜限定/ゴースト/スタッフ/学生確認）を通さず詳細のみ表示
+  if(isViewOnly){ _openItemModal(item); return; }
+  // 会計済みセッションでは商品モーダルを開かせず、会計済み画面へ
+  if(!sessionActive){ showPaidScreen(); return; }
   if(isItemSoldout(item.id)){ showValidationMsg('🚫 申し訳ございません、この商品は売り切れです'); return; }
   if(!isAvailable(item)){ showValidationMsg('🌙 夜営業（17:00〜24:00）のみご注文いただけます'); return; }
   if(item.ghost){ openGhostLock(id); return; }
@@ -2483,7 +2506,7 @@ function renderModal(){
     </div>`;
   }
 
-  if(hasRequiredFields()){
+  if(!isViewOnly && hasRequiredFields()){
     if(allDone){
       h+=`<div id="req-banner" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;padding:10px 14px;font-size:13px;font-weight:700;color:#2e7d32;transition:all .3s;text-align:center">
         <span style="font-size:16px">✅</span>
@@ -2532,8 +2555,8 @@ function renderModal(){
     }
     reqHtml+=optGrpReq(t.addonNoodleLabel,'noodleSize',noodleOpts,missing);
   }
-  // 平日ランチ特典：替え玉無料 / 大盛り無料（麺サイズの直下に配置）
-  if(isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || actsAsShouyu(item) || item.cat === 'teishoku')){
+  // 平日ランチ特典：替え玉無料 / 大盛り無料（麺サイズの直下に配置）※閲覧専用モードでは非表示
+  if(!isViewOnly && isLunchWeekday() && c.noodleSize && (item.cat === 'tonkotsu' || actsAsShouyu(item) || item.cat === 'teishoku')){
     const choice = curOpts.lunchFreeChoice || '';
     const isTonkotsu = (item.cat === 'tonkotsu');
     const isTeishoku = (item.cat === 'teishoku');
@@ -2582,7 +2605,8 @@ function renderModal(){
   // 学生替え玉（無料）：平日ランチ特典の下に常時表示。表示内容は曜日で切替
   //   ・平日ランチ時　：替え玉 / 半替え玉（平日ランチ特典とは別に1つ選択可能）
   //   ・土日祝・その他：替え玉 / 半替え玉 / 大盛り　どれか1つ無料
-  if(c.noodleSize && (item.cat === 'tonkotsu' || actsAsShouyu(item) || item.cat === 'teishoku')){
+  //   ※閲覧専用モードでは非表示（注文特典のため）
+  if(!isViewOnly && c.noodleSize && (item.cat === 'tonkotsu' || actsAsShouyu(item) || item.cat === 'teishoku')){
     const sChoice = curOpts.studentFreeChoice || '';
     const sIsTonkotsu = (item.cat === 'tonkotsu');
     const sIsTeishoku = (item.cat === 'teishoku');
@@ -2819,7 +2843,7 @@ function renderModal(){
     h += renderDrinkOptsTab(item);
   }
 
-  if(isMainDish){
+  if(isMainDish && !isViewOnly){
     // 替え玉カテゴリー（店舗が管理APPで追加したカスタムカテゴリー）を
     // 追加トッピングの上にアドオンとして表示する。カテゴリーkeyは名前(ja)で判定。
     const kaedamaCat = (_customCategories.find(c => c.key && (((c.name && c.name.ja) || '').indexOf('替え玉') !== -1)) || {}).key || '';
@@ -2836,24 +2860,33 @@ function renderModal(){
 
   // チャーハン単品（サイドカテゴリーから直接選択）：ミニ醤油ラーメン(¥300)セットのお誘い
   //   ※ チャーハンセット(id 10034)はミニ醤油込みのため、このお誘いは表示しない
-  if(isChaahanItem(item) && !isChahanSet(item)){
+  //   ※閲覧専用モードでは注文誘導のため非表示
+  if(!isViewOnly && isChaahanItem(item) && !isChahanSet(item)){
     h += renderMiniShoyuOption();
   }
 
-  // 未選択の必須項目がある場合：ボタンの上に赤文字で案内
-  if (!allDone) {
-    const incompleteMsg = ({
-      ja:'⚠ ページ上部《選択項目》を完了させてください。',
-      en:'⚠ Please complete the《Required Selections》at the top of the page.',
-      zh:'⚠ 请完成页面上方的《选择项目》。',
-      ko:'⚠ 페이지 상단의 《선택 항목》을 완료해 주세요.'
-    }[lang] || '⚠ ページ上部《選択項目》を完了させてください。');
-    h += `<div style="margin-top:16px;padding:12px 14px;background:rgba(231,76,60,0.08);border:1.5px solid #e74c3c;border-radius:10px;text-align:center;font-size:13px;font-weight:900;color:#c0392b;letter-spacing:.3px;line-height:1.5">${incompleteMsg}</div>`;
+  if(isViewOnly){
+    // 閲覧専用モード：注文ボタンは出さず「戻る」だけ表示
+    const backLabel = ({ja:'‹ メニューに戻る',en:'‹ Back to Menu',zh:'‹ 返回菜单',ko:'‹ 메뉴로 돌아가기'}[lang] || '‹ メニューに戻る');
+    h+=`<button class="btn-secondary" onclick="maybeCloseItem()">${backLabel}</button>`;
+  } else {
+    // 未選択の必須項目がある場合：ボタンの上に赤文字で案内
+    if (!allDone) {
+      const incompleteMsg = ({
+        ja:'⚠ ページ上部《選択項目》を完了させてください。',
+        en:'⚠ Please complete the《Required Selections》at the top of the page.',
+        zh:'⚠ 请完成页面上方的《选择项目》。',
+        ko:'⚠ 페이지 상단의 《선택 항목》을 완료해 주세요.'
+      }[lang] || '⚠ ページ上部《選択項目》を完了させてください。');
+      h += `<div style="margin-top:16px;padding:12px 14px;background:rgba(231,76,60,0.08);border:1.5px solid #e74c3c;border-radius:10px;text-align:center;font-size:13px;font-weight:900;color:#c0392b;letter-spacing:.3px;line-height:1.5">${incompleteMsg}</div>`;
+    }
+    h+=`<button id="add-to-cart-btn" class="btn-primary ${allDone?'':'disabled'}" onclick="addCart()">${t.addToCart} — ¥${calcTotal().toLocaleString()}</button>
+      <button class="btn-secondary" onclick="maybeCloseItem()">${t.backToMenu}</button>`;
   }
-  h+=`<button id="add-to-cart-btn" class="btn-primary ${allDone?'':'disabled'}" onclick="addCart()">${t.addToCart} — ¥${calcTotal().toLocaleString()}</button>
-    <button class="btn-secondary" onclick="maybeCloseItem()">${t.backToMenu}</button>`;
 
   setHTML('modalBody', h);
+  // 閲覧専用モード：選択肢（麺カスタマイズ等）は表示するが操作不可にする（戻るボタンは除外）
+  const mb=$('modalBody'); if(mb) mb.classList.toggle('vo', isViewOnly);
 }
 
 function hasRequiredFields(){
@@ -3802,6 +3835,7 @@ function showValidationMsg(msg){
 /* ========== CART BAR ========== */
 function updateCartBar(){
   const bar=$('cartBar');
+  if(isViewOnly){ if(bar) bar.style.display='none'; return; } // 閲覧専用モードはカートバーを出さない
   const count=cart.reduce((s,i)=>s+(Number(i.qty)||0),0);
   const total=cart.reduce((s,i)=>s+(Number(i.total)||0),0);
   const t=T[lang];
@@ -5400,7 +5434,7 @@ setText('tableNum', tableNum);
 buildGhostKeypad();
 
 // Warn if invalid table
-if(tableNum === '?') {
+if(tableNum === '?' && !isViewOnly) {
   setTimeout(() => {
     const warn = document.createElement('div');
     warn.style.cssText = 'position:fixed;top:8px;left:8px;right:8px;z-index:1001;background:#c0392b;color:#fff;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:700;text-align:center;line-height:1.5';
