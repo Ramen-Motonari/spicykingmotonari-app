@@ -4124,7 +4124,7 @@ function renderAnalytics() {
       }
     });
   });
-  renderAllMenuCount(menuCounts, allFiltered);
+  renderAllMenuCount(menuCounts, allFiltered, itemStats);
 
   // CSV出力用の最新スナップショットをキャッシュ
   _lastAnalytics = {
@@ -4191,6 +4191,16 @@ function exportAnalyticsCSV() {
     const nm = (m.name && m.name.ja) || getCurrentItemName(m.id) || ('#' + m.id);
     csv += m.id + ',"' + String(nm).replace(/"/g, '""') + '",' + qty + ',' + total + '\n';
   });
+  // ⑤ 過去の商品（削除済み）：現在のメニューに存在しないが期間内に販売実績があるもの
+  const deletedRows = buildDeletedItemsRows(a.itemStats);
+  if (deletedRows.length) {
+    csv += '\n';
+    csv += '"■ 過去の商品（削除済み）"\n';
+    csv += '"商品ID","商品名","カウント","売上(税込)"\n';
+    deletedRows.forEach(r => {
+      csv += r.id + ',"' + String(r.name).replace(/"/g, '""') + '",' + r.qty + ',' + r.total + '\n';
+    });
+  }
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -4202,7 +4212,38 @@ function exportAnalyticsCSV() {
   showToast('📥 売上分析 CSV出力完了');
 }
 
-function renderAllMenuCount(counts, orders) {
+// 削除済み（＝現在のメニューに存在しない）商品の販売行を集計
+//   itemStats（注文スナップショットから集計、実itemIdをキー）のうち、
+//   getMergedMenu() に存在しないID＝完全削除された canonical / 削除済み custom を抽出。
+//   非表示(_hidden)商品は getMergedMenu に残るため「削除済み」には含まれない。
+function buildDeletedItemsRows(itemStats) {
+  if (!itemStats) return [];
+  const known = new Set();
+  try { getMergedMenu().forEach(m => known.add(String(m.id))); } catch(e) {}
+  const rows = [];
+  Object.keys(itemStats).forEach(id => {
+    if (known.has(String(id))) return;
+    const st = itemStats[id];
+    if (!st || !(st.qty > 0)) return;
+    rows.push({ id, name: st.name || ('#' + id), qty: st.qty, total: st.total || 0 });
+  });
+  rows.sort((a, b) => b.qty - a.qty);
+  return rows;
+}
+
+function renderDeletedItemsHTML(rows) {
+  if (!rows || !rows.length) return '';
+  let html = `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-top:12px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">🗑 過去の商品（削除済み）</div>`;
+  rows.forEach(r => {
+    html += `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;font-size:12px">
+      <span style="color:#ccc">${r.name}</span>
+      <span style="font-family:'Oswald',sans-serif;color:var(--accent);font-weight:700">${r.qty}</span>
+    </div>`;
+  });
+  return html;
+}
+
+function renderAllMenuCount(counts, orders, itemStats) {
   const el = document.getElementById('analytics-menu-count');
   if (!el) return;
   // 替え玉(40)・半替え玉(41) は「替え玉など」セクションへ集約するため、
@@ -4217,6 +4258,8 @@ function renderAllMenuCount(counts, orders) {
   let html = renderMenuCountHTML(counts, sections);
   // 「替え玉など」セクション（無料・ランチタイム無料は除外し、有料のみカウント）
   html += renderKaedamaEtcHTML(calcNoodleOptionCounts(orders || []));
+  // 削除済み商品（期間内に販売実績があるもののみ）を末尾に追加
+  html += renderDeletedItemsHTML(buildDeletedItemsRows(itemStats));
   el.innerHTML = html;
 }
 
