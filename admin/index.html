@@ -4521,6 +4521,7 @@ function exportSoupRankingCSV() {
     s.filtered.forEach(o => {
       (o.items || []).forEach(item => {
         if (!ids.includes(item.itemId)) return;
+        if (groupKey === 'sk' && item.itemId === 99) return; // ゴーストは別枠集計
         const lvl = MOTONARI.extractSpicyLevel(item.opts || []);
         const key = parseInt(String(lvl).replace('辛', ''));
         if (!isNaN(key)) counts[key] = (counts[key] || 0) + (item.qty || 0);
@@ -4533,13 +4534,21 @@ function exportSoupRankingCSV() {
     }
     return counts;
   };
+  // スパイシーキングゴースト(id=99)の杯数（SK系・別枠）
+  const countGhost = () => {
+    let g = 0;
+    s.filtered.forEach(o => (o.items || []).forEach(item => { if (item.itemId === 99) g += (item.qty || 0); }));
+    return g;
+  };
   // ① スパイシーキングシリーズ（辛さ別）
   csv += '"■ スパイシーキングシリーズ（SK・SKSP・SKC 合算）"\n';
   csv += '"辛さ","0辛","1辛","2辛","3辛","4辛","5辛","6辛","7辛","8辛","9辛","10辛","合計"\n';
   const skCounts = countSpicy('sk');
-  const skTotal = Object.values(skCounts).reduce((a,b)=>a+b,0);
+  const skGhost = countGhost();
+  const skTotal = Object.values(skCounts).reduce((a,b)=>a+b,0) + skGhost;
   csv += '"杯数",' + Object.values(skCounts).join(',') + ',' + skTotal + '\n';
   csv += '"割合（シリーズ比）",' + Object.values(skCounts).map(v=>'"'+soupPct(v,skTotal)+'"').join(',') + ',"全体比 ' + soupPct(skTotal, grand) + '"\n';
+  csv += '"👻 スパイシーキングゴースト",' + skGhost + ',"シリーズ比 ' + soupPct(skGhost, skTotal) + '","全体比 ' + soupPct(skGhost, grand) + '"\n';
   csv += '\n';
 
   // ② カレーシリーズ（辛さ別）
@@ -4586,12 +4595,15 @@ function renderSpicyChart(groupKey, filtered, includeBaseline, grandTotal) {
   const counts = {};
   for (let i = 0; i <= 10; i++) counts[i+'辛'] = 0;
   let total = 0;
+  let ghostCount = 0; // スパイシーキングゴースト(id=99)は辛さレベルを持たないため別枠集計（SK系のみ）
   filtered.forEach(o => {
     (o.items||[]).forEach(item => {
       if (!ids.includes(item.itemId)) return;
+      const qty = item.qty || 0;
+      if (groupKey === 'sk' && item.itemId === 99) { ghostCount += qty; total += qty; return; }
       const lvl = MOTONARI.extractSpicyLevel(item.opts || []);
-      counts[lvl] = (counts[lvl] || 0) + (item.qty || 0);
-      total += (item.qty || 0);
+      counts[lvl] = (counts[lvl] || 0) + qty;
+      total += qty;
     });
   });
   // 5月ベースラインを加算
@@ -4623,10 +4635,19 @@ function renderSpicyChart(groupKey, filtered, includeBaseline, grandTotal) {
       <span style="font-size:11px;color:var(--muted);width:48px;text-align:right">${soupPct(v, total)}</span>
     </div>`;
   };
+  // SK系のみ：10辛の下にスパイシーキングゴースト(id=99)を別枠表示
+  const ghostRow = (groupKey === 'sk')
+    ? `<div style="display:flex;align-items:center;gap:10px;padding:8px 0 2px;border-top:1px solid var(--border);margin-top:8px">
+        <span style="flex:0 0 auto;font-size:12px;color:#a78bfa;font-weight:700">👻 スパイシーキングゴースト</span>
+        <div style="flex:1;height:8px;background:var(--surface3);border-radius:4px"><div style="height:100%;background:#a78bfa;border-radius:4px;width:${(ghostCount/max)*100}%"></div></div>
+        <span style="font-family:'Oswald',sans-serif;font-size:14px;color:#a78bfa;width:40px;text-align:right">${ghostCount}</span>
+        <span style="font-size:11px;color:var(--muted);width:48px;text-align:right">${soupPct(ghostCount, total)}</span>
+      </div>`
+    : '';
   chart.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
     <div>${leftLvls.map(renderRow).join('')}</div>
     <div>${rightLvls.map(renderRow).join('')}</div>
-  </div>`;
+  </div>${ghostRow}`;
 }
 
 function renderItemCountChart(groupKey, filtered, includeBaseline, grandTotal) {
@@ -6426,6 +6447,7 @@ function buildSoupRankingPrintHTML() {
     s.filtered.forEach(o => {
       (o.items || []).forEach(item => {
         if (!ids.includes(item.itemId)) return;
+        if (groupKey === 'sk' && item.itemId === 99) return; // ゴーストは別枠集計
         const lvl = MOTONARI.extractSpicyLevel(item.opts || []);
         const key = parseInt(String(lvl).replace('辛', ''));
         if (!isNaN(key)) counts[key] = (counts[key] || 0) + (item.qty || 0);
@@ -6437,6 +6459,12 @@ function buildSoupRankingPrintHTML() {
       });
     }
     return counts;
+  };
+  // スパイシーキングゴースト(id=99)の杯数（SK系・別枠）
+  const countGhost = () => {
+    let g = 0;
+    s.filtered.forEach(o => (o.items || []).forEach(item => { if (item.itemId === 99) g += (item.qty || 0); }));
+    return g;
   };
   // 商品別カウント
   const countItems = (groupKey) => {
@@ -6482,7 +6510,8 @@ function buildSoupRankingPrintHTML() {
 
   // SK 合計・カレー合計
   const skC = countSpicy('sk');
-  const skTotal = Object.values(skC).reduce((a,b)=>a+b,0);
+  const skGhost = countGhost();
+  const skTotal = Object.values(skC).reduce((a,b)=>a+b,0) + skGhost;
   const curryC = countSpicy('curry');
   const curryTotal = Object.values(curryC).reduce((a,b)=>a+b,0);
 
@@ -6506,6 +6535,7 @@ function buildSoupRankingPrintHTML() {
     <div>
       <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ スパイシーキングシリーズ　合計：${skTotal}（全体比 ${soupPct(skTotal, grand)}）</div>
       ${spicyTwoCol(skC, skTotal)}
+      <div style="font-size:11pt;line-height:1.5;margin-top:1.5mm;padding-top:1.5mm;border-top:1px solid #000">👻 スパイシーキングゴースト　${skGhost}（${soupPct(skGhost, skTotal)}）</div>
     </div>
     <div>
       <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ カレーシリーズ　合計：${curryTotal}（全体比 ${soupPct(curryTotal, grand)}）</div>
