@@ -833,7 +833,11 @@ window.adminLogout = adminLogout;
       <div id="shouyu-count-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🥢 つけ麺・定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="tsukemen-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title">🥟 餃子定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="gyoza-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div id="gyoza-count-chart"></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="soup-card-head"><div class="card-title">🥢 つけ麺</div><div class="soup-total"><span class="lbl">合計</span><span><span id="tsukemen-total" class="num">0</span><span class="unit">杯</span></span></div></div>
       <div id="tsukemen-count-chart"></div>
     </div>
   </div>
@@ -4236,6 +4240,7 @@ const SOUP_GROUPS = {
   sk:       { ids: [1, 2, 3, 99], chart: 'sk-spicy-chart',       total: 'sk-total' },
   curry:    { ids: [4, 5, 16],    chart: 'curry-spicy-chart',    total: 'curry-total' },
   shouyu:   { cat: 'shouyu',      chart: 'shouyu-count-chart',   total: 'shouyu-total' },
+  gyoza:    { rows: soupGyozaRows,    chart: 'gyoza-count-chart',    total: 'gyoza-total' },
   tsukemen: { rows: soupTsukemenRows, chart: 'tsukemen-count-chart', total: 'tsukemen-total' }
 };
 
@@ -4275,12 +4280,36 @@ function soupCategoryRows(cat, filtered, includeBaseline) {
     .sort((a, b) => b.count - a.count);
 }
 
-// つけ麺・定食（teishoku カテゴリー）の内訳。
-//   ・商品名に「つけ麺」を含む商品 → ベース商品名で合算（スパイシー/スペシャル/ワイルド/【期間限定】等を除去）
-//   ・それ以外（餃子定食など） → 商品ごとに単独行
+// teishoku カテゴリーの商品名に「つけ麺」を含むか判定
+function isTsukemenName(nm) { return /つけ麺|つけめん|tsukemen/i.test(nm || ''); }
+
+// 餃子定食グループ：teishoku カテゴリーのうち「つけ麺」を含まない商品（餃子定食など）を商品別に集計。
+//   つけ麺とは別カテゴリー扱い（合算しない）。
+function soupGyozaRows(filtered, includeBaseline) {
+  const catMap = buildSoupMenuMap();
+  const byId = {}, label = {};
+  (filtered || []).forEach(o => (o.items || []).forEach(item => {
+    const info = catMap[item.itemId];
+    if (!info || info.cat !== 'teishoku') return;
+    const nm = info.name || item.name || ('#' + item.itemId);
+    if (isTsukemenName(nm)) return;
+    byId[item.itemId] = (byId[item.itemId] || 0) + (item.qty || 0);
+    label[item.itemId] = nm;
+  }));
+  if (includeBaseline && SOUP_BASELINE.items && typeof SOUP_BASELINE.items[70] === 'number') {
+    const info = catMap[70];
+    byId[70] = (byId[70] || 0) + SOUP_BASELINE.items[70];
+    label[70] = (info && info.name) || '餃子定食';
+  }
+  return Object.keys(byId)
+    .map(id => ({ id: parseInt(id, 10), label: label[id], count: byId[id] }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// つけ麺グループ：teishoku カテゴリーのうち商品名に「つけ麺」を含む商品を、
+//   ベース商品名で合算（スパイシー/スペシャル/ワイルド/【期間限定】等を除去）。餃子定食とは別カテゴリー扱い。
 function soupTsukemenRows(filtered, includeBaseline) {
   const catMap = buildSoupMenuMap();
-  const isTsukemen = (nm) => /つけ麺|つけめん|tsukemen/i.test(nm || '');
   const baseName = (nm) => {
     let s = (nm || '').trim();
     s = s.replace(/【[^】]*】/g, '');
@@ -4291,29 +4320,18 @@ function soupTsukemenRows(filtered, includeBaseline) {
     s = s.replace(/[\s　!！]+/g, '').trim();
     return s;
   };
-  const tsukeByBase = {}, otherById = {}, otherLabel = {};
+  const byBase = {};
   (filtered || []).forEach(o => (o.items || []).forEach(item => {
     const info = catMap[item.itemId];
     if (!info || info.cat !== 'teishoku') return;
     const nm = info.name || item.name || ('#' + item.itemId);
-    const q = item.qty || 0;
-    if (isTsukemen(nm)) {
-      const base = baseName(nm) || nm;
-      tsukeByBase[base] = (tsukeByBase[base] || 0) + q;
-    } else {
-      otherById[item.itemId] = (otherById[item.itemId] || 0) + q;
-      otherLabel[item.itemId] = nm;
-    }
+    if (!isTsukemenName(nm)) return;
+    const base = baseName(nm) || nm;
+    byBase[base] = (byBase[base] || 0) + (item.qty || 0);
   }));
-  if (includeBaseline && SOUP_BASELINE.items && typeof SOUP_BASELINE.items[70] === 'number') {
-    const info = catMap[70];
-    otherById[70] = (otherById[70] || 0) + SOUP_BASELINE.items[70];
-    otherLabel[70] = (info && info.name) || '餃子定食';
-  }
-  const rows = [];
-  Object.keys(otherById).forEach(id => rows.push({ id: parseInt(id, 10), label: otherLabel[id], count: otherById[id] }));
-  Object.keys(tsukeByBase).forEach(base => rows.push({ id: 'tsuke:' + base, label: base, count: tsukeByBase[base] }));
-  return rows.sort((a, b) => b.count - a.count);
+  return Object.keys(byBase)
+    .map(base => ({ id: 'tsuke:' + base, label: base, count: byBase[base] }))
+    .sort((a, b) => b.count - a.count);
 }
 
 // グループの商品別カウント行 [{id,label,count}] を返す
@@ -4379,7 +4397,8 @@ function calcSoupGrandTotal(filtered, includeBaseline) {
   }
   // 醤油カテゴリー全体
   total += soupCategoryRows('shouyu', filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
-  // つけ麺・定食（teishoku カテゴリー全体）
+  // 餃子定食（teishoku のうちつけ麺以外）＋ つけ麺（teishoku のうちつけ麺）＝ teishoku カテゴリー全体
+  total += soupGyozaRows(filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
   total += soupTsukemenRows(filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
   return total;
 }
@@ -4410,7 +4429,8 @@ function renderSoupRanking() {
   renderSpicyChart('curry', filtered, includeBaseline);
   // 醤油: カテゴリー全体を商品別カウント
   renderItemCountChart('shouyu', filtered, includeBaseline);
-  // つけ麺・定食: 餃子定食は単独・つけ麺は商品名で合算
+  // 餃子定食・つけ麺: 別カテゴリー扱い（合算しない）
+  renderItemCountChart('gyoza', filtered, includeBaseline);
   renderItemCountChart('tsukemen', filtered, includeBaseline);
 
   // CSV出力用のスナップショット
@@ -4470,7 +4490,8 @@ function exportSoupRankingCSV() {
   // ③ 商品別（醤油カテゴリー全体 ／ つけ麺・定食）
   const itemGroups = [
     { key: 'shouyu',   label: '■ 醤油（カテゴリー全体）' },
-    { key: 'tsukemen', label: '■ つけ麺・定食' }
+    { key: 'gyoza',    label: '■ 餃子定食' },
+    { key: 'tsukemen', label: '■ つけ麺' }
   ];
   itemGroups.forEach(g => {
     const rows = soupGroupRows(g.key, s.filtered, s.includeBaseline);
@@ -6385,8 +6406,9 @@ function buildSoupRankingPrintHTML() {
   const curryC = countSpicy('curry');
   const curryTotal = Object.values(curryC).reduce((a,b)=>a+b,0);
 
-  // 醤油（カテゴリー全体）・つけ麺・定食の合計
+  // 醤油（カテゴリー全体）・餃子定食・つけ麺の合計（餃子定食とつけ麺は別カテゴリー扱い）
   const shouyuTotal = soupGroupRows('shouyu', s.filtered, s.includeBaseline).reduce((a,r)=>a+r.count,0);
+  const gyozaTotal = soupGroupRows('gyoza', s.filtered, s.includeBaseline).reduce((a,r)=>a+r.count,0);
   const tsukemenTotal = soupGroupRows('tsukemen', s.filtered, s.includeBaseline).reduce((a,r)=>a+r.count,0);
 
   // タイトルは1文字ごとに半角スペース
@@ -6415,7 +6437,9 @@ function buildSoupRankingPrintHTML() {
       ${itemList('shouyu')}
     </div>
     <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ つけ麺・定食　合計：${tsukemenTotal}</div>
+      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 餃子定食　合計：${gyozaTotal}</div>
+      ${itemList('gyoza')}
+      <div style="font-size:12pt;font-weight:900;margin:4mm 0 2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ つけ麺　合計：${tsukemenTotal}</div>
       ${itemList('tsukemen')}
     </div>
   </div>
