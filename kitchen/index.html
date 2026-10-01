@@ -3420,13 +3420,8 @@ function renderRamenGroupCard(orderId, grp) {
   const chashuParts = [];
   if (p.curryTopping) {
     // カレー：トッピング（とんかつ/チキンカツ）→ その横にチャーシュー（ブタ/トリ ２枚）
-    if (p.curryTopping === 'とんかつ') {
-      chashuParts.push(`<span class="rg-curry">とんかつ（一枚）</span>`);
-    } else if (p.curryTopping === 'チキンカツ') {
-      chashuParts.push(`<span class="rg-curry">チキンカツ（２枚）</span>`);
-    } else {
-      chashuParts.push(`<span class="rg-curry">${p.curryTopping}</span>`);
-    }
+    // ※枚数表記（一枚/２枚）は不要との要望により商品名のみ表示
+    chashuParts.push(`<span class="rg-curry">${p.curryTopping}</span>`);
     if (p.chashu) {
       chashuParts.push(`<span class="rg-chashu">${p.chashu}２枚</span>`);
     }
@@ -3756,9 +3751,8 @@ function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   }
   const blockC = [];
   if (p.curryTopping) {
-    if (p.curryTopping === 'とんかつ') blockC.push(`<span>とんかつ（一枚）</span>`);
-    else if (p.curryTopping === 'チキンカツ') blockC.push(`<span>チキンカツ（２枚）</span>`);
-    else blockC.push(`<span>${p.curryTopping}</span>`);
+    // 枚数表記（一枚/２枚）は不要との要望により商品名のみ表示
+    blockC.push(`<span>${p.curryTopping}</span>`);
     if (p.chashu) blockC.push(`<span>${p.chashu}２枚</span>`);
   } else if (p.chashu) {
     const cnt = (typeof getChashuCount === 'function') ? getChashuCount(main) : 1;
