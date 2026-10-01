@@ -824,25 +824,31 @@ window.adminLogout = adminLogout;
       .soup-total .lbl{font-size:10px;color:var(--muted);letter-spacing:1px;font-weight:700}
       .soup-total .num{font-family:'Oswald',sans-serif;font-size:30px;color:var(--accent);line-height:1.05}
       .soup-total .unit{font-size:11px;color:var(--muted);margin-left:2px}
+      .soup-total .soup-pct{font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+      .soup-grand{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 16px;margin-bottom:14px;background:rgba(200,134,10,0.12);border:1.5px solid var(--accent);border-radius:12px}
+      .soup-grand .lbl{font-size:12px;color:var(--muted);letter-spacing:1px;font-weight:700}
+      .soup-grand .num{font-family:'Oswald',sans-serif;font-size:28px;color:var(--accent);line-height:1}
+      .soup-grand .unit{font-size:12px;color:var(--muted);margin-left:2px}
     </style>
+    <div class="soup-grand"><span class="lbl">全体ラーメン杯数（各カテゴリー％の基準）</span><span><span id="soup-grand-total" class="num">0</span><span class="unit">杯</span></span></div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title"><span>🌶 スパイシーキングシリーズ（SK・SKSP・SKC 合算）</span></div><div class="soup-total"><span class="lbl">合計</span><span><span id="sk-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title"><span>🌶 スパイシーキングシリーズ（SK・SKSP・SKC 合算）</span></div><div class="soup-total"><span class="lbl">合計</span><span><span id="sk-total" class="num">0</span><span class="unit">杯</span></span><span class="soup-pct" id="sk-pct"></span></div></div>
       <div id="sk-spicy-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title"><span>🍛 カレーシリーズ（カレー・チーズカレー・カレースペシャル 合算）</span></div><div class="soup-total"><span class="lbl">合計</span><span><span id="curry-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title"><span>🍛 カレーシリーズ（カレー・チーズカレー・カレースペシャル 合算）</span></div><div class="soup-total"><span class="lbl">合計</span><span><span id="curry-total" class="num">0</span><span class="unit">杯</span></span><span class="soup-pct" id="curry-pct"></span></div></div>
       <div id="curry-spicy-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🥢 醤油（カテゴリー全体）</div><div class="soup-total"><span class="lbl">合計</span><span><span id="shouyu-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title">🥢 醤油（カテゴリー全体）</div><div class="soup-total"><span class="lbl">合計</span><span><span id="shouyu-total" class="num">0</span><span class="unit">杯</span></span><span class="soup-pct" id="shouyu-pct"></span></div></div>
       <div id="shouyu-count-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🥟 餃子定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="gyoza-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title">🥟 餃子定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="gyoza-total" class="num">0</span><span class="unit">杯</span></span><span class="soup-pct" id="gyoza-pct"></span></div></div>
       <div id="gyoza-count-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🥢 つけ麺</div><div class="soup-total"><span class="lbl">合計</span><span><span id="tsukemen-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title">🥢 つけ麺</div><div class="soup-total"><span class="lbl">合計</span><span><span id="tsukemen-total" class="num">0</span><span class="unit">杯</span></span><span class="soup-pct" id="tsukemen-pct"></span></div></div>
       <div id="tsukemen-count-chart"></div>
     </div>
   </div>
@@ -4241,6 +4247,8 @@ function renderKaedamaEtcHTML(noc) {
 //   構成: 豚骨(SK / カレー｜辛さ別) ／ 醤油(カテゴリー全体・商品別) ／ つけ麺・定食(teishoku｜餃子定食は単独・つけ麺は商品名で合算)
 //   注文には cat が保存されないため、現在のメニュー(getMergedMenu)から itemId→cat を逆引きし、
 //   カテゴリーベースで集計する。これにより商品の追加・入れ替えに自動対応する。
+// 割合(％)フォーマット: 分母0のときは 0.0%
+function soupPct(n, d) { return (d > 0 ? ((n / d) * 100).toFixed(1) : '0.0') + '%'; }
 const SOUP_GROUPS = {
   sk:       { ids: [1, 2, 3, 99], chart: 'sk-spicy-chart',       total: 'sk-total' },
   curry:    { ids: [4, 5, 16],    chart: 'curry-spicy-chart',    total: 'curry-total' },
@@ -4429,17 +4437,21 @@ function renderSoupRanking() {
 
   // 5月ベースライン適用判定（日付範囲が 2026-05-01 を含むとき加算）
   const includeBaseline = (fromD <= SOUP_BASELINE_DATE && toD >= SOUP_BASELINE_DATE);
+  // 全体ラーメン杯数（各カテゴリー合計の％算出に使用）
+  const grandTotal = calcSoupGrandTotal(filtered, includeBaseline);
+  const gtEl = document.getElementById('soup-grand-total');
+  if (gtEl) gtEl.textContent = grandTotal;
   // SK系/カレー系: 辛さ別カウント
-  renderSpicyChart('sk', filtered, includeBaseline);
-  renderSpicyChart('curry', filtered, includeBaseline);
+  renderSpicyChart('sk', filtered, includeBaseline, grandTotal);
+  renderSpicyChart('curry', filtered, includeBaseline, grandTotal);
   // 醤油: カテゴリー全体を商品別カウント
-  renderItemCountChart('shouyu', filtered, includeBaseline);
+  renderItemCountChart('shouyu', filtered, includeBaseline, grandTotal);
   // 餃子定食・つけ麺: 別カテゴリー扱い（合算しない）
-  renderItemCountChart('gyoza', filtered, includeBaseline);
-  renderItemCountChart('tsukemen', filtered, includeBaseline);
+  renderItemCountChart('gyoza', filtered, includeBaseline, grandTotal);
+  renderItemCountChart('tsukemen', filtered, includeBaseline, grandTotal);
 
   // CSV出力用のスナップショット
-  _lastSoupRanking = { fromStr: fromEl.value, toStr: toEl.value, session, filtered, includeBaseline };
+  _lastSoupRanking = { fromStr: fromEl.value, toStr: toEl.value, session, filtered, includeBaseline, grandTotal };
 }
 
 // スープランキングの CSV出力（辛さ別 / 商品別カウント）
@@ -4449,9 +4461,11 @@ function exportSoupRankingCSV() {
   const s = _lastSoupRanking;
   if (!s) { alert('集計データがありません'); return; }
   const sessionLabel = s.session === 'all' ? '合算' : (s.session === 'lunch' ? 'ランチ' : '夜営業');
+  const grand = (typeof s.grandTotal === 'number') ? s.grandTotal : calcSoupGrandTotal(s.filtered, s.includeBaseline);
   let csv = '';
   // ヘッダ
   csv += '"期間","' + s.fromStr + ' 〜 ' + s.toStr + '","セッション","' + sessionLabel + '"\n';
+  csv += '"全体ラーメン杯数","' + grand + '"\n';
   if (s.includeBaseline) csv += '"※ 2026年5月ベースラインを加算"\n';
   csv += '\n';
 
@@ -4482,6 +4496,7 @@ function exportSoupRankingCSV() {
   const skCounts = countSpicy('sk');
   const skTotal = Object.values(skCounts).reduce((a,b)=>a+b,0);
   csv += '"杯数",' + Object.values(skCounts).join(',') + ',' + skTotal + '\n';
+  csv += '"割合（シリーズ比）",' + Object.values(skCounts).map(v=>'"'+soupPct(v,skTotal)+'"').join(',') + ',"全体比 ' + soupPct(skTotal, grand) + '"\n';
   csv += '\n';
 
   // ② カレーシリーズ（辛さ別）
@@ -4490,6 +4505,7 @@ function exportSoupRankingCSV() {
   const curryCounts = countSpicy('curry');
   const curryTotal = Object.values(curryCounts).reduce((a,b)=>a+b,0);
   csv += '"杯数",' + Object.values(curryCounts).join(',') + ',' + curryTotal + '\n';
+  csv += '"割合（シリーズ比）",' + Object.values(curryCounts).map(v=>'"'+soupPct(v,curryTotal)+'"').join(',') + ',"全体比 ' + soupPct(curryTotal, grand) + '"\n';
   csv += '\n';
 
   // ③ 商品別（醤油カテゴリー全体 ／ つけ麺・定食）
@@ -4501,10 +4517,10 @@ function exportSoupRankingCSV() {
   itemGroups.forEach(g => {
     const rows = soupGroupRows(g.key, s.filtered, s.includeBaseline);
     const total = rows.reduce((a,r)=>a+r.count,0);
-    csv += '"' + g.label + '","合計: ' + total + '杯"\n';
-    csv += '"商品ID","商品名","杯数"\n';
+    csv += '"' + g.label + '","合計: ' + total + '杯","全体比: ' + soupPct(total, grand) + '"\n';
+    csv += '"商品ID","商品名","杯数","カテゴリー比","全体比"\n';
     rows.forEach(r => {
-      csv += r.id + ',"' + String(r.label).replace(/"/g, '""') + '",' + r.count + '\n';
+      csv += r.id + ',"' + String(r.label).replace(/"/g, '""') + '",' + r.count + ',"' + soupPct(r.count, total) + '","' + soupPct(r.count, grand) + '"\n';
     });
     csv += '\n';
   });
@@ -4520,7 +4536,7 @@ function exportSoupRankingCSV() {
   showToast('📥 スープランキング CSV出力完了');
 }
 
-function renderSpicyChart(groupKey, filtered, includeBaseline) {
+function renderSpicyChart(groupKey, filtered, includeBaseline, grandTotal) {
   const grp = SOUP_GROUPS[groupKey];
   const ids = grp.ids;
   // 辛さレベル別カウント
@@ -4545,10 +4561,14 @@ function renderSpicyChart(groupKey, filtered, includeBaseline) {
   }
   const totalEl = document.getElementById(grp.total);
   if (totalEl) totalEl.textContent = total;
+  // カテゴリー合計の全体比（％）
+  const pctEl = document.getElementById(grp.total.replace('-total', '-pct'));
+  if (pctEl) pctEl.textContent = (typeof grandTotal === 'number') ? ('全体の ' + soupPct(total, grandTotal)) : '';
   const max = Math.max(1, ...Object.values(counts));
   const chart = document.getElementById(grp.chart);
   if (!chart) return;
   // 2列レイアウト：左 0〜5辛、右 6〜10辛（他の商品別チャートと同じ箇条書き形式）
+  //   各辛さは「杯数」＋「シリーズ全体杯数に対する％」を表示
   const leftLvls  = ['0辛','1辛','2辛','3辛','4辛','5辛'];
   const rightLvls = ['6辛','7辛','8辛','9辛','10辛'];
   const renderRow = (lvl) => {
@@ -4557,6 +4577,7 @@ function renderSpicyChart(groupKey, filtered, includeBaseline) {
       <span style="flex:0 0 38px;font-size:12px;color:${lvl==='0辛'?'var(--muted)':'#fff'};font-weight:700">${lvl}</span>
       <div style="flex:1;height:8px;background:var(--surface3);border-radius:4px"><div style="height:100%;background:var(--accent);border-radius:4px;width:${(v/max)*100}%"></div></div>
       <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);width:40px;text-align:right">${v}</span>
+      <span style="font-size:11px;color:var(--muted);width:48px;text-align:right">${soupPct(v, total)}</span>
     </div>`;
   };
   chart.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -4565,7 +4586,7 @@ function renderSpicyChart(groupKey, filtered, includeBaseline) {
   </div>`;
 }
 
-function renderItemCountChart(groupKey, filtered, includeBaseline) {
+function renderItemCountChart(groupKey, filtered, includeBaseline, grandTotal) {
   const grp = SOUP_GROUPS[groupKey];
   const rows = soupGroupRows(groupKey, filtered, includeBaseline);
   const total = rows.reduce((s,r) => s + r.count, 0);
@@ -4576,12 +4597,17 @@ function renderItemCountChart(groupKey, filtered, includeBaseline) {
   if (grp.total) {
     const totalEl = document.getElementById(grp.total);
     if (totalEl) totalEl.textContent = total;
+    // カテゴリー合計の全体比（％）
+    const pctEl = document.getElementById(grp.total.replace('-total', '-pct'));
+    if (pctEl) pctEl.textContent = (typeof grandTotal === 'number') ? ('全体の ' + soupPct(total, grandTotal)) : '';
   }
+  // 各商品は「杯数」＋「カテゴリー内％」を表示
   chart.innerHTML = rows.map(r => {
     return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="flex:1;font-size:12px">${r.label}</span>
       <div style="width:120px;height:8px;background:var(--surface3);border-radius:4px"><div style="height:100%;background:var(--accent);border-radius:4px;width:${(r.count/max)*100}%"></div></div>
       <span style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--accent);width:40px;text-align:right">${r.count}</span>
+      <span style="font-size:11px;color:var(--muted);width:48px;text-align:right">${soupPct(r.count, total)}</span>
     </div>`;
   }).join('');
 }
@@ -6389,20 +6415,26 @@ function buildSoupRankingPrintHTML() {
     return counts;
   };
 
-  // 辛さ別の2列レイアウト（左:0-5, 右:6-10）
-  const spicyTwoCol = (counts) => {
+  // 全体ラーメン杯数（各カテゴリー％の基準）
+  const grand = (typeof s.grandTotal === 'number') ? s.grandTotal : calcSoupGrandTotal(s.filtered, s.includeBaseline);
+
+  // 辛さ別の2列レイアウト（左:0-5, 右:6-10）｜杯数＋シリーズ内％
+  const spicyTwoCol = (counts, total) => {
+    const cell = (i) => `${i}辛　${counts[i] || 0}（${soupPct(counts[i] || 0, total)}）`;
     const rows = [];
     for (let i = 0; i <= 5; i++) {
-      const right = (i + 6 <= 10) ? `${i + 6}辛　${counts[i + 6] || 0}` : '';
-      rows.push(`<tr><td style="padding:1mm 4mm 1mm 0">${i}辛　${counts[i] || 0}</td><td style="padding:1mm 0 1mm 8mm">${right}</td></tr>`);
+      const right = (i + 6 <= 10) ? cell(i + 6) : '';
+      rows.push(`<tr><td style="padding:1mm 4mm 1mm 0">${cell(i)}</td><td style="padding:1mm 0 1mm 8mm">${right}</td></tr>`);
     }
     return `<table style="border-collapse:collapse;font-size:11pt;font-family:'Noto Sans JP',sans-serif;line-height:1.3"><tbody>${rows.join('')}</tbody></table>`;
   };
 
-  // 商品別の縦並び（最低限の表示）
+  // 商品別の縦並び（杯数＋カテゴリー内％）
   const itemList = (groupKey) => {
-    return soupGroupRows(groupKey, s.filtered, s.includeBaseline).map(r =>
-      `<div style="font-size:11pt;line-height:1.5">${r.label}　${r.count}</div>`).join('');
+    const rows = soupGroupRows(groupKey, s.filtered, s.includeBaseline);
+    const t = rows.reduce((a,r)=>a+r.count,0);
+    return rows.map(r =>
+      `<div style="font-size:11pt;line-height:1.5">${r.label}　${r.count}（${soupPct(r.count, t)}）</div>`).join('');
   };
 
   // SK 合計・カレー合計
@@ -6424,28 +6456,29 @@ function buildSoupRankingPrintHTML() {
 <div style="background:#fff;color:#000;padding:8mm 10mm;font-family:'Noto Sans JP',sans-serif;font-size:11pt;line-height:1.4">
   <div style="font-size:11pt;font-weight:900;letter-spacing:0.5px;text-align:left;margin-bottom:2mm">SPICY KING MOTONARI 嘉手納店</div>
   <div style="font-size:22pt;font-weight:900;letter-spacing:2px;text-align:center;margin-bottom:2mm">${spacedTitle}</div>
-  <div style="font-size:10pt;text-align:center;color:#444;margin-bottom:5mm;border-bottom:1px solid #000;padding-bottom:3mm">${periodText}${s.includeBaseline ? '　※5月ベースライン加算' : ''}</div>
+  <div style="font-size:10pt;text-align:center;color:#444;margin-bottom:3mm;border-bottom:1px solid #000;padding-bottom:3mm">${periodText}${s.includeBaseline ? '　※5月ベースライン加算' : ''}</div>
+  <div style="font-size:11pt;font-weight:900;text-align:center;margin-bottom:5mm">全体ラーメン杯数：${grand}杯　（各カテゴリー％の基準）</div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:4mm">
     <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ スパイシーキングシリーズ　合計：${skTotal}</div>
-      ${spicyTwoCol(skC)}
+      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ スパイシーキングシリーズ　合計：${skTotal}（全体比 ${soupPct(skTotal, grand)}）</div>
+      ${spicyTwoCol(skC, skTotal)}
     </div>
     <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ カレーシリーズ　合計：${curryTotal}</div>
-      ${spicyTwoCol(curryC)}
+      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ カレーシリーズ　合計：${curryTotal}（全体比 ${soupPct(curryTotal, grand)}）</div>
+      ${spicyTwoCol(curryC, curryTotal)}
     </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:4mm">
     <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 醤油（カテゴリー全体）　合計：${shouyuTotal}</div>
+      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 醤油（カテゴリー全体）　合計：${shouyuTotal}（全体比 ${soupPct(shouyuTotal, grand)}）</div>
       ${itemList('shouyu')}
     </div>
     <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 餃子定食　合計：${gyozaTotal}</div>
+      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 餃子定食　合計：${gyozaTotal}（全体比 ${soupPct(gyozaTotal, grand)}）</div>
       ${itemList('gyoza')}
-      <div style="font-size:12pt;font-weight:900;margin:4mm 0 2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ つけ麺　合計：${tsukemenTotal}</div>
+      <div style="font-size:12pt;font-weight:900;margin:4mm 0 2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ つけ麺　合計：${tsukemenTotal}（全体比 ${soupPct(tsukemenTotal, grand)}）</div>
       ${itemList('tsukemen')}
     </div>
   </div>
