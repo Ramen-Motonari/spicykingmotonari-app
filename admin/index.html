@@ -198,6 +198,10 @@ body.print-mode .print-target .stab,
 body.print-mode .print-target #kanritableStatus,
 body.print-mode .print-target #kanritableEmpty,
 body.print-mode .print-target #dinner-save-status{ display:none !important; }
+/* PDF/印刷時のみ左上に店舗名を表示（通常画面では非表示） */
+.pdf-store-header{ display:none; }
+body.pdf-export-mode .print-target .pdf-store-header,
+body.print-mode .print-target .pdf-store-header{ display:block !important; font-size:11pt !important; font-weight:900 !important; color:#000 !important; letter-spacing:0.5px !important; text-align:left !important; margin:0 0 2mm !important; }
 /* 売上分析: KPI カードを大型・横一列5個 */
 body.pdf-export-mode .print-target .an-kpi-grid,
 body.print-mode .print-target .an-kpi-grid{ display:grid !important; grid-template-columns:repeat(5, 1fr) !important; gap:2mm !important; margin-bottom:3mm !important; }
@@ -698,6 +702,7 @@ window.adminLogout = adminLogout;
 
   <!-- Analytics -->
   <div class="page" id="page-analytics">
+    <div class="pdf-store-header">SPICY KING MOTONARI 嘉手納店</div>
     <div class="page-title">売上分析</div>
     <div class="page-sub">期間内の売上・客数・新規/外国人率と前年対比を確認</div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
@@ -6417,6 +6422,7 @@ function buildSoupRankingPrintHTML() {
 
   return `
 <div style="background:#fff;color:#000;padding:8mm 10mm;font-family:'Noto Sans JP',sans-serif;font-size:11pt;line-height:1.4">
+  <div style="font-size:11pt;font-weight:900;letter-spacing:0.5px;text-align:left;margin-bottom:2mm">SPICY KING MOTONARI 嘉手納店</div>
   <div style="font-size:22pt;font-weight:900;letter-spacing:2px;text-align:center;margin-bottom:2mm">${spacedTitle}</div>
   <div style="font-size:10pt;text-align:center;color:#444;margin-bottom:5mm;border-bottom:1px solid #000;padding-bottom:3mm">${periodText}${s.includeBaseline ? '　※5月ベースライン加算' : ''}</div>
 
