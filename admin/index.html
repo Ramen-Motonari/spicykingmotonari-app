@@ -102,6 +102,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .rank-bar-wrap{width:80px;height:6px;background:var(--surface3);border-radius:3px;margin-top:3px}
 .rank-bar-fill{height:100%;border-radius:3px;background:var(--accent)}
 .rank-val{font-family:'Oswald',sans-serif;font-size:13px;color:var(--accent);flex-shrink:0}
+/* カテゴリ別売上：グラフなしのシンプルな一覧。横幅いっぱいに均等配置 */
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.cat-stat{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center}
+.cat-stat.top{border-color:var(--accent)}
+.cat-stat-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cat-stat-val{font-family:'Oswald',sans-serif;font-size:22px;color:var(--accent)}
 .data-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
 .data-table th{text-align:left;padding:8px 6px;font-size:10px;color:#fff;letter-spacing:0;text-transform:uppercase;border-bottom:1px solid var(--border)}
 .data-table td{padding:8px 6px;border-bottom:1px solid var(--border);color:#fff;vertical-align:middle;white-space:normal;word-break:break-all}
@@ -274,15 +280,22 @@ body.pdf-export-mode .print-target#page-analytics .an-kpi-prev,
 body.print-mode .print-target#page-analytics .an-kpi-prev{ font-size:6.5pt !important; margin-top:0.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .rank-row,
 body.print-mode .print-target#page-analytics .rank-row{ padding:1mm 0 !important; }
-/* カテゴリ別売上：さらに小さくして1枚目(KPIの下)に収める */
-body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-row,
-body.print-mode .print-target#page-analytics #cat-ranking .rank-row{ padding:0.4mm 0 !important; gap:6px !important; border-bottom:1px solid #bbb !important; }
-body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-name,
-body.print-mode .print-target#page-analytics #cat-ranking .rank-name{ font-size:8pt !important; }
-body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-val,
-body.print-mode .print-target#page-analytics #cat-ranking .rank-val{ font-size:9pt !important; }
-body.pdf-export-mode .print-target#page-analytics #cat-ranking .rank-num,
-body.print-mode .print-target#page-analytics #cat-ranking .rank-num{ font-size:8pt !important; width:5mm !important; height:5mm !important; line-height:5mm !important; }
+/* カテゴリ別売上：グラフなしのシンプル版。横幅いっぱいに1行で並べ、1枚目(KPIの下)に収める */
+body.pdf-export-mode .print-target .cat-grid,
+body.print-mode .print-target .cat-grid{ display:grid !important; grid-template-columns:repeat(6, 1fr) !important; gap:2mm !important; }
+body.pdf-export-mode .print-target .cat-stat,
+body.print-mode .print-target .cat-stat{ background:#fff !important; border:1.5px solid #000 !important; border-radius:2mm !important; padding:2mm 1mm !important; gap:1mm !important; }
+body.pdf-export-mode .print-target .cat-stat-name,
+body.print-mode .print-target .cat-stat-name{ font-size:9pt !important; color:#000 !important; font-weight:700 !important; }
+body.pdf-export-mode .print-target .cat-stat-val,
+body.print-mode .print-target .cat-stat-val{ font-size:14pt !important; color:#000 !important; font-weight:900 !important; }
+/* page-analytics ではさらに圧縮して KPI と同じ1枚に収める */
+body.pdf-export-mode .print-target#page-analytics .cat-stat,
+body.print-mode .print-target#page-analytics .cat-stat{ padding:1.2mm 1mm !important; }
+body.pdf-export-mode .print-target#page-analytics .cat-stat-name,
+body.print-mode .print-target#page-analytics .cat-stat-name{ font-size:8pt !important; }
+body.pdf-export-mode .print-target#page-analytics .cat-stat-val,
+body.print-mode .print-target#page-analytics .cat-stat-val{ font-size:12pt !important; }
 /* 商品カウント：2枚目の頭から開始（手前で強制改ページ）＋1枚に収まるよう5列・小さめ */
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-card,
 body.print-mode .print-target#page-analytics #analytics-menu-card{ break-before:page !important; page-break-before:always !important; margin-top:0 !important; }
@@ -773,7 +786,7 @@ window.adminLogout = adminLogout;
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">カテゴリ別売上</div>
-      <div class="rank-list" id="cat-ranking"></div>
+      <div class="cat-grid" id="cat-ranking"></div>
     </div>
     <div class="card" id="analytics-menu-card">
       <div class="card-title"><span>全メニュー 販売数カウント</span><span style="font-size:11px;color:var(--muted);font-weight:400">期間内の販売数（注文ゼロ含む全品目）</span></div>
@@ -816,28 +829,12 @@ window.adminLogout = adminLogout;
       <div id="curry-spicy-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title"><span>🦑 イカスミラーメン</span></div><div class="soup-total"><span class="lbl">合計</span><span><span id="ikasumi-total" class="num">0</span><span class="unit">杯</span></span></div></div>
-      <div id="ikasumi-count-chart"></div>
-    </div>
-    <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🥢 醤油ラーメン</div><div class="soup-total"><span class="lbl">合計</span><span><span id="shouyu-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div class="soup-card-head"><div class="card-title">🥢 醤油（カテゴリー全体）</div><div class="soup-total"><span class="lbl">合計</span><span><span id="shouyu-total" class="num">0</span><span class="unit">杯</span></span></div></div>
       <div id="shouyu-count-chart"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🌶 スパイシー醤油</div><div class="soup-total"><span class="lbl">合計</span><span><span id="spicySh-total" class="num">0</span><span class="unit">杯</span></span></div></div>
-      <div id="spicy-shouyu-count-chart"></div>
-    </div>
-    <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🧅 ネギ玉シリーズ</div><div class="soup-total"><span class="lbl">合計</span><span><span id="negitama-total" class="num">0</span><span class="unit">杯</span></span></div></div>
-      <div id="negitama-count-chart"></div>
-    </div>
-    <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🧅🥚 ナガサワくん（Onion &amp; Egg）</div><div class="soup-total"><span class="lbl">合計</span><span><span id="nagasawa-total" class="num">0</span><span class="unit">杯</span></span></div></div>
-      <div id="nagasawa-count-chart"></div>
-    </div>
-    <div class="card" style="margin-bottom:14px">
-      <div class="soup-card-head"><div class="card-title">🥢 つけ麺・定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="gyoza-total" class="num">0</span><span class="unit">杯</span></span></div></div>
-      <div id="gyoza-count-chart"></div>
+      <div class="soup-card-head"><div class="card-title">🥢 つけ麺・定食</div><div class="soup-total"><span class="lbl">合計</span><span><span id="tsukemen-total" class="num">0</span><span class="unit">杯</span></span></div></div>
+      <div id="tsukemen-count-chart"></div>
     </div>
   </div>
 
@@ -4079,14 +4076,11 @@ function renderAnalytics() {
   const catRanked = Object.entries(catSales).filter(([_,v]) => v > 0).sort((a,b) => b[1]-a[1]);
   const catMax = Math.max(1, ...catRanked.map(c => c[1]));
   const catEl = document.getElementById('cat-ranking');
+  // グラフ（バー）なしのシンプルな一覧。横幅いっぱいにカテゴリを並べる（PDFも1枚に収まる）。
   catEl.innerHTML = catRanked.length ? catRanked.map(([cat, v], i) => `
-    <div class="rank-row">
-      <div class="rank-num ${i===0?'top':''}">${i+1}</div>
-      <div class="rank-info">
-        <div class="rank-name">${catLabels[cat]||cat}</div>
-        <div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${(v/catMax)*100}%"></div></div>
-      </div>
-      <div class="rank-val">¥${v.toLocaleString()}</div>
+    <div class="cat-stat${i===0?' top':''}">
+      <div class="cat-stat-name">${catLabels[cat]||cat}</div>
+      <div class="cat-stat-val">¥${v.toLocaleString()}</div>
     </div>`).join('') : '<div style="color:var(--muted);font-size:12px">データなし</div>';
 
   // 商品別カウント（全メニュー表示用に集計）
@@ -4235,73 +4229,100 @@ function renderKaedamaEtcHTML(noc) {
 }
 
 // ────── Soup ranking ──────
-//   イカ墨 (#12) は SKシリーズから分離して単独集計に変更
-//   カレー特別 (#16) はカレーシリーズに統合
+//   構成: 豚骨(SK / カレー｜辛さ別) ／ 醤油(カテゴリー全体・商品別) ／ つけ麺・定食(teishoku｜餃子定食は単独・つけ麺は商品名で合算)
+//   注文には cat が保存されないため、現在のメニュー(getMergedMenu)から itemId→cat を逆引きし、
+//   カテゴリーベースで集計する。これにより商品の追加・入れ替えに自動対応する。
 const SOUP_GROUPS = {
-  sk:        { ids: [1, 2, 3, 99],        chart: 'sk-spicy-chart',           total: 'sk-total' },
-  curry:     { ids: [4, 5, 16],           chart: 'curry-spicy-chart',        total: 'curry-total' },
-  ikasumi:   { ids: [12],                 chart: 'ikasumi-count-chart',      total: 'ikasumi-total' },
-  shouyu:    { ids: [7, 6],               chart: 'shouyu-count-chart',       total: 'shouyu-total' },
-  spicySh:   { ids: [8, 9],               chart: 'spicy-shouyu-count-chart', total: 'spicySh-total' },
-  negitama:  { ids: [10, 11, 13, 14, 15], chart: 'negitama-count-chart',     total: 'negitama-total' },
-  // ナガサワくんシリーズは店舗が管理APPで手動登録したカスタム商品。
-  //   カスタムIDが店舗ごとに不定のため、注文に保存された商品名スナップショットのパターンで分類する。
-  nagasawa:  { rows: countNagasawaRows,     chart: 'nagasawa-count-chart',    total: 'nagasawa-total' },
-  // つけ麺・定食：ぎょうざ定食 / SKつけ麺 / スパイシーつけ麺（明示的な行定義）
-  gyoza:     { rows: countTsukemenTeishokuRows, chart: 'gyoza-count-chart',  total: 'gyoza-total' }
+  sk:       { ids: [1, 2, 3, 99], chart: 'sk-spicy-chart',       total: 'sk-total' },
+  curry:    { ids: [4, 5, 16],    chart: 'curry-spicy-chart',    total: 'curry-total' },
+  shouyu:   { cat: 'shouyu',      chart: 'shouyu-count-chart',   total: 'shouyu-total' },
+  tsukemen: { rows: soupTsukemenRows, chart: 'tsukemen-count-chart', total: 'tsukemen-total' }
 };
 
-// ナガサワくんシリーズの内訳行（カスタム商品）。
-//   商品IDが不定のため、注文アイテムの name（多言語スナップショット）で4種を判定する。
-//   ・ナガサワくん / ナガサワくんスペシャル / ワイルドナガサワくん / ワイルドナガサワくんスペシャル
-function countNagasawaRows(filtered, includeBaseline) {
-  const isNagasawa = (nm) => /ナガサワ|nagasawa|长泽|長澤|나가사와/i.test(nm);
-  const isWild     = (nm) => /ワイルド|wild|狂野|와일드/i.test(nm);
-  const isSpecial  = (nm) => /スペシャル|special|特别|特別|스페셜/i.test(nm);
-  const counts = { plain: 0, special: 0, wild: 0, wildSpecial: 0 };
-  (filtered || []).forEach(o => (o.items || []).forEach(item => {
-    const nm = ((item.name || '') + '');
-    if (!isNagasawa(nm)) return;
-    const q = item.qty || 0;
-    const w = isWild(nm), s = isSpecial(nm);
-    if (w && s) counts.wildSpecial += q;
-    else if (w) counts.wild += q;
-    else if (s) counts.special += q;
-    else counts.plain += q;
-  }));
-  return [
-    { id: 'nagasawa-plain',       label: 'ナガサワくん',                 count: counts.plain },
-    { id: 'nagasawa-special',     label: 'ナガサワくんスペシャル',        count: counts.special },
-    { id: 'nagasawa-wild',        label: 'ワイルドナガサワくん',          count: counts.wild },
-    { id: 'nagasawa-wildSpecial', label: 'ワイルドナガサワくんスペシャル', count: counts.wildSpecial }
-  ];
+// itemId → {cat, name} マップ（getMergedMenu ＝ 商品管理ページと同じ最新メニュー）
+function buildSoupMenuMap() {
+  const map = {};
+  try {
+    getMergedMenu().forEach(m => { map[m.id] = { cat: m.cat, name: (m.name && m.name.ja) || ('#' + m.id) }; });
+  } catch (e) { /* メニュー未ロード時は空 */ }
+  return map;
 }
 
-// つけ麺・定食グループの内訳行（ぎょうざ定食 #70 / SKつけ麺 #10012 / スパイシーつけ麺）
-//   SKつけ麺はこれまでの全注文を集計。スパイシー変更分（isSpicyTsukemen）は別行にカウント。
-function countTsukemenTeishokuRows(filtered, includeBaseline) {
-  let gyoza = 0, sk = 0, skSpicy = 0;
+// 指定カテゴリーに属する商品を期間内の販売数で商品別に集計（商品追加・入れ替えに自動対応）。
+//   [{id,label,count}] を杯数降順で返す。5月ベースライン(SOUP_BASELINE.items)も該当catなら加算。
+function soupCategoryRows(cat, filtered, includeBaseline) {
+  const catMap = buildSoupMenuMap();
+  const counts = {}, labels = {};
   (filtered || []).forEach(o => (o.items || []).forEach(item => {
+    const info = catMap[item.itemId];
+    if (!info || info.cat !== cat) return;
+    const id = item.itemId;
+    counts[id] = (counts[id] || 0) + (item.qty || 0);
+    labels[id] = info.name || item.name || ('#' + id);
+  }));
+  if (includeBaseline && SOUP_BASELINE.items) {
+    Object.entries(SOUP_BASELINE.items).forEach(([idStr, v]) => {
+      const id = parseInt(idStr, 10);
+      const info = catMap[id];
+      if (info && info.cat === cat) {
+        counts[id] = (counts[id] || 0) + v;
+        labels[id] = info.name || labels[id] || ('#' + id);
+      }
+    });
+  }
+  return Object.keys(counts)
+    .map(id => ({ id: parseInt(id, 10), label: labels[id], count: counts[id] }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// つけ麺・定食（teishoku カテゴリー）の内訳。
+//   ・商品名に「つけ麺」を含む商品 → ベース商品名で合算（スパイシー/スペシャル/ワイルド/【期間限定】等を除去）
+//   ・それ以外（餃子定食など） → 商品ごとに単独行
+function soupTsukemenRows(filtered, includeBaseline) {
+  const catMap = buildSoupMenuMap();
+  const isTsukemen = (nm) => /つけ麺|つけめん|tsukemen/i.test(nm || '');
+  const baseName = (nm) => {
+    let s = (nm || '').trim();
+    s = s.replace(/【[^】]*】/g, '');
+    s = s.replace(/（[^）]*）|\([^)]*\)/g, '');
+    s = s.replace(/スパイシー|スパーシー|spicy/gi, '');
+    s = s.replace(/スペシャル|special/gi, '');
+    s = s.replace(/ワイルド|wild/gi, '');
+    s = s.replace(/[\s　!！]+/g, '').trim();
+    return s;
+  };
+  const tsukeByBase = {}, otherById = {}, otherLabel = {};
+  (filtered || []).forEach(o => (o.items || []).forEach(item => {
+    const info = catMap[item.itemId];
+    if (!info || info.cat !== 'teishoku') return;
+    const nm = info.name || item.name || ('#' + item.itemId);
     const q = item.qty || 0;
-    if (item.itemId === 70) gyoza += q;
-    // スパイシーつけ麺（#10012+変更 / #10014）は同一商品として skSpicy に合算
-    else if (isSpicyTsukemen(item)) skSpicy += q;
-    else if (item.itemId === 10012) sk += q;
+    if (isTsukemen(nm)) {
+      const base = baseName(nm) || nm;
+      tsukeByBase[base] = (tsukeByBase[base] || 0) + q;
+    } else {
+      otherById[item.itemId] = (otherById[item.itemId] || 0) + q;
+      otherLabel[item.itemId] = nm;
+    }
   }));
   if (includeBaseline && SOUP_BASELINE.items && typeof SOUP_BASELINE.items[70] === 'number') {
-    gyoza += SOUP_BASELINE.items[70];
+    const info = catMap[70];
+    otherById[70] = (otherById[70] || 0) + SOUP_BASELINE.items[70];
+    otherLabel[70] = (info && info.name) || '餃子定食';
   }
-  return [
-    { id: 70,       label: 'ぎょうざ定食',     count: gyoza },
-    { id: 10012,    label: 'SKつけ麺',        count: sk },
-    { id: '10012s', label: 'スパイシーつけ麺', count: skSpicy }
-  ];
+  const rows = [];
+  Object.keys(otherById).forEach(id => rows.push({ id: parseInt(id, 10), label: otherLabel[id], count: otherById[id] }));
+  Object.keys(tsukeByBase).forEach(base => rows.push({ id: 'tsuke:' + base, label: base, count: tsukeByBase[base] }));
+  return rows.sort((a, b) => b.count - a.count);
 }
 
-// グループの商品別カウント行 [{id,label,count}] を返す（rows関数があれば使用、無ければ ids 集計）
+// グループの商品別カウント行 [{id,label,count}] を返す
+//   rows関数 → 使用 ／ cat指定 → カテゴリー集計 ／ それ以外 → ids 集計（sk/curry）
 function soupGroupRows(groupKey, filtered, includeBaseline) {
   const grp = SOUP_GROUPS[groupKey];
+  if (!grp) return [];
   if (typeof grp.rows === 'function') return grp.rows(filtered, includeBaseline);
+  if (grp.cat) return soupCategoryRows(grp.cat, filtered, includeBaseline);
   const ids = grp.ids || [];
   const counts = {};
   ids.forEach(id => counts[id] = 0);
@@ -4350,20 +4371,16 @@ const ANALYTICS_BASELINE = {
 //   スープランキングページと完全に同じ集計ロジック＋5月ベースライン加算で算出する。
 function calcSoupGrandTotal(filtered, includeBaseline) {
   let total = 0;
-  // 辛さ別グループ（sk / curry）: ベースラインは SOUP_BASELINE[groupKey]
-  ['sk', 'curry'].forEach(groupKey => {
-    const ids = SOUP_GROUPS[groupKey].ids || [];
-    (filtered || []).forEach(o => (o.items || []).forEach(it => {
-      if (ids.includes(it.itemId)) total += (it.qty || 0);
-    }));
-    if (includeBaseline && SOUP_BASELINE[groupKey]) {
-      Object.values(SOUP_BASELINE[groupKey]).forEach(v => total += v);
-    }
-  });
-  // 商品別グループ（ikasumi / shouyu / spicySh / negitama / nagasawa / gyoza・つけ麺定食）
-  ['ikasumi', 'shouyu', 'spicySh', 'negitama', 'nagasawa', 'gyoza'].forEach(groupKey => {
-    total += soupGroupRows(groupKey, filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
-  });
+  // 豚骨（tonkotsu カテゴリー全体＝SK / カレー / イカスミ など）
+  total += soupCategoryRows('tonkotsu', filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
+  // 豚骨の5月ベースラインは SOUP_BASELINE.sk / .curry（辛さ別マップ）
+  if (includeBaseline) {
+    ['sk', 'curry'].forEach(k => { if (SOUP_BASELINE[k]) Object.values(SOUP_BASELINE[k]).forEach(v => total += v); });
+  }
+  // 醤油カテゴリー全体
+  total += soupCategoryRows('shouyu', filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
+  // つけ麺・定食（teishoku カテゴリー全体）
+  total += soupTsukemenRows(filtered, includeBaseline).reduce((a, r) => a + (r.count || 0), 0);
   return total;
 }
 
@@ -4391,14 +4408,10 @@ function renderSoupRanking() {
   // SK系/カレー系: 辛さ別カウント
   renderSpicyChart('sk', filtered, includeBaseline);
   renderSpicyChart('curry', filtered, includeBaseline);
-  // イカ墨: 単独集計
-  renderItemCountChart('ikasumi', filtered, includeBaseline);
-  // 醤油・ネギ玉系: 商品別カウント
+  // 醤油: カテゴリー全体を商品別カウント
   renderItemCountChart('shouyu', filtered, includeBaseline);
-  renderItemCountChart('spicySh', filtered, includeBaseline);
-  renderItemCountChart('negitama', filtered, includeBaseline);
-  renderItemCountChart('nagasawa', filtered, includeBaseline);
-  renderItemCountChart('gyoza', filtered, includeBaseline);
+  // つけ麺・定食: 餃子定食は単独・つけ麺は商品名で合算
+  renderItemCountChart('tsukemen', filtered, includeBaseline);
 
   // CSV出力用のスナップショット
   _lastSoupRanking = { fromStr: fromEl.value, toStr: toEl.value, session, filtered, includeBaseline };
@@ -4454,14 +4467,10 @@ function exportSoupRankingCSV() {
   csv += '"杯数",' + Object.values(curryCounts).join(',') + ',' + curryTotal + '\n';
   csv += '\n';
 
-  // ③ 商品別（イカ墨・醤油・スパイシー醤油・ネギ玉・ナガサワくん・餃子）
+  // ③ 商品別（醤油カテゴリー全体 ／ つけ麺・定食）
   const itemGroups = [
-    { key: 'ikasumi',  label: '■ イカスミラーメン' },
-    { key: 'shouyu',   label: '■ 醤油ラーメン' },
-    { key: 'spicySh',  label: '■ スパイシー醤油' },
-    { key: 'negitama', label: '■ ネギ玉シリーズ' },
-    { key: 'nagasawa', label: '■ ナガサワくん（Onion & Egg）' },
-    { key: 'gyoza',    label: '■ つけ麺・定食' }
+    { key: 'shouyu',   label: '■ 醤油（カテゴリー全体）' },
+    { key: 'tsukemen', label: '■ つけ麺・定食' }
   ];
   itemGroups.forEach(g => {
     const rows = soupGroupRows(g.key, s.filtered, s.includeBaseline);
@@ -6272,7 +6281,7 @@ async function exportElementToPDF(elementId, filename, opts) {
   }
   try {
     await html2pdf().set({
-      margin: [8, 8, 8, 8],
+      margin: (opts && opts.margin) || [8, 8, 8, 8],
       filename,
       image: { type: 'jpeg', quality: 0.92 },
       html2canvas: html2canvasOpts,
@@ -6294,8 +6303,10 @@ function exportAnalyticsPDF() {
   const f = document.getElementById('analyticsDateFrom')?.value || '';
   const t = document.getElementById('analyticsDateTo')?.value || '';
   // 1枚目: KPI＋カテゴリ別売上 / 2枚目以降: 商品カウント（手前で強制改ページ）
+  //   余白を詰めて横幅いっぱいまでデータを出す
   exportElementToPDF('page-analytics', `売上分析_${f}_${t}.pdf`, {
-    pagebreak: { mode: ['css', 'legacy'], before: '#analytics-menu-card' }
+    pagebreak: { mode: ['css', 'legacy'], before: '#analytics-menu-card' },
+    margin: [5, 5, 5, 5]
   });
 }
 // スープランキング印刷用シンプルレイアウト（テキストのみ、装飾なし）
@@ -6374,9 +6385,9 @@ function buildSoupRankingPrintHTML() {
   const curryC = countSpicy('curry');
   const curryTotal = Object.values(curryC).reduce((a,b)=>a+b,0);
 
-  // イカ墨は単独
-  const ikasumiCounts = countItems('ikasumi');
-  const ikasumiTotal = Object.values(ikasumiCounts).reduce((a,b)=>a+b,0);
+  // 醤油（カテゴリー全体）・つけ麺・定食の合計
+  const shouyuTotal = soupGroupRows('shouyu', s.filtered, s.includeBaseline).reduce((a,r)=>a+r.count,0);
+  const tsukemenTotal = soupGroupRows('tsukemen', s.filtered, s.includeBaseline).reduce((a,r)=>a+r.count,0);
 
   // タイトルは1文字ごとに半角スペース
   const spacedTitle = 'ス ー プ ラ ン キ ン グ';
@@ -6400,29 +6411,13 @@ function buildSoupRankingPrintHTML() {
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:4mm">
     <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ イカスミラーメン　合計：${ikasumiTotal}</div>
-      ${itemList('ikasumi')}
-    </div>
-    <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 醤油ラーメン　合計：${Object.values(countItems('shouyu')).reduce((a,b)=>a+b,0)}</div>
+      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ 醤油（カテゴリー全体）　合計：${shouyuTotal}</div>
       ${itemList('shouyu')}
     </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:4mm">
     <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ スパイシー醤油　合計：${Object.values(countItems('spicySh')).reduce((a,b)=>a+b,0)}</div>
-      ${itemList('spicySh')}
+      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ つけ麺・定食　合計：${tsukemenTotal}</div>
+      ${itemList('tsukemen')}
     </div>
-    <div>
-      <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ ネギ玉シリーズ　合計：${Object.values(countItems('negitama')).reduce((a,b)=>a+b,0)}</div>
-      ${itemList('negitama')}
-    </div>
-  </div>
-
-  <div>
-    <div style="font-size:12pt;font-weight:900;margin-bottom:2mm;border-bottom:1px solid #000;padding-bottom:1mm">■ つけ麺・定食　合計：${soupGroupRows('gyoza', s.filtered, s.includeBaseline).reduce((a,r)=>a+r.count,0)}</div>
-    ${itemList('gyoza')}
   </div>
 </div>`;
 }
