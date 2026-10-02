@@ -2269,7 +2269,7 @@ function renderKanritableTable() {
     const centralCells = cols.map((c, i) => {
       const bg = 'rgba(230,126,34,0.20)';
       if (i === 0) {
-        return `<td colspan="${salesIdx}" style="padding:6px;border:1px solid var(--border);background:${bg};text-align:center;color:#e67e22;font-weight:800;font-size:11px">🥩 セントラル（税抜・他店卸し）</td>`;
+        return `<td colspan="${salesIdx}" style="padding:6px;border:1px solid var(--border);background:${bg};text-align:center;color:#e67e22;font-weight:800;font-size:11px">セントラル</td>`;
       }
       if (i > 0 && i < salesIdx) return '';
       if (c.key === 'salesToday') {
@@ -2713,7 +2713,7 @@ function exportKanritableCSV() {
   if (mCentral > 0) {
     csv += cols.map(c => {
       let v = '';
-      if (c.key === 'day') v = 'セントラル(税抜)';
+      if (c.key === 'day') v = 'セントラル';
       else if (c.key === 'salesToday') v = mCentral || '';
       else if (c.key === 'avgSpend') v = mCust > 0 ? Math.round(mSales / mCust) : '';
       return '"' + String(v).replace(/"/g, '""') + '"';
