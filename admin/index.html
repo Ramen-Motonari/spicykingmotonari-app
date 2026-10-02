@@ -2004,21 +2004,23 @@ function loadKanritableData() {
 // 列定義（簡素化版：当日入力 + 自動計算累計・仕入率・人時売上）
 function getKanritableColumns() {
   // width: 画面表示時の最小幅(px)。 pw: PDF/印刷時の列幅(%)。日・曜日・天気は大幅に狭める。
+  // group: ヘッダ上段のカテゴリ名（null=単独列で2段ぶち抜き）, sub: ヘッダ下段の小項目名
+  // label: CSV出力やその他参照用のフル名称（従来互換）
   return [
-    { key: 'day',           label: '日',           auto: true,  width: 30, pw: 3 },
-    { key: 'weekday',       label: '曜日',         auto: true,  width: 30, pw: 3 },
-    { key: 'weather',       label: '天気',         editable: true, type: 'weather', width: 42, pw: 4 },
-    { key: 'salesToday',    label: '本年売上 当日', editable: true, fmt: 'num', width: 100, pw: 10.5 },
-    { key: 'salesCum',      label: '本年売上 累計', computed: true, fmt: 'num', width: 110, pw: 10.5 },
-    { key: 'purchaseToday', label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90, pw: 9 },
-    { key: 'purchaseCum',   label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110, pw: 9 },
-    { key: 'purchaseRate',  label: '仕入率',       computed: true, fmt: 'pct1', width: 64, pw: 6 },
-    { key: 'workHours',     label: '労働時間',     editable: true, fmt: 'num1', width: 80, pw: 5 },
-    { key: 'salesPerHour',  label: '人時売上',     computed: true, fmt: 'yen', width: 64, pw: 6 },
-    { key: 'customers',     label: '客数 当日',    computed: true, fmt: 'num', width: 60, pw: 5 },
-    { key: 'customersCum',  label: '客数 累計',    computed: true, fmt: 'num', width: 68, pw: 5.5 },
-    { key: 'avgSpend',      label: '客単価 当日',  computed: true, fmt: 'yen', width: 72, pw: 6.5 },
-    { key: 'avgSpendCum',   label: '客単価 累計',  computed: true, fmt: 'yen', width: 80, pw: 6.5 }
+    { key: 'day',           group: null,       sub: '日',    label: '日',           auto: true,  width: 30, pw: 3 },
+    { key: 'weekday',       group: null,       sub: '曜',    label: '曜日',         auto: true,  width: 30, pw: 3 },
+    { key: 'weather',       group: null,       sub: '天気',  label: '天気',         editable: true, type: 'weather', width: 42, pw: 4 },
+    { key: 'salesToday',    group: '本年売上', sub: '当日',  label: '本年売上 当日', editable: true, fmt: 'num', width: 100, pw: 10.5 },
+    { key: 'salesCum',      group: '本年売上', sub: '累計',  label: '本年売上 累計', computed: true, fmt: 'num', width: 110, pw: 10.5 },
+    { key: 'purchaseToday', group: '仕入高',   sub: '当日',  label: '仕入れ 当日',   editable: true, fmt: 'num', width: 90, pw: 9 },
+    { key: 'purchaseCum',   group: '仕入高',   sub: '累計',  label: '仕入れ 累計',   computed: true, fmt: 'num', width: 110, pw: 9 },
+    { key: 'purchaseRate',  group: null,       sub: '仕入率', label: '仕入率',       computed: true, fmt: 'pct1', width: 64, pw: 6 },
+    { key: 'workHours',     group: '労働時間', sub: '実績',  label: '労働時間',     editable: true, fmt: 'num1', width: 80, pw: 5 },
+    { key: 'salesPerHour',  group: '人時売上', sub: '実績',  label: '人時売上',     computed: true, fmt: 'yen', width: 64, pw: 6 },
+    { key: 'customers',     group: '客数',     sub: '当日',  label: '客数 当日',    computed: true, fmt: 'num', width: 60, pw: 5 },
+    { key: 'customersCum',  group: '客数',     sub: '累計',  label: '客数 累計',    computed: true, fmt: 'num', width: 68, pw: 5.5 },
+    { key: 'avgSpend',      group: '客単価',   sub: '当日',  label: '客単価 当日',  computed: true, fmt: 'yen', width: 72, pw: 6.5 },
+    { key: 'avgSpendCum',   group: '客単価',   sub: '累計',  label: '客単価 累計',  computed: true, fmt: 'yen', width: 80, pw: 6.5 }
   ];
 }
 
@@ -2055,11 +2057,31 @@ function renderKanritableTable() {
     colgroupEl.innerHTML = cols.map(c => `<col style="width:${c.pw}%">`).join('');
   }
 
-  // ヘッダ
-  headEl.innerHTML = `<tr>${cols.map(c => {
-    const bg = (c.auto || c.computed) ? 'rgba(255,255,255,0.04)' : 'transparent';
-    return `<th style="padding:8px 6px;border:1px solid var(--border);background:${bg};font-size:10px;font-weight:700;white-space:nowrap;min-width:${c.width}px">${c.label}</th>`;
-  }).join('')}</tr>`;
+  // ヘッダ（写真と同様の2段組み：上段にカテゴリ、下段に小項目。単独列は2行ぶち抜き）
+  {
+    let hr1 = '', hr2 = '';
+    for (let i = 0; i < cols.length; i++) {
+      const c = cols[i];
+      const bg = (c.auto || c.computed) ? 'rgba(255,255,255,0.04)' : 'transparent';
+      const base = `border:1px solid var(--border);background:${bg};font-size:10px;font-weight:700;white-space:nowrap`;
+      if (!c.group) {
+        // 単独列：上下2行をぶち抜く
+        hr1 += `<th rowspan="2" style="padding:8px 6px;${base};min-width:${c.width}px">${c.sub}</th>`;
+      } else {
+        // グループ列：連続する同カテゴリをまとめて colspan（上段）＋小項目（下段）
+        let span = 1;
+        while (i + span < cols.length && cols[i + span].group === c.group) span++;
+        hr1 += `<th colspan="${span}" style="padding:6px;${base}">${c.group}</th>`;
+        for (let j = 0; j < span; j++) {
+          const cc = cols[i + j];
+          const bg2 = (cc.auto || cc.computed) ? 'rgba(255,255,255,0.04)' : 'transparent';
+          hr2 += `<th style="padding:6px;border:1px solid var(--border);background:${bg2};font-size:10px;font-weight:700;white-space:nowrap;min-width:${cc.width}px">${cc.sub}</th>`;
+        }
+        i += span - 1;
+      }
+    }
+    headEl.innerHTML = `<tr>${hr1}</tr><tr>${hr2}</tr>`;
+  }
 
   // 客数（APP注文ベース）を日付キーごとに事前集計（デイリー表は全営業＝終日合算）
   const monthStr = `${y}-${String(m).padStart(2,'0')}`;
