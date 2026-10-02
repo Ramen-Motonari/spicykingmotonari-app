@@ -280,6 +280,11 @@ body.pdf-export-mode .print-target#page-analytics .an-kpi-label,
 body.print-mode .print-target#page-analytics .an-kpi-label{ font-size:8pt !important; margin-bottom:0.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .an-kpi-value,
 body.print-mode .print-target#page-analytics .an-kpi-value{ font-size:16pt !important; }
+/* 売上合計カードの2分割（ウーバー込み/店舗のみ）は印刷時に縦積み＆縮小して収める */
+body.pdf-export-mode .print-target#page-analytics .an-sales-split,
+body.print-mode .print-target#page-analytics .an-sales-split{ display:block !important; }
+body.pdf-export-mode .print-target#page-analytics .an-sales-split .an-kpi-value,
+body.print-mode .print-target#page-analytics .an-sales-split .an-kpi-value{ font-size:11pt !important; }
 body.pdf-export-mode .print-target#page-analytics .an-kpi-prev,
 body.print-mode .print-target#page-analytics .an-kpi-prev{ font-size:6.5pt !important; margin-top:0.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .rank-row,
@@ -731,8 +736,17 @@ window.adminLogout = adminLogout;
     <div class="an-kpi-grid">
       <div class="an-kpi-card">
         <div class="an-kpi-label">売上合計（税抜）</div>
-        <div class="an-kpi-value" style="color:var(--accent)" id="an-sales">¥0</div>
-        <div class="an-kpi-prev">前年: <span id="an-sales-prev">—</span> <span class="diff" id="an-sales-diff"></span></div>
+        <div class="an-sales-split" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:88px">
+            <div style="font-size:9px;color:var(--muted);font-weight:700;margin-bottom:2px">🛵 ウーバー込み累計</div>
+            <div class="an-kpi-value" style="color:var(--accent)" id="an-sales">¥0</div>
+          </div>
+          <div style="flex:1;min-width:88px">
+            <div style="font-size:9px;color:var(--muted);font-weight:700;margin-bottom:2px">🏪 店舗のみ売上</div>
+            <div class="an-kpi-value" style="color:var(--blue)" id="an-sales-store">¥0</div>
+          </div>
+        </div>
+        <div class="an-kpi-prev">前年: <span id="an-sales-prev">—</span> <span class="diff" id="an-sales-diff"></span> <span style="color:var(--muted)">※前年比は店舗のみ基準</span></div>
       </div>
       <div class="an-kpi-card">
         <div class="an-kpi-label">セントラル売上（税抜）</div>
@@ -4128,8 +4142,12 @@ function renderAnalytics() {
     const es = document.getElementById('an-uber-sales'); if (es) es.textContent = '¥' + uberSales.toLocaleString(); }
   // その他売上（臨時・税込）を税抜換算 ÷1.10 で売上合計（税抜）に合算
   const otherNoTax = Math.round(otherSalesTaxIncl / 1.10);
-  const salesWithOther = totalSalesNoTax + otherNoTax;
-  { const se = document.getElementById('an-sales'); if (se) se.textContent = '¥' + salesWithOther.toLocaleString(); }
+  const salesWithOther = totalSalesNoTax + otherNoTax;          // 店舗のみ（Uber除く）
+  const uberNoTax = Math.round(uberSales / 1.08);               // Uber（税抜・軽減税率8%）
+  const salesWithUber = salesWithOther + uberNoTax;             // ウーバー込み累計
+  // 左＝ウーバー込み累計、右＝店舗のみ
+  { const se = document.getElementById('an-sales'); if (se) se.textContent = '¥' + salesWithUber.toLocaleString(); }
+  { const ss = document.getElementById('an-sales-store'); if (ss) ss.textContent = '¥' + salesWithOther.toLocaleString(); }
   // セントラル売上（税抜）は店舗売上とは別項目として表示
   { const ce = document.getElementById('an-central'); if (ce) ce.textContent = '¥' + centralSalesNoTax.toLocaleString(); }
   // 前年対比の表示
