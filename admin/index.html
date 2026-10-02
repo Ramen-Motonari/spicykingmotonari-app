@@ -2209,6 +2209,7 @@ function renderKanritableTable() {
   //   値は「本年売上 当日」列の位置に揃える（その他売上と同様）。
   if (mCentral > 0) {
     const salesIdx = cols.findIndex(c => c.key === 'salesToday');
+    const mStoreAvgC = mCust > 0 ? Math.round(mSales / mCust) : 0; // 店舗のみの客単価（セントラル行にそのまま表示）
     const centralCells = cols.map((c, i) => {
       const bg = 'rgba(230,126,34,0.20)';
       if (i === 0) {
@@ -2217,6 +2218,9 @@ function renderKanritableTable() {
       if (i > 0 && i < salesIdx) return '';
       if (c.key === 'salesToday') {
         return `<td style="padding:6px;border:1px solid var(--border);background:${bg};text-align:right;color:#e67e22;font-family:'Oswald',sans-serif;font-weight:800">${_fmt(mCentral, 'num')}</td>`;
+      }
+      if (c.key === 'avgSpend') {
+        return `<td style="padding:6px;border:1px solid var(--border);background:${bg};text-align:right;color:#e67e22;font-family:'Oswald',sans-serif;font-weight:800">${mCust > 0 ? _fmt(mStoreAvgC, 'yen') : ''}</td>`;
       }
       return `<td style="padding:6px;border:1px solid var(--border);background:${bg}"></td>`;
     }).join('');
@@ -2620,6 +2624,7 @@ function exportKanritableCSV() {
       let v = '';
       if (c.key === 'day') v = 'セントラル(税抜)';
       else if (c.key === 'salesToday') v = mCentral || '';
+      else if (c.key === 'avgSpend') v = mCust > 0 ? Math.round(mSales / mCust) : '';
       return '"' + String(v).replace(/"/g, '""') + '"';
     }).join(',') + '\n';
   }
