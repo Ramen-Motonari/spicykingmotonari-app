@@ -2085,15 +2085,15 @@ function renderKanritableTable() {
   // 週小計行を描画するヘルパー（仕入率・人時売上はセントラル込みの売上で計算）
   //   客単価は店舗売上（セントラル除く）÷客数。
   const buildWeekSubtotal = (weekNum, sumSales, sumCentral, sumPurch, sumHours, sumCust) => {
-    const combined = sumSales + sumCentral; // 店舗売上＋セントラル（税抜）
-    const purchRate = combined > 0 ? Math.round((sumPurch / combined) * 1000) / 10 : 0;
-    const sph = sumHours > 0 ? Math.round(combined / sumHours) : 0;
+    // 週小計も店舗売上のみで計算（セントラルは下部のセントラル行と月合計のみで加算）
+    const purchRate = sumSales > 0 ? Math.round((sumPurch / sumSales) * 1000) / 10 : 0;
+    const sph = sumHours > 0 ? Math.round(sumSales / sumHours) : 0;
     const avg = sumCust > 0 ? Math.round(sumSales / sumCust) : 0;
     const cells = cols.map(c => {
       let val = '';
       if (c.key === 'day')          val = `週${weekNum}`;
       else if (c.key === 'weekday') val = '小計';
-      else if (c.key === 'salesToday')    val = combined || '';
+      else if (c.key === 'salesToday')    val = sumSales || '';
       else if (c.key === 'purchaseToday') val = sumPurch || '';
       else if (c.key === 'purchaseRate')  val = (sumPurch > 0) ? purchRate : '';
       else if (c.key === 'workHours')     val = sumHours || '';
@@ -2114,11 +2114,13 @@ function renderKanritableTable() {
     const centralSales = Number(data.centralSales || 0);
     const purchaseToday = Number(data.purchaseToday || 0);
     const workHours = Number(data.workHours || 0);
-    const daySales = salesToday + centralSales; // 店舗売上＋セントラル（税抜）。デイリー表の計算はセントラル込み
+    // デイリー各日の行は「店舗売上のみ」で計算する（本年売上 当日/累計・仕入率・人時売上）。
+    // セントラル（他店卸し）は日々の累計には混ぜず、下部のセントラル行と月合計でのみ加算する。
+    // → これにより「本年売上 累計」が「本年売上 当日」の単純な積み上げと一致する。
     // 客数（APP注文ベース・終日合算）
     const dayCust = countCustomersFromOrders(ordersByDay[dKey] || []);
 
-    cumSales += daySales;
+    cumSales += salesToday;
     cumPurch += purchaseToday;
     cumStoreSales += salesToday; // 客単価累計は店舗売上ベース（セントラル除く）
     cumCust += dayCust;
@@ -2128,7 +2130,7 @@ function renderKanritableTable() {
       if (oa > 0) { mOtherTax += oa; if (data.otherSalesName) mOtherNames.add(String(data.otherSalesName)); } }
 
     const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : 0;
-    const salesPerHour = workHours > 0 ? Math.round(daySales / workHours) : 0;
+    const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : 0;
     // 客単価＝店舗売上（セントラル除く）÷客数
     const dayAvg = dayCust > 0 ? Math.round(salesToday / dayCust) : 0;
     const cumAvg = cumCust > 0 ? Math.round(cumStoreSales / cumCust) : 0;
@@ -2572,16 +2574,16 @@ function exportKanritableCSV() {
     const centralSales = Number(data.centralSales || 0);
     const purchaseToday = Number(data.purchaseToday || 0);
     const workHours = Number(data.workHours || 0);
-    const daySales = salesToday + centralSales; // セントラル込み
+    // デイリー各日の行は店舗売上のみで計算（セントラルは下部の行と月合計のみで加算）
     const dayCust = countCustomersFromOrders(ordersByDay[dKey] || []);
-    cumSales += daySales;
+    cumSales += salesToday;
     cumPurch += purchaseToday;
     cumStoreSales += salesToday; cumCust += dayCust;
     wSales += salesToday; wCentral += centralSales; wPurch += purchaseToday; wHours += workHours; wCust += dayCust;
     mSales += salesToday; mCentral += centralSales; mPurch += purchaseToday; mHours += workHours; mCust += dayCust;
     mOtherTax += Number(data.otherSalesAmount || 0);
     const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : '';
-    const salesPerHour = workHours > 0 ? Math.round(daySales / workHours) : '';
+    const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : '';
     const dayAvg = dayCust > 0 ? Math.round(salesToday / dayCust) : '';
     const cumAvg = cumCust > 0 ? Math.round(cumStoreSales / cumCust) : '';
     const computed = {
@@ -2604,7 +2606,7 @@ function exportKanritableCSV() {
     csv += row + '\n';
     if (d % 7 === 0 || d === lastDay) {
       weekIdx++;
-      csv += buildSubtotal(`週${weekIdx}`, '小計', wSales, wCentral, wPurch, wHours, wCust);
+      csv += buildSubtotal(`週${weekIdx}`, '小計', wSales, 0, wPurch, wHours, wCust);
       wSales = 0; wCentral = 0; wPurch = 0; wHours = 0; wCust = 0;
     }
   }
