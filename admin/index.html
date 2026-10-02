@@ -869,7 +869,7 @@ window.adminLogout = adminLogout;
 
   <!-- 管理表ページ -->
   <div class="page" id="page-kanritable">
-    <div class="page-title">📋 デイリー</div>
+    <div class="page-title" id="kanritableTitle">📋 デイリー</div>
     <div class="page-sub kt-noprint">夜の日報で保存した数値の閲覧・修正・CSV出力</div>
     <div class="kt-noprint" style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
       <label style="font-size:13px;color:var(--muted)">対象月：</label>
@@ -2046,6 +2046,8 @@ function renderKanritableTable() {
   const [y, m] = monthEl.value.split('-').map(Number);
   const lastDay = new Date(y, m, 0).getDate();
   const cols = getKanritableColumns();
+  // 表タイトルを「嘉手納　○月　デイリー」に更新
+  { const titleEl = document.getElementById('kanritableTitle'); if (titleEl) titleEl.textContent = `嘉手納　${m}月　デイリー`; }
 
   // 列幅（%）を colgroup で固定 → table-layout:fixed（PDF/印刷時）で枠内に必ず収める
   const colgroupEl = document.getElementById('kanritableColgroup');
