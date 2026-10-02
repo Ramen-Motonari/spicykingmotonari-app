@@ -3382,12 +3382,12 @@ function renderRamenGroupCard(orderId, grp) {
   const tsukeRiceSpan = p.tsukeRice
     ? `<span class="rg-natto" style="font-weight:900"> / ${p.tsukeRice}</span>`
     : '';
-  const isEbiKing = (main.itemId === 10041 || main.itemId === 10042);
+  const isEbiKing = (main.itemId === 10041 || main.itemId === 10042 || main.itemId === 10050);
   const tsukemenHtml = (!isEbiKing && (p.tsukemenSize || p.natto || p.tsukeRice))
     ? `<div class="rg-sec rg-sec-noodle"><span class="rg-qty">${p.tsukemenSize}${nattoSpan}${tsukeRiceSpan}</span></div>`
     : '';
 
-  // ━━━ エビキング系（id 10041 / 10042）の専用表示 ━━━
+  // ━━━ エビキング系（id 10041 / 10042 / 10050スペシャル）の専用表示 ━━━
   //   ① あつ盛り変更（選択時のみ・赤文字）
   //   ── 区切り線 ──
   //   ② 麺の量（小140g=青文字 / 並180g=通常 / 大240g=赤文字）
