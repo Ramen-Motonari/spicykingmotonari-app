@@ -269,8 +269,9 @@ body.pdf-export-mode .print-target#page-analytics .card-title,
 body.print-mode .print-target#page-analytics .card-title{ padding-bottom:1mm !important; margin-bottom:1.2mm !important; }
 body.pdf-export-mode .print-target#page-analytics .page-title,
 body.print-mode .print-target#page-analytics .page-title{ font-size:15pt !important; padding:0 0 1mm !important; margin:0 0 1mm !important; }
+/* 売上分析：PDF/印刷ではタイトル下の説明文（期間内の売上〜）を非表示にする */
 body.pdf-export-mode .print-target#page-analytics .page-sub,
-body.print-mode .print-target#page-analytics .page-sub{ margin-bottom:1.5mm !important; }
+body.print-mode .print-target#page-analytics .page-sub{ display:none !important; }
 /* KPIは6列にして1段に収める（6枚グリッドが2段→1段に）＋カード/文字を小さめに→1枚目に確実に収める */
 body.pdf-export-mode .print-target#page-analytics .an-kpi-grid,
 body.print-mode .print-target#page-analytics .an-kpi-grid{ grid-template-columns:repeat(6, 1fr) !important; gap:1.2mm !important; margin-bottom:1.5mm !important; }
@@ -289,6 +290,9 @@ body.pdf-export-mode .print-target#page-analytics .an-kpi-prev,
 body.print-mode .print-target#page-analytics .an-kpi-prev{ font-size:6.5pt !important; margin-top:0.5mm !important; }
 body.pdf-export-mode .print-target#page-analytics .rank-row,
 body.print-mode .print-target#page-analytics .rank-row{ padding:1mm 0 !important; }
+/* 売上分析(KPI)とカテゴリ別売上の間に適度な余白を入れる */
+body.pdf-export-mode .print-target#page-analytics #analytics-category-card,
+body.print-mode .print-target#page-analytics #analytics-category-card{ margin-top:6mm !important; }
 /* カテゴリ別売上：グラフなしのシンプル版。横幅いっぱいに1行で並べ、1枚目(KPIの下)に収める */
 body.pdf-export-mode .print-target .cat-grid,
 body.print-mode .print-target .cat-grid{ display:grid !important; grid-template-columns:repeat(6, 1fr) !important; gap:2mm !important; }
@@ -803,7 +807,7 @@ window.adminLogout = adminLogout;
         <div class="an-kpi-prev">件数 <span id="an-uber-count">0</span> 件</div>
       </div>
     </div>
-    <div class="card" style="margin-bottom:16px">
+    <div class="card" id="analytics-category-card" style="margin-bottom:16px">
       <div class="card-title">カテゴリ別売上</div>
       <div class="cat-grid" id="cat-ranking"></div>
     </div>
