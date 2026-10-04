@@ -269,6 +269,11 @@ body.pdf-export-mode .print-target#page-analytics .card-title,
 body.print-mode .print-target#page-analytics .card-title{ padding-bottom:1mm !important; margin-bottom:1.2mm !important; }
 body.pdf-export-mode .print-target#page-analytics .page-title,
 body.print-mode .print-target#page-analytics .page-title{ font-size:15pt !important; padding:0 0 1mm !important; margin:0 0 1mm !important; }
+/* PDF/印刷時は売上分析・商品別カウントの文字色をすべて黒に（KPI値等のインライン色も上書き） */
+body.pdf-export-mode .print-target#page-analytics,
+body.print-mode .print-target#page-analytics,
+body.pdf-export-mode .print-target#page-analytics *,
+body.print-mode .print-target#page-analytics *{ color:#000 !important; }
 /* 売上分析：PDF/印刷ではタイトル下の説明文（期間内の売上〜）を非表示にする */
 body.pdf-export-mode .print-target#page-analytics .page-sub,
 body.print-mode .print-target#page-analytics .page-sub{ display:none !important; }
@@ -313,11 +318,14 @@ body.print-mode .print-target#page-analytics .cat-stat-val{ font-size:12pt !impo
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-card,
 body.print-mode .print-target#page-analytics #analytics-menu-card{ break-before:page !important; page-break-before:always !important; margin-top:0 !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count,
-body.print-mode .print-target#page-analytics #analytics-menu-count{ column-count:5 !important; column-gap:3mm !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count{ column-count:5 !important; column-gap:3mm !important; width:100% !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div,
-body.print-mode .print-target#page-analytics #analytics-menu-count > div{ font-size:7.5pt !important; padding:0.2mm 1.2mm !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count > div{ font-size:11pt !important; padding:0.5mm 1.5mm !important; }
+/* 商品名：フォント大きめ＋黒（インラインの薄いグレーを上書き） */
+body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div span:first-child,
+body.print-mode .print-target#page-analytics #analytics-menu-count > div span:first-child{ font-size:11pt !important; color:#000 !important; font-weight:700 !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div span:last-child,
-body.print-mode .print-target#page-analytics #analytics-menu-count > div span:last-child{ font-size:9pt !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count > div span:last-child{ font-size:12pt !important; color:#000 !important; font-weight:900 !important; }
 /* 管理表：A4横1枚に収める（表のみ・余白詰め） */
 /* 表以外（操作UI・説明文・サブ見出し・プレースホルダ）はPDF/印刷で非表示 */
 body.pdf-export-mode .print-target .kt-noprint,
@@ -712,7 +720,7 @@ window.adminLogout = adminLogout;
   <!-- Analytics -->
   <div class="page" id="page-analytics">
     <div class="pdf-store-header">SPICY KING MOTONARI 嘉手納店</div>
-    <div class="page-title">売上分析</div>
+    <div class="page-title" id="analyticsTitle">売上分析</div>
     <div class="page-sub">期間内の売上・客数・新規/外国人率と前年対比を確認</div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
       <div class="session-tabs" style="margin:0">
@@ -819,7 +827,7 @@ window.adminLogout = adminLogout;
 
   <!-- Soup Ranking -->
   <div class="page" id="page-soup">
-    <div class="page-title">スープランキング</div>
+    <div class="page-title" id="soupTitle">スープランキング</div>
     <div class="page-sub">辛さ別・シリーズ別の杯数を期間で確認</div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
       <div class="session-tabs" style="margin:0">
@@ -827,9 +835,10 @@ window.adminLogout = adminLogout;
         <button class="stab" onclick="switchSoupSession(this,'lunch')">ランチ</button>
         <button class="stab" onclick="switchSoupSession(this,'dinner')">夜営業</button>
       </div>
-      <input type="date" id="soupDateFrom" class="form-input" style="width:130px">
+      <select id="soupMonthPreset" class="form-input" style="width:130px;font-weight:700" onchange="applySoupMonth()"></select>
+      <input type="date" id="soupDateFrom" class="form-input" style="width:130px" onchange="onSoupDateManual()">
       <span style="color:var(--muted);font-size:13px">〜</span>
-      <input type="date" id="soupDateTo" class="form-input" style="width:130px">
+      <input type="date" id="soupDateTo" class="form-input" style="width:130px" onchange="onSoupDateManual()">
       <button onclick="renderSoupRanking()" style="padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">検索</button>
       <button onclick="exportSoupRankingCSV()" style="padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 CSV</button>
       <button onclick="exportSoupRankingPDF()" style="padding:8px 16px;border-radius:10px;background:var(--accent2);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📄 PDF</button>
@@ -4126,6 +4135,8 @@ function renderAnalytics() {
   populateAnalyticsMonthSelects();
   const session = currentSession['analytics-chart'] || 'all';
   const range = getAnalyticsRange();
+  // タイトルを「嘉手納　○月　売上分析」に更新（○月＝期間の開始月）
+  { const _t = document.getElementById('analyticsTitle'); if (_t) _t.textContent = `嘉手納　${range.start.getMonth() + 1}月　売上分析`; }
   const filtered = paidOrders.filter(o => session === 'all' || getSession(o) === session);
   // セントラル・その他売上・前年対比は日次レポート依存。分析期間全体の dailyReports を
   // Firestore から取得してキャッシュに載せてから集計する（未取得の間は購読中の月で暫定表示）。
@@ -4662,7 +4673,40 @@ function calcSoupGrandTotal(filtered, includeBaseline) {
   return total;
 }
 
+// 期間（月）セレクター：売上分析と同じ仕様
+function populateSoupMonthSelect() {
+  const sel = document.getElementById('soupMonthPreset');
+  if (!sel || sel.options.length) return;
+  const now = new Date();
+  let html = `<option value="">期間指定</option>`;
+  for (let i = 0; i < 18; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    html += `<option value="${y}-${String(m).padStart(2,'0')}">${y}年${m}月</option>`;
+  }
+  sel.innerHTML = html;
+}
+function applySoupMonth() {
+  const sel = document.getElementById('soupMonthPreset');
+  if (!sel) return;
+  const v = sel.value;
+  if (!v) { renderSoupRanking(); return; }
+  const [y, m] = v.split('-').map(Number);
+  if (!y || !m) return;
+  const fromEl = document.getElementById('soupDateFrom');
+  const toEl = document.getElementById('soupDateTo');
+  if (fromEl) fromEl.value = dateKey(new Date(y, m - 1, 1));
+  if (toEl)   toEl.value   = dateKey(new Date(y, m, 0));
+  renderSoupRanking();
+}
+function onSoupDateManual() {
+  const sel = document.getElementById('soupMonthPreset');
+  if (sel) sel.value = '';
+  renderSoupRanking();
+}
 function renderSoupRanking() {
+  populateSoupMonthSelect();
   const fromEl = document.getElementById('soupDateFrom');
   const toEl = document.getElementById('soupDateTo');
   if (!fromEl.value || !toEl.value) {
@@ -4673,6 +4717,8 @@ function renderSoupRanking() {
   }
   const fromD = new Date(fromEl.value + 'T00:00:00');
   const toD = new Date(toEl.value + 'T23:59:59');
+  // タイトルを「嘉手納　○月　スープランキング」に更新（○月＝期間の開始月）
+  { const _t = document.getElementById('soupTitle'); if (_t) _t.textContent = `嘉手納　${fromD.getMonth() + 1}月　スープランキング`; }
   const session = currentSoupSession;
   const filtered = paidOrders.filter(o => {
     const d = getOrderTimestamp(o); if (!d) return false;
@@ -6625,7 +6671,7 @@ function exportAnalyticsPDF() {
   //   余白を詰めて横幅いっぱいまでデータを出す
   exportElementToPDF('page-analytics', `売上分析_${f}_${t}.pdf`, {
     pagebreak: { mode: ['css', 'legacy'], before: '#analytics-menu-card' },
-    margin: [5, 5, 5, 5]
+    margin: [2, 2, 2, 2]
   });
 }
 // スープランキング印刷用シンプルレイアウト（テキストのみ、装飾なし）
@@ -6839,6 +6885,8 @@ window.closeSubCatEdit = closeSubCatEdit;
 window.saveSubCatEdit = saveSubCatEdit;
 window.translateSubCatName = translateSubCatName;
 window.renderSoupRanking = renderSoupRanking;
+window.applySoupMonth = applySoupMonth;
+window.onSoupDateManual = onSoupDateManual;
 
 // ────── Bootstrap ──────
 function bootstrap() {
