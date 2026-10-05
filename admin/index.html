@@ -2409,8 +2409,20 @@ function loadUberFieldsFromSaved(dateKey, force) {
 }
 
 // 夜の日報の日付が変更されたときのハンドラ：保存済みUber値を復元してから再計算
-function onDinnerDateChange() {
+async function onDinnerDateChange() {
   const dateKey = document.getElementById('dinner-save-date')?.value || '';
+  // 購読中の月以外の日付（＝手元のキャッシュに無い）は、その日のドキュメントだけ
+  // 単発取得してキャッシュに載せてから復元する（自動読み込み）
+  if (dateKey && (typeof _dailyReports !== 'object' || !_dailyReports || !_dailyReports[dateKey])) {
+    try {
+      const { doc, getDoc } = window.fbApi;
+      const snap = await getDoc(doc(window.fb.db, 'dailyReports', dateKey));
+      if (snap && snap.exists()) {
+        if (typeof _dailyReports !== 'object' || !_dailyReports) _dailyReports = {};
+        _dailyReports[dateKey] = { docId: snap.id, ...snap.data() };
+      }
+    } catch (e) { console.error('dinner date load:', e); }
+  }
   loadUberFieldsFromSaved(dateKey, true); // 日付切替は上書き復元
   recalcDinnerManuals();
 }
