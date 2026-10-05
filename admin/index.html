@@ -2409,23 +2409,33 @@ function loadUberFieldsFromSaved(dateKey, force) {
   apply('dinner-central-sales', 'centralSales');
 }
 
-// 夜の日報の日付が変更されたときのハンドラ：保存済みUber値を復元してから再計算
+// 夜の日報の日付が変更されたときのハンドラ：保存済みデータを復元してから再計算
 async function onDinnerDateChange() {
   const dateKey = document.getElementById('dinner-save-date')?.value || '';
-  // 購読中の月以外の日付（＝手元のキャッシュに無い）は、その日のドキュメントだけ
-  // 単発取得してキャッシュに載せてから復元する（自動読み込み）
-  if (dateKey && (typeof _dailyReports !== 'object' || !_dailyReports || !_dailyReports[dateKey])) {
-    try {
-      const { doc, getDoc } = window.fbApi;
-      const snap = await getDoc(doc(window.fb.db, 'dailyReports', dateKey));
-      if (snap && snap.exists()) {
-        if (typeof _dailyReports !== 'object' || !_dailyReports) _dailyReports = {};
-        _dailyReports[dateKey] = { docId: snap.id, ...snap.data() };
-      }
-    } catch (e) { console.error('dinner date load:', e); }
+  const statusEl = document.getElementById('dinner-save-status');
+  const setStatus = (msg, color) => { if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color || 'var(--muted)'; } };
+  if (!dateKey) { setStatus('日付を選択してください', '#c0392b'); return; }
+  setStatus('読み込み中…');
+  // 選択した日付のドキュメントを単発取得してキャッシュに載せてから復元する
+  let found = false;
+  try {
+    const { doc, getDoc } = window.fbApi;
+    const snap = await getDoc(doc(window.fb.db, 'dailyReports', dateKey));
+    if (snap && snap.exists()) {
+      if (typeof _dailyReports !== 'object' || !_dailyReports) _dailyReports = {};
+      _dailyReports[dateKey] = { docId: snap.id, ...snap.data() };
+      found = true;
+    } else if (typeof _dailyReports === 'object' && _dailyReports && _dailyReports[dateKey]) {
+      found = true; // 購読中の月などで既にキャッシュ済み
+    }
+  } catch (e) {
+    console.error('dinner date load:', e);
+    setStatus('読み込みエラー: ' + (e && e.message ? e.message : e), '#c0392b');
+    return;
   }
   loadUberFieldsFromSaved(dateKey, true); // 日付切替は上書き復元
   recalcDinnerManuals();
+  setStatus(found ? (dateKey + ' を反映しました') : (dateKey + ' の保存データはありません'), found ? 'var(--green)' : '#c0392b');
 }
 
 let _dinnerDateInitialized = false;
