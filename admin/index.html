@@ -314,18 +314,18 @@ body.pdf-export-mode .print-target#page-analytics .cat-stat-name,
 body.print-mode .print-target#page-analytics .cat-stat-name{ font-size:8pt !important; }
 body.pdf-export-mode .print-target#page-analytics .cat-stat-val,
 body.print-mode .print-target#page-analytics .cat-stat-val{ font-size:12pt !important; }
-/* 商品カウント：2枚目の頭から開始（手前で強制改ページ）＋1枚に収まるよう5列・小さめ */
+/* 商品カウント：2枚目の頭から開始（手前で強制改ページ）＋2枚目1枚に収まるよう6列・小さめ */
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-card,
 body.print-mode .print-target#page-analytics #analytics-menu-card{ break-before:page !important; page-break-before:always !important; margin-top:0 !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count,
-body.print-mode .print-target#page-analytics #analytics-menu-count{ column-count:5 !important; column-gap:3mm !important; width:100% !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count{ column-count:6 !important; column-gap:2.5mm !important; width:100% !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div,
-body.print-mode .print-target#page-analytics #analytics-menu-count > div{ font-size:11pt !important; padding:0.5mm 1.5mm !important; }
-/* 商品名：フォント大きめ＋黒（インラインの薄いグレーを上書き） */
+body.print-mode .print-target#page-analytics #analytics-menu-count > div{ font-size:7pt !important; padding:0.15mm 1mm !important; line-height:1.15 !important; }
+/* 商品名：黒（インラインの薄いグレーを上書き） */
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div span:first-child,
-body.print-mode .print-target#page-analytics #analytics-menu-count > div span:first-child{ font-size:11pt !important; color:#000 !important; font-weight:700 !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count > div span:first-child{ font-size:7pt !important; color:#000 !important; font-weight:700 !important; }
 body.pdf-export-mode .print-target#page-analytics #analytics-menu-count > div span:last-child,
-body.print-mode .print-target#page-analytics #analytics-menu-count > div span:last-child{ font-size:12pt !important; color:#000 !important; font-weight:900 !important; }
+body.print-mode .print-target#page-analytics #analytics-menu-count > div span:last-child{ font-size:7.5pt !important; color:#000 !important; font-weight:900 !important; }
 /* 管理表：A4横1枚に収める（表のみ・余白詰め） */
 /* 表以外（操作UI・説明文・サブ見出し・プレースホルダ）はPDF/印刷で非表示 */
 body.pdf-export-mode .print-target .kt-noprint,
