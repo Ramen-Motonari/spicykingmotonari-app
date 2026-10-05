@@ -675,7 +675,8 @@ window.adminLogout = adminLogout;
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
           <div class="section-label" style="color:var(--green)">💾 今日の数値を保存</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <input type="date" id="dinner-save-date" class="form-input" style="width:160px" onchange="onDinnerDateChange()">
+            <input type="date" id="dinner-save-date" class="form-input" style="width:160px">
+            <button onclick="onDinnerDateChange()" title="選択した日付の保存済みデータをフォームに読み込みます" style="padding:10px 16px;border-radius:10px;background:#fff;color:var(--green);border:1.5px solid var(--green);font-size:12px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif">📥 日付を反映</button>
             <button onclick="saveDailyReportFromDinner()" style="padding:10px 22px;border-radius:10px;background:var(--green);color:#fff;border:none;font-size:13px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">💾 デイリーに保存</button>
             <button onclick="migratePastUberIntoSales()" title="過去の日報の当日売上にUber売上(税抜)を一括合算します（各日1回のみ・二重加算なし）" style="padding:10px 16px;border-radius:10px;background:#fff;color:#c0392b;border:1.5px solid #e74c3c;font-size:12px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif">🔁 過去分にUberを反映</button>
             <span id="dinner-save-status" style="font-size:11px;color:var(--muted)"></span>
