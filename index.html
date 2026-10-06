@@ -2789,8 +2789,13 @@ function renderModal(){
     }[lang] || '麺の量をお選びください（必須選択）');
     const ebiSizeOpts = tsukemenSizeOpts[lang] || tsukemenSizeOpts.ja;
     reqHtml += optGrpReq(ebiSizeLabel,'tsukemenSize',ebiSizeOpts,missing);
-    // ③ 粉チーズライス あり／なし（必須選択）
-    const cheeseTitle = ({
+    // ③ 粉チーズライス あり／なし（必須選択）※ 10053 は「ライス」表記
+    const cheeseTitle = isEbiPlainRice(item) ? ({
+      ja:'ライスはいかがですか？',
+      en:'Would you like rice?',
+      zh:'需要米饭吗？',
+      ko:'라이스는 어떠세요？'
+    }[lang] || 'ライスはいかがですか？') : ({
       ja:'粉チーズライスはいかがですか？',
       en:'Would you like cheese rice?',
       zh:'需要芝士粉米饭吗？',
@@ -2900,12 +2905,15 @@ function hasRequiredFields(){
   return !!(c.chashu||c.top||c.noodleSize||c.kata||c.rice);
 }
 
-// エビキングつけ麺（id 10041）/ 辛エビキングつけ麺（id 10042）/ 海老KINGつけ麺スペシャル（id 10050）判定
+// エビキングつけ麺（id 10041）/ 辛エビキングつけ麺（id 10042）/ 海老KINGつけ麺スペシャル（id 10050）/ 新商品（id 10053）判定
 //   → 専用オプション（あつ盛り変更 / 麺の量 / 粉チーズライス）を持ち、汎用つけ麺オプションは付けない
 //   ※ スペシャル(10050)はスパイシー変更トグル(10041専用)・価格上書きの対象外（UI/選択項目のみ海老KINGつけ麺と同一）
+//   ※ 10053 は海老KINGつけ麺と同一UIだが「粉チーズライス」表記を「ライス」に変更
 function isEbiKingItem(item){
-  return !!(item && (item.id === 10041 || item.id === 10042 || item.id === 10050));
+  return !!(item && (item.id === 10041 || item.id === 10042 || item.id === 10050 || item.id === 10053));
 }
+// エビキング系のうち、ライス表記を「粉チーズライス」ではなく「ライス」にする商品（id 10053）
+function isEbiPlainRice(item){ return !!(item && item.id === 10053); }
 // SKつけ麺判定：商品名に「つけ麺」を含む or id=10012（カスタム商品）
 function isTsukemenItem(item){
   if (!item) return false;
@@ -2949,9 +2957,9 @@ function getMissingFields(){
   // エビキング系：麺の量（必須）
   if(isEbiKingItem(curItem) && !curOpts.tsukemenSize)
     missing.push({key:'tsukemenSize',label:'麺の量'});
-  // エビキング系：粉チーズライス あり/なし（必須）
+  // エビキング系：粉チーズライス あり/なし（必須）※ 10053 は「ライス」表記
   if(isEbiKingItem(curItem) && !curOpts.konaCheeseRice)
-    missing.push({key:'konaCheeseRice',label:'粉チーズライス'});
+    missing.push({key:'konaCheeseRice',label:isEbiPlainRice(curItem)?'ライス':'粉チーズライス'});
   return missing;
 }
 
@@ -3663,7 +3671,7 @@ function addCart(){
   // エビキング系：スパイシー変更(10041のみ) / あつ盛り変更 / 粉チーズライス あり・なし（麺の量は上の tsukemenSize で push 済み）
   if(curItem.id===10041 && curOpts.ebiSpicy) opts.push('スパイシー海老KINGつけ麺に変更');
   if(curOpts.ebiAtsumori) opts.push('あつ盛りに変更');
-  if(curOpts.konaCheeseRice) opts.push(curOpts.konaCheeseRice==='yes'?'粉チーズライスあり':'粉チーズライスなし');
+  if(curOpts.konaCheeseRice){ const rl = isEbiPlainRice(curItem)?'ライス':'粉チーズライス'; opts.push(curOpts.konaCheeseRice==='yes'?rl+'あり':rl+'なし'); }
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
   // ドリンク単品：割り方/銘柄・中おかわりを opts に反映
   if(curOpts.drinkChoice) opts.push(curOpts.drinkChoice);
