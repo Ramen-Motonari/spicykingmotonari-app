@@ -2767,19 +2767,21 @@ function renderModal(){
         </div>
       </div>`;
     }
-    // ① あつ盛りに変更（トグル）
-    const atsumoriLabel = ({
-      ja:'あつ盛りに変更',
-      en:'Change to Hot Noodles (Atsumori)',
-      zh:'更换为热面',
-      ko:'아츠모리(따뜻한 면)로 변경'
-    }[lang] || 'あつ盛りに変更');
-    const atsuOn = !!curOpts.ebiAtsumori;
-    reqHtml += `<div class="option-group" id="field-ebiAtsumori" style="border:none;padding:6px 0">
-      <div class="option-btns">
-        <button class="option-btn ${atsuOn?'selected':''}" onclick="toggleEbiAtsumori()">${atsumoriLabel}</button>
-      </div>
-    </div>`;
+    // ① あつ盛りに変更（トグル）※ 10053（ワンナイトキノコ）は基本あつ盛りのため非表示
+    if(!isEbiPlainRice(item)){
+      const atsumoriLabel = ({
+        ja:'あつ盛りに変更',
+        en:'Change to Hot Noodles (Atsumori)',
+        zh:'更换为热面',
+        ko:'아츠모리(따뜻한 면)로 변경'
+      }[lang] || 'あつ盛りに変更');
+      const atsuOn = !!curOpts.ebiAtsumori;
+      reqHtml += `<div class="option-group" id="field-ebiAtsumori" style="border:none;padding:6px 0">
+        <div class="option-btns">
+          <button class="option-btn ${atsuOn?'selected':''}" onclick="toggleEbiAtsumori()">${atsumoriLabel}</button>
+        </div>
+      </div>`;
+    }
     // ② 麺の量（小140g / 並180g / 大240g）必須
     const ebiSizeLabel = ({
       ja:'麺の量をお選びください（必須選択）',
