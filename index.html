@@ -2196,14 +2196,13 @@ function ebiFestivalItems(){
 function buildTabs(){
   const t=T[lang];
   const recLabel = (catLabels[lang] && catLabels[lang].recommended) || '⭐ おすすめ';
-  // 海老祭り開催中は「おすすめ」タブを海老祭りタブに置き換える
+  // 海老祭り開催中は「おすすめ」の隣に海老祭りタブを追加（おすすめと両方表示）
   const festKey = ebiFestivalCatKey();
-  const topTab = festKey
-    ? { k: festKey, l: (catLabels[lang] && catLabels[lang][festKey]) || 'スパキン海老祭り' }
-    : { k:'recommended', l: recLabel };
+  const topTabs = [ { k:'recommended', l: recLabel } ];
+  if (festKey) topTabs.push({ k: festKey, l: (catLabels[lang] && catLabels[lang][festKey]) || 'スパキン海老祭り' });
   const baseTabs = [
     {k:'all',l:t.tabAll},
-    topTab,
+    ...topTabs,
     {k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
     {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink},{k:'takeout',l:t.tabTakeout}
   ];
@@ -2240,11 +2239,11 @@ function renderMenu(){
   const t=T[lang], cl=catLabels[lang] || {};
   // 「すべて」表示では、おすすめ（recommended）を常にページ最上部に表示する
   //   ※ 管理APPのカテゴリ並び順に recommended が含まれない場合でも先頭に固定
-  //   海老祭り開催中は「おすすめ」をTOPから外し、代わりに海老祭りを先頭に固定する
+  //   海老祭り開催中は「おすすめ」の直後に海老祭りを固定（おすすめと両方表示）
   const festKey = ebiFestivalCatKey();
   const cats = currentCat==='all'
     ? (festKey
-        ? [festKey, ...allCatKeys.filter(k => k !== 'recommended' && k !== festKey)]
+        ? ['recommended', festKey, ...allCatKeys.filter(k => k !== 'recommended' && k !== festKey)]
         : ['recommended', ...allCatKeys.filter(k => k !== 'recommended')])
     : [currentCat];
 
