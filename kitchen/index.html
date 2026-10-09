@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- アプリ版数：デプロイの度にこの content を1つ上げる（自動リロードの判定に使用） -->
-<meta name="app-build" content="2026-09-15-1">
+<meta name="app-build" content="2026-10-03-1">
 <title>skm.kitchen&regi-app (Firebase + Canonical)</title>
 <script>
 // ────── テーブル QR ガード ──────
@@ -787,7 +787,7 @@ body.register-mode #mergeOverlay>div{
 <button class="btn-complete" id="btnComplete" onclick="completePayment('normal')" style="background:var(--accent2)"><span data-regI18n="btnProceedPay">会計に進む</span></button>
 <button class="btn-complete" id="btnSeparate" onclick="openSeparatePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnSeparate">別会計</span></button>
 <button class="btn-complete" id="btnMerge" onclick="openMergePayment()" style="background:var(--surface3);border:1px solid var(--accent);color:#fff"><span data-regI18n="btnMerge">他テーブルと合算</span></button>
-<button class="btn-close-detail" onclick="closeDetail()" data-regI18n="closeBtn">閉じる</button>
+<button class="btn-close-detail" onclick="backFromDetail()" data-regI18n="closeBtn">閉じる</button>
 </div>
 </div>
 </div>
@@ -2575,7 +2575,10 @@ function serveTimerInputs(orderList) {
   let startMs = 0;
   for (const x of arr) { if (x.items.some(_act)) { startMs = x.ms; break; } }
   if (!startMs) return { startMs: 0, anyServed: true }; // 全提供済み → タイマーをリセット
-  const anyServed = arr.filter(x => x.ms >= startMs).some(x => x.items.some(i => i.served));
+  // アラーム抑制：伝票内のどれか1品でも提供済みなら鳴らさない（＝「提供済み」色にしてアラーム停止）。
+  //   開始時刻(startMs)は未提供の最も古い注文に合わせてカウントはリセットするが、
+  //   一度でも提供が始まっていればスタッフは席を認識済みなので警告音は鳴らさない。
+  const anyServed = arr.some(x => x.items.some(i => i.served));
   return { startMs, anyServed };
 }
 function playServeAlarm() {
@@ -5967,7 +5970,17 @@ openPaymentConfirmModal({ label: labelStr, total, onConfirm: () => finalizePayme
 }
 
 function closeDetail() { document.getElementById('detailOverlay').classList.remove('open'); selectedTable = null; }
-function maybeCloseDetail(e) { if (e.target === document.getElementById('detailOverlay')) closeDetail(); }
+// 詳細モーダルの「閉じる／戻る」操作。別会計のサブ席詳細を閉じた場合は
+// テーブル一覧に飛ばさず、親テーブルのサブ番号選択画面へ戻す（未会計が残っていれば）。
+function backFromDetail() {
+  const sel = selectedTable;
+  closeDetail();
+  if (sel && currentMode === 'register' && typeof MOTONARI !== 'undefined' && MOTONARI.isSubSeat && MOTONARI.isSubSeat(sel)) {
+    window._reopenSubPickerBase = MOTONARI.baseSeat(sel);
+    tryReopenSubPicker();
+  }
+}
+function maybeCloseDetail(e) { if (e.target === document.getElementById('detailOverlay')) backFromDetail(); }
 
 function switchMode() {
 document.querySelectorAll('.app-screen').forEach(s=>s.classList.remove('active'));
