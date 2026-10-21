@@ -936,13 +936,18 @@ const DRINK_OPT_BY_ID = {
   10016: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'炭酸',en:'With Soda',zh:'兑苏打',ko:'탄산'},{ja:'コーラ',en:'With Cola',zh:'兑可乐',ko:'콜라'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]},
   10017: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'炭酸',en:'With Soda',zh:'兑苏打',ko:'탄산'},{ja:'コーラ',en:'With Cola',zh:'兑可乐',ko:'콜라'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]},
   // ウイスキー：余市 / 宮城峡 / AMAHAGAN（銘柄選択・価格据え置き・必須単一選択）
-  10015: {label:{ja:'銘柄をお選びください',en:'Choose your whisky',zh:'请选择品牌',ko:'브랜드를 선택해 주세요'},choices:[{ja:'余市',en:'Yoichi',zh:'余市',ko:'요이치'},{ja:'宮城峡',en:'Miyagikyo',zh:'宫城峡',ko:'미야기쿄'},{ja:'AMAHAGAN',en:'AMAHAGAN',zh:'AMAHAGAN',ko:'AMAHAGAN'}]}
+  10015: {label:{ja:'銘柄をお選びください',en:'Choose your whisky',zh:'请选择品牌',ko:'브랜드를 선택해 주세요'},choices:[{ja:'余市',en:'Yoichi',zh:'余市',ko:'요이치'},{ja:'宮城峡',en:'Miyagikyo',zh:'宫城峡',ko:'미야기쿄'},{ja:'AMAHAGAN',en:'AMAHAGAN',zh:'AMAHAGAN',ko:'AMAHAGAN'}]},
+  // プレミアムウイスキー(10055)：銘柄で価格が異なる（priceBearing=銘柄選択で本体価格を上書き）。
+  //   山崎/白州/響 ¥1500、山崎12年物 ¥2000。選んだ後に割り方(DRINK_OPT2_BY_ID[10055])を選択。
+  10055: {label:{ja:'銘柄をお選びください',en:'Choose your whisky',zh:'请选择品牌',ko:'브랜드를 선택해 주세요'},priceBearing:true,choices:[{ja:'山崎',en:'Yamazaki',zh:'山崎',ko:'야마자키',p:1500},{ja:'白州',en:'Hakushu',zh:'白州',ko:'하쿠슈',p:1500},{ja:'響',en:'Hibiki',zh:'响',ko:'히비키',p:1500},{ja:'山崎12年物',en:'Yamazaki 12yr',zh:'山崎12年',ko:'야마자키 12년',p:2000}]}
 };
 
 // 二次選択（銘柄などを選んだ後に表示する追加の必須単一選択）のIDマップ。
 // ウイスキー(10015)：銘柄を選んだ後に「割り方」（水割り／炭酸割り／ロック）を焼酎類と同様に選択させる。
 const DRINK_OPT2_BY_ID = {
-  10015: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'水割り',en:'With Water',zh:'兑水',ko:'물에 희석'},{ja:'炭酸割り',en:'With Soda',zh:'兑苏打',ko:'탄산에 희석'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]}
+  10015: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'水割り',en:'With Water',zh:'兑水',ko:'물에 희석'},{ja:'炭酸割り',en:'With Soda',zh:'兑苏打',ko:'탄산에 희석'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]},
+  // プレミアムウイスキー(10055)：ウイスキー3種(10015)と同じ割り方（水割り／炭酸割り／ロック）
+  10055: {label:{ja:'割り方をお選びください',en:'Choose how to serve',zh:'请选择喝法',ko:'드시는 방법을 선택해 주세요'},choices:[{ja:'水割り',en:'With Water',zh:'兑水',ko:'물에 희석'},{ja:'炭酸割り',en:'With Soda',zh:'兑苏打',ko:'탄산에 희석'},{ja:'ロック',en:'On the Rocks',zh:'加冰',ko:'온더록'}]}
 };
 
 function wrapLunchFree(m) {
@@ -2995,6 +3000,15 @@ function optGrpReq(label,key,opts,missing, options){
    ・緑茶割り：このテーブルが一度でも緑茶割りを注文済み（カート or 注文履歴）の時のみ
               「中おかわり ¥250」を選択可。未注文時はグレーアウト。 */
 function drinkChoiceLabel(c){ return (c && (c[lang] || c.ja)) || ''; }
+// 銘柄で価格が変わるドリンク(priceBearing: プレミアムウイスキー#10055など)の、
+// 選択中の銘柄の絶対価格を返す（未選択/非対象は null → 本体価格を使用）。
+function drinkOptAbsPrice(){
+  if(!curItem || !curItem.drinkOpt || !curItem.drinkOpt.priceBearing) return null;
+  const sel = curOpts.drinkChoice;
+  if(!sel) return null;
+  const c = (curItem.drinkOpt.choices||[]).find(ch=>drinkChoiceLabel(ch)===sel);
+  return (c && typeof c.p==='number') ? c.p : null;
+}
 
 // このテーブルが緑茶割り(id55)を既に注文済みか（中おかわり選択可否）
 function canRefillGreenTea(){
@@ -3085,7 +3099,8 @@ function renderDrinkOptsTab(item){
   let h='';
   if(item.drinkOpt){
     const sel=curOpts.drinkChoice||'';
-    h += `<div class="option-group" id="field-drinkChoice"><div class="option-label">${item.drinkOpt.label[lang]||item.drinkOpt.label.ja}</div><div class="option-btns">${item.drinkOpt.choices.map(c=>{const lbl=drinkChoiceLabel(c);return `<button class="option-btn ${sel===lbl?'selected':''}" onclick="pickOpt('drinkChoice','${lbl}')">${lbl}</button>`;}).join('')}</div></div>`;
+    const _pb=!!item.drinkOpt.priceBearing;
+    h += `<div class="option-group" id="field-drinkChoice"><div class="option-label">${item.drinkOpt.label[lang]||item.drinkOpt.label.ja}</div><div class="option-btns">${item.drinkOpt.choices.map(c=>{const lbl=drinkChoiceLabel(c);const pr=(_pb&&typeof c.p==='number')?` ¥${c.p}`:'';return `<button class="option-btn ${sel===lbl?'selected':''}" onclick="pickOpt('drinkChoice','${lbl}')">${lbl}${pr}</button>`;}).join('')}</div></div>`;
   }
   if(item.drinkOpt2){
     const sel2=curOpts.drinkChoice2||'';
@@ -3602,6 +3617,8 @@ function calcTotal(){
   if(isChahanSet(curItem)){ const ch=getChahanSetChoice(); base = ch ? ch.price : curItem.price; }
   // 海老KINGつけ麺(10041)：スパイシーに変更で価格を¥1,400へ上書き（麺の量/粉チーズライス/あつ盛りは無料）
   if(curItem.id===10041 && curOpts.ebiSpicy) base = EBI_SPICY_PRICE;
+  // プレミアムウイスキー(#10055など)：選択した銘柄の価格で本体価格を上書き
+  { const _dp = drinkOptAbsPrice(); if(_dp!=null) base = _dp; }
   const extra = (curOpts.spicyPr||0) + calcNoodleExtra() + calcRiceExtra() + calcAddonExtra() + calcTsukemenSpicyExtra() + calcMiniShoyuExtra();
   return (base+extra)*curQty;
 }
@@ -3696,7 +3713,10 @@ function addCart(){
       ? (Number(curItem.drinkRefill.price) || 0)
       : (Number(curItem.price) || 0);
   // 海老KINGつけ麺(10041)：スパイシーに変更で価格を¥1,400へ上書き（calcTotal と一致させる）
-  const basePrice = (curItem.id===10041 && curOpts.ebiSpicy) ? EBI_SPICY_PRICE : basePriceRaw;
+  // プレミアムウイスキー(#10055など)：銘柄選択価格で上書き（calcTotal と一致させる）
+  const _brandPrice = drinkOptAbsPrice();
+  const basePrice = (curItem.id===10041 && curOpts.ebiSpicy) ? EBI_SPICY_PRICE
+                  : (_brandPrice!=null) ? _brandPrice : basePriceRaw;
   const spicyExtra = Number(curOpts.spicyPr) || 0;
   const noodleExtra = Number(calcNoodleExtra()) || 0;
   const riceExtra = Number(calcRiceExtra()) || 0;
