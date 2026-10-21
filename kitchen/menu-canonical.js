@@ -146,9 +146,10 @@
     {id:4, cat:'tonkotsu', img:'🍛',
      name:{ja:'C カレーラーメン', en:'C Curry Ramen', zh:'C 咖喱拉面', ko:'C 카레 라멘'},
      price:1250, spicy:true, night:false, custom:{top:1, noodleSize:1, karasaAdd:1}},
+    // イカスミラーメン：販売終了（discontinued:true → オーダーAPPでは非表示。集計のためキッチン/管理APPは保持）
     {id:12, cat:'tonkotsu', img:'🦑',
      name:{ja:'イカスミラーメン', en:'Squid Ink Ramen', zh:'墨鱼汁拉面', ko:'오징어먹물 라멘'},
-     price:1800, spicy:false, night:true, custom:{noodleSize:1}},
+     price:1800, spicy:false, night:true, discontinued:true, custom:{noodleSize:1}},
 
     // ── 醤油 ──
     {id:6, cat:'shouyu', img:'🍜',
