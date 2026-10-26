@@ -91,8 +91,12 @@ body.dark-bg{background:#111}
 .lang-opt .ln{font-size:13px;font-weight:600}
 .tabs{display:flex;overflow-x:auto;padding:0 16px 12px;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{flex-shrink:0;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .2s;margin-right:8px}
+.tab{flex-shrink:0;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--accent);background:transparent;color:var(--muted);transition:all .2s;margin-right:8px}
 .tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+/* 店内／テイクアウト切り替え（カテゴリーの下） */
+.ordertype-bar{display:flex;gap:8px;padding:0 16px 12px}
+.ot-btn{flex:1;padding:9px 12px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;border:1.5px solid var(--accent);background:transparent;color:var(--accent);transition:all .15s;font-family:inherit;white-space:nowrap}
+.ot-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(200,134,10,.3)}
 
 .section-title{margin-top:18px;padding:18px 16px 14px;font-size:28px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#1a1a1a;text-shadow:1px 2px 4px #fff;display:flex;align-items:center;gap:4px;background:linear-gradient(to right,var(--accent),rgba(200,134,10,.08) 70%,transparent);background-repeat:no-repeat;background-size:100% 0.8em;background-position:left bottom 8px}
 .section-title span{color:var(--accent);font-family:'Oswald',sans-serif;font-size:22px;margin-right:2px}
@@ -336,6 +340,7 @@ body.dark-bg{background:#111}
       </div>
     </div>
     <div class="tabs" id="tabsEl"></div>
+    <div class="ordertype-bar" id="orderTypeBar"></div>
   </header>
   <div id="menuContainer"></div>
 </div>
@@ -1852,6 +1857,7 @@ function changeLang(l) {
   // 翻訳適用 + メニュー再描画
   applyLang();
   if (typeof renderMenu === 'function') renderMenu();
+  if (typeof renderOrderTypeToggle === 'function') renderOrderTypeToggle(); // 店内/テイク切替を再ローカライズ
   if (typeof renderCart === 'function') renderCart();
   // 開いている履歴・支払い画面も更新
   if (typeof renderHistory === 'function') renderHistory();
@@ -1910,6 +1916,7 @@ function saveSessionToLocal(visitType){
     localStorage.setItem(SESSION_LS_KEY, JSON.stringify({
       sessionId, table: tableNum, lang,
       visitType: visitType || window._currentVisitType || 'first',
+      orderType: window._currentOrderType || 'dinein',
       savedAt: Date.now()
     }));
   } catch(e) { /* localStorage無効環境は単に諦める */ }
@@ -2134,6 +2141,8 @@ async function restoreSession(sid, langR, visitR){
   sessionId = sid;
   lang = langR;
   window._currentVisitType = visitR;
+  // 店内／テイクアウトの選択を localStorage から復元（無ければ店内）
+  try { const _r = JSON.parse(localStorage.getItem(SESSION_LS_KEY) || '{}'); if (_r && _r.orderType) window._currentOrderType = _r.orderType; } catch(e) {}
   sessionActive = true;
   applyLang();
   saveSessionToLocal(visitR);
@@ -2229,6 +2238,27 @@ function buildTabs(){
   setHTML('tabsEl', tabs.map(tb=>
     `<button class="tab ${tb.k===currentCat?'active':''}" onclick="filterCat('${tb.k}')">${tb.l}</button>`
   ).join(''));
+  renderOrderTypeToggle();
+}
+
+// 店内／テイクアウト切り替え（カテゴリーの下に表示）
+const _orderTypeLabels = {
+  dinein:  { ja:'店内',         en:'Dine-in', zh:'堂食', ko:'매장' },
+  takeout: { ja:'テイクアウト', en:'Takeout', zh:'外带', ko:'포장' }
+};
+function renderOrderTypeToggle(){
+  const cur = window._currentOrderType || 'dinein';
+  const mk = (type, icon) => {
+    const lbl = _orderTypeLabels[type][lang] || _orderTypeLabels[type].ja;
+    return `<button class="ot-btn ${cur===type?'active':''}" onclick="setOrderType('${type}')">${icon} ${lbl}</button>`;
+  };
+  setHTML('orderTypeBar', mk('dinein','🍜') + mk('takeout','🛍'));
+}
+function setOrderType(type){
+  if (type !== 'dinein' && type !== 'takeout') return;
+  window._currentOrderType = type;
+  saveSessionToLocal(window._currentVisitType);
+  renderOrderTypeToggle();
 }
 
 function filterCat(cat){ currentCat=cat; buildTabs(); renderMenu(); }
@@ -4000,6 +4030,8 @@ async function placeOrder(){
       tableLabel: tableBaseOf(tableNum), // キッチン集約用の基本席: T1-A → T1
       language: lang,
       visitType: window._currentVisitType || 'first',
+      orderType: window._currentOrderType || 'dinein', // 店内／テイクアウト
+
       items: cart.map(i=>{
         // 伝票表示はすべて日本語に統一：name と opts を日本語へ変換
         const canon = i.itemId != null ? menu.find(m=>m.id===i.itemId) : null;
@@ -4897,6 +4929,8 @@ async function submitPendingKaedamaOrder() {
       tableLabel: tableBaseOf(tableNum),
       language: lang,
       visitType: window._currentVisitType || 'first',
+      orderType: window._currentOrderType || 'dinein', // 店内／テイクアウト
+
       items,
       total: 0,
       status: 'pending',
@@ -5041,6 +5075,8 @@ async function submitKaedamaOrder(){
       tableLabel: tableBaseOf(tableNum),
       language: lang,
       visitType: window._currentVisitType || 'first',
+      orderType: window._currentOrderType || 'dinein', // 店内／テイクアウト
+
       items,
       total,
       status: 'pending',
