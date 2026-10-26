@@ -2211,6 +2211,12 @@ function ebiFestivalItems(){
 
 function buildTabs(){
   const t=T[lang];
+  // テイクアウト選択時はテイクアウトカテゴリのみ表示（他カテゴリタブは出さない）
+  if ((window._currentOrderType || 'dinein') === 'takeout') {
+    setHTML('tabsEl', `<button class="tab active" onclick="filterCat('takeout')">${t.tabTakeout}</button>`);
+    renderOrderTypeToggle();
+    return;
+  }
   const recLabel = (catLabels[lang] && catLabels[lang].recommended) || '⭐ おすすめ';
   // 海老祭り開催中は「おすすめ」の隣に海老祭りタブを追加（おすすめと両方表示）
   const festKey = ebiFestivalCatKey();
@@ -2222,10 +2228,6 @@ function buildTabs(){
     {k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
     {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink}
   ];
-  // テイクアウトカテゴリは店内/テイクアウト切替が「テイクアウト」の時のみ表示
-  if ((window._currentOrderType || 'dinein') === 'takeout') {
-    baseTabs.push({k:'takeout',l:t.tabTakeout});
-  }
   // カスタムカテゴリをタブに追加（基本カテゴリ以外／海老祭りは上で追加済みなので除外）
   const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k) && k !== festKey && k !== 'takeout').map(k => ({
     k, l: (catLabels[lang] && catLabels[lang][k]) || k
