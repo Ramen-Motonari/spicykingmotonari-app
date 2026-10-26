@@ -2220,10 +2220,14 @@ function buildTabs(){
     {k:'all',l:t.tabAll},
     ...topTabs,
     {k:'tonkotsu',l:t.tabTonkotsu},{k:'shouyu',l:t.tabShouyu},
-    {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink},{k:'takeout',l:t.tabTakeout}
+    {k:'teishoku',l:t.tabTeishoku},{k:'topping',l:t.tabTopping},{k:'side',l:t.tabSide},{k:'drink',l:t.tabDrink}
   ];
+  // テイクアウトカテゴリは店内/テイクアウト切替が「テイクアウト」の時のみ表示
+  if ((window._currentOrderType || 'dinein') === 'takeout') {
+    baseTabs.push({k:'takeout',l:t.tabTakeout});
+  }
   // カスタムカテゴリをタブに追加（基本カテゴリ以外／海老祭りは上で追加済みなので除外）
-  const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k) && k !== festKey).map(k => ({
+  const customTabs = allCatKeys.filter(k => !BASE_CAT_ORDER.includes(k) && k !== festKey && k !== 'takeout').map(k => ({
     k, l: (catLabels[lang] && catLabels[lang][k]) || k
   }));
   let tabs = [...baseTabs, ...customTabs];
@@ -2257,8 +2261,15 @@ function renderOrderTypeToggle(){
 function setOrderType(type){
   if (type !== 'dinein' && type !== 'takeout') return;
   window._currentOrderType = type;
+  // テイクアウト選択時はテイクアウトカテゴリへ移動。店内に戻す時はテイクアウト表示中なら「すべて」に戻す
+  if (type === 'takeout') {
+    currentCat = 'takeout';
+  } else if (currentCat === 'takeout') {
+    currentCat = 'all';
+  }
   saveSessionToLocal(window._currentVisitType);
-  renderOrderTypeToggle();
+  buildTabs();
+  renderMenu();
 }
 
 function filterCat(cat){ currentCat=cat; buildTabs(); renderMenu(); }
@@ -2280,8 +2291,8 @@ function renderMenu(){
   const festKey = ebiFestivalCatKey();
   const cats = currentCat==='all'
     ? (festKey
-        ? ['recommended', festKey, ...allCatKeys.filter(k => k !== 'recommended' && k !== festKey)]
-        : ['recommended', ...allCatKeys.filter(k => k !== 'recommended')])
+        ? ['recommended', festKey, ...allCatKeys.filter(k => k !== 'recommended' && k !== festKey && k !== 'takeout')]
+        : ['recommended', ...allCatKeys.filter(k => k !== 'recommended' && k !== 'takeout')])
     : [currentCat];
 
   // メニューアイテムカードを生成するヘルパー

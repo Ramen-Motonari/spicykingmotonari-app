@@ -253,6 +253,7 @@ body.reorder-mode .ticket-item,body.reorder-mode .ramen-group-card,body.reorder-
 .visit-repeat{background:#10b981;color:#0a1a0e;border:2px solid #34d399;text-shadow:none}
 .ticket-lang{display:inline-block;font-family:'Oswald',sans-serif;font-size:13px;font-weight:900;padding:4px 9px;border-radius:8px;letter-spacing:1px;background:#1e3a5f;color:#cfe6ff;border:2px solid #3b6ea5}
 .ticket-takeout{display:inline-block;font-size:13px;font-weight:900;padding:4px 10px;border-radius:8px;letter-spacing:1px;background:#7c2d12;color:#ffd9b3;border:2px solid #ea580c}
+.to-prefix{color:#e53935;font-weight:900;margin-right:3px}
 .ticket-order-num{font-size:10px;color:#666}
 .ticket-section{padding:8px 14px}
 .ticket-section-label{font-size:15px;font-weight:700;letter-spacing:1px;color:#555;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e0e0e0}
@@ -3244,6 +3245,13 @@ function parseRamenOpts(opts, mainItem) {
   return result;
 }
 
+// テイクアウト注文の商品名には先頭に赤文字【TO】を付与（キッチン識別用）
+function takeoutNamePrefix(orderId) {
+  const o = (typeof orders !== 'undefined' && orders.find(x => x.id === orderId))
+         || (typeof paidOrders !== 'undefined' && paidOrders.find(x => x.id === orderId));
+  return (o && o.orderType === 'takeout') ? '<span class="to-prefix">【TO】</span>' : '';
+}
+
 function renderRamenGroupCard(orderId, grp) {
   const main = grp.main;
   const addons = grp.addons || [];
@@ -3251,7 +3259,8 @@ function renderRamenGroupCard(orderId, grp) {
   const groupKey = getGroupKey(grp);
 
   // メイン名は常に日本語のカノニカル名 → 省略形（スパ/スパイシーは赤字）
-  const mainName = getAbbrevJaHtml(main);
+  const toPrefix = takeoutNamePrefix(orderId);
+  const mainName = toPrefix + getAbbrevJaHtml(main);
   const mainNameJa = (MOTONARI.getMenuById(main.itemId)?.name?.ja) || main.name || '';
 
   // 編集で削除されたラーメン：大きな✕とグレーアウトで表示
@@ -3484,6 +3493,7 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
   const main = grp.main || grp.items[0];
   const allServed = grp.items.every(i => i.served);
   const groupKey = getGroupKey(grp);
+  const toPrefix = takeoutNamePrefix(orderId);
   // チャーハン＋ミニ醤油ラーメン(¥300)：区切り線＋「＋ミニ醤油」をスタック表示（opts のマーカーは重複を避けて除外）
   const miniShoyu = !!main.miniShoyu || (Array.isArray(main.opts) && main.opts.some(o => String(o).indexOf('ミニ醤油') !== -1));
   const optsForDisp = miniShoyu ? (main.opts || []).filter(o => String(o).indexOf('ミニ醤油') === -1) : main.opts;
@@ -3513,7 +3523,7 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
       </div>
       <div class="tc-check"></div>
       <div class="tc-info">
-        <div class="tc-name" style="text-decoration:line-through">${getAbbrevJaHtml(main)}</div>
+        <div class="tc-name" style="text-decoration:line-through">${toPrefix}${getAbbrevJaHtml(main)}</div>
         ${optsHtml || subAddons ? `<div class="tc-opts" style="text-decoration:line-through">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
       </div>
       <div class="tc-qty" style="background:var(--accent2);color:#fff;font-weight:900">取消</div>
@@ -3525,7 +3535,7 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
   return `<div class="ticket-compact-card ${allServed?'served':''} ${isKaedamaMain?'kaedama':''}" onclick="toggleGroupServed('${orderId}','${groupKey}')">
 <div class="tc-check"></div>
 <div class="tc-info">
-<div class="tc-name">${getAbbrevJaHtml(main)}</div>
+<div class="tc-name">${toPrefix}${getAbbrevJaHtml(main)}</div>
 ${optsHtml || subAddons ? `<div class="tc-opts">${[optsHtml, subAddons].filter(x=>x).join(' / ')}</div>` : ''}
 ${miniShoyuTag}
 </div>
