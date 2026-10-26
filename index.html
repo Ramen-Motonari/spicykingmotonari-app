@@ -2211,12 +2211,15 @@ function ebiFestivalItems(){
 
 function buildTabs(){
   const t=T[lang];
-  // テイクアウト選択時はテイクアウトカテゴリのみ表示（他カテゴリタブは出さない）
+  const _tabsElRef = document.getElementById('tabsEl');
+  // テイクアウト選択時はカテゴリタブ欄を非表示（テイクアウトカテゴリのみ表示するため）
   if ((window._currentOrderType || 'dinein') === 'takeout') {
-    setHTML('tabsEl', `<button class="tab active" onclick="filterCat('takeout')">${t.tabTakeout}</button>`);
+    setHTML('tabsEl', '');
+    if (_tabsElRef) _tabsElRef.style.display = 'none';
     renderOrderTypeToggle();
     return;
   }
+  if (_tabsElRef) _tabsElRef.style.display = '';
   const recLabel = (catLabels[lang] && catLabels[lang].recommended) || '⭐ おすすめ';
   // 海老祭り開催中は「おすすめ」の隣に海老祭りタブを追加（おすすめと両方表示）
   const festKey = ebiFestivalCatKey();
@@ -2363,6 +2366,8 @@ function renderMenu(){
       items = menu.filter(m=>m.cat===cat);
       // 【豚骨限定】トッピングは一覧タブには出さない（豚骨ラーメンのトッピング欄からのみ追加可）
       if(cat==='topping') items = items.filter(m=>!isTonkotsuOnlyItem(m));
+      // テイクアウト餃子は代表(#100)のみグリッド表示。他個数は#100の個数選択から注文。
+      if(cat==='takeout') items = items.filter(m=> (((m.name&&m.name.ja)||'').indexOf('餃子')===-1) || m.id===100);
     }
     if(!items.length) return;
     const sec=document.createElement('div');
@@ -2572,6 +2577,7 @@ function renderModal(){
   // === 必須項目セクション開始 — 未選択がある場合は外側を1つの赤枠で囲む ===
   let reqHtml = '';
   if(isChahanSet(item)) reqHtml+=renderChahanSetOption();
+  if(isGyozaTakeout(item)) reqHtml+=renderGyozaCountOption();
   if(c.top)        reqHtml+=optGrpReq(t.optTop,'top',topOpts[lang],missing);
   if(c.chashu){
     // 売り切れ食材（鶏/豚チャーシュー）の選択肢を非表示（選択解除は getMissingFields 前に実施済み）。
@@ -2980,6 +2986,7 @@ function getMissingFields(){
   const missing=[];
   // チャーハンセット：どのチャーハンかの選択が未選択なら必須
   if(isChahanSet(curItem) && !curOpts.chahanSetChoice) missing.push({key:'chahanSetChoice',label:(CHAHAN_SET_LABEL[lang]||CHAHAN_SET_LABEL.ja)});
+  if(isGyozaTakeout(curItem) && !curOpts.gyozaCount) missing.push({key:'gyozaCount',label:({ja:'個数',en:'Quantity',zh:'数量',ko:'수량'}[lang]||'個数')});
   if(c.chashu && availableChashuOpts(lang).length && !curOpts.chashu) missing.push({key:'chashu',label:t.optChashu});
   if(c.top    && !curOpts.top)    missing.push({key:'top',label:t.optTop});
   if(c.noodleSize && !curOpts.noodleSize) missing.push({key:'noodleSize',label:t.addonNoodleLabel});
@@ -3384,6 +3391,40 @@ function renderChahanSetOption(){
     <div style="font-size:11px;font-weight:700;color:var(--muted);margin-top:6px">${inc}</div>
   </div>`;
 }
+// ── テイクアウト餃子：代表#100を選択後に「個数」を選べる（個数ごとに #100〜 の別商品へ）──
+const GYOZA_TAKEOUT_BASE_ID = 100;
+function isGyozaTakeout(it){ return !!(it && it.id === GYOZA_TAKEOUT_BASE_ID); }
+// 現在登録されているテイクアウト餃子（cat:'takeout' かつ名前に「餃子」）を個数選択肢として返す
+function gyozaTakeoutChoices(){
+  return menu
+    .filter(m => m && m.cat === 'takeout' && (((m.name && m.name.ja) || '').indexOf('餃子') !== -1))
+    .map(m => {
+      const ja = (m.name && m.name.ja) || '';
+      const mt = ja.match(/(\d+)\s*個/);
+      return { itemId:m.id, price:Number(m.price)||0, count: mt ? parseInt(mt[1],10) : 0, name:m.name };
+    })
+    .sort((a,b)=>a.count-b.count);
+}
+function gyozaCountLabel(c){
+  const map = { ja:`${c.count}個`, en:`${c.count} pcs`, zh:`${c.count}个`, ko:`${c.count}개` };
+  return map[lang] || map.ja;
+}
+function getGyozaCountChoice(){ return curOpts.gyozaCount ? gyozaTakeoutChoices().find(c=>c.itemId===curOpts.gyozaCount) : null; }
+function pickGyozaCount(itemId){ curOpts.gyozaCount = itemId; renderModal(); }
+function renderGyozaCountOption(){
+  const label = ({ja:'個数をお選びください',en:'Please choose quantity',zh:'请选择数量',ko:'수량을 선택해 주세요'}[lang]) || '個数をお選びください';
+  const sel = curOpts.gyozaCount;
+  const btns = gyozaTakeoutChoices().map(c=>{
+    const on = sel===c.itemId;
+    return `<button class="option-btn ${on?'selected':''}" onclick="pickGyozaCount(${c.itemId})" style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left">
+      <span>${gyozaCountLabel(c)}</span><span style="font-family:'Oswald',sans-serif;color:var(--accent);white-space:nowrap">¥${c.price.toLocaleString()}</span>
+    </button>`;
+  }).join('');
+  return `<div class="option-group" id="field-gyozaCount" style="border:none;padding:6px 0">
+    <div class="option-label">🥟 ${label}</div>
+    <div class="option-btns" style="flex-direction:column">${btns}</div>
+  </div>`;
+}
 // 単品チャーハンモーダル用：ミニ醤油ラーメン(¥300)のお誘い（単一選択・任意／初期=注文しない）
 function renderMiniShoyuOption(){
   const on = !!curOpts.miniShoyu;
@@ -3650,6 +3691,8 @@ function calcTotal(){
   if(curItem.drinkRefill && curOpts.drinkRefill) base = curItem.drinkRefill.price;
   // チャーハンセット：選択したチャーハンのセット価格を基準に（未選択時は表示上の基準価格）
   if(isChahanSet(curItem)){ const ch=getChahanSetChoice(); base = ch ? ch.price : curItem.price; }
+  // テイクアウト餃子：選択した個数の価格を基準に（未選択時は#100の価格）
+  if(isGyozaTakeout(curItem)){ const g=getGyozaCountChoice(); base = g ? g.price : curItem.price; }
   // 海老KINGつけ麺(10041)：スパイシーに変更で価格を¥1,400へ上書き（麺の量/粉チーズライス/あつ盛りは無料）
   if(curItem.id===10041 && curOpts.ebiSpicy) base = EBI_SPICY_PRICE;
   const extra = (curOpts.spicyPr||0) + calcNoodleExtra() + calcRiceExtra() + calcAddonExtra() + calcTsukemenSpicyExtra() + calcMiniShoyuExtra();
@@ -3740,7 +3783,11 @@ function addCart(){
   // チャーハンセット：選択したチャーハンのセット価格・itemId・名称で保存する
   //   → キッチン伝票は「チャーハン名＋ミニ醤油」、集計はチャーハン単品＋ミニ醤油ラーメン別集計
   const _chSet = isChahanSet(curItem) ? getChahanSetChoice() : null;
-  const basePriceRaw = _chSet
+  // テイクアウト餃子：選択個数に対応する商品(#100〜)の価格・itemId・名称で保存
+  const _gyoza = isGyozaTakeout(curItem) ? getGyozaCountChoice() : null;
+  const basePriceRaw = _gyoza
+    ? (Number(_gyoza.price) || 0)
+    : _chSet
     ? (Number(_chSet.price) || 0)
     : (curItem.drinkRefill && curOpts.drinkRefill)
       ? (Number(curItem.drinkRefill.price) || 0)
@@ -3755,7 +3802,9 @@ function addCart(){
   const qtySafe = Number(curQty) || 1;
   const unitPrice = basePrice + spicyExtra + noodleExtra + riceExtra + tsukemenSpicyExtra + miniShoyuExtra;
   const mainTotal = unitPrice * qtySafe;
-  const mainCartItem = {id:Date.now(), groupId, isMain:true, itemId:(_chSet?_chSet.itemId:curItem.id), name:(_chSet?(_chSet.name[lang]||_chSet.name.ja):curItem.name[lang]), opts, qty:qtySafe, price:unitPrice, total:mainTotal};
+  const _cartItemId = _gyoza ? _gyoza.itemId : (_chSet ? _chSet.itemId : curItem.id);
+  const _cartItemName = _gyoza ? (_gyoza.name[lang]||_gyoza.name.ja) : (_chSet ? (_chSet.name[lang]||_chSet.name.ja) : curItem.name[lang]);
+  const mainCartItem = {id:Date.now(), groupId, isMain:true, itemId:_cartItemId, name:_cartItemName, opts, qty:qtySafe, price:unitPrice, total:mainTotal};
   // チャーハン＋ミニ醤油ラーメン：キッチン伝票のスタック表示用フラグ（セットは常にミニ醤油付き）
   if(miniShoyuExtra > 0 || _chSet) mainCartItem.miniShoyu = true;
   // 平日ランチの替え玉/半替え玉無料権を「権利」としてラーメン本体に紐付け（先注文・後提供）
