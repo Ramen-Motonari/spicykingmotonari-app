@@ -3399,9 +3399,16 @@ function gyozaTakeoutChoices(){
   return menu
     .filter(m => m && m.cat === 'takeout' && (((m.name && m.name.ja) || '').indexOf('餃子') !== -1))
     .map(m => {
-      const ja = (m.name && m.name.ja) || '';
-      const mt = ja.match(/(\d+)\s*個/);
-      return { itemId:m.id, price:Number(m.price)||0, count: mt ? parseInt(mt[1],10) : 0, name:m.name };
+      // 個数は canonical 名（店側の表示名上書きの影響を受けない）から取得。
+      //   例: 店が#100を「餃子（テイクアウト）」に改名しても個数は 5個 のまま解析できる。
+      const canon = (typeof MOTONARI !== 'undefined' && MOTONARI.getMenuById) ? MOTONARI.getMenuById(m.id) : null;
+      const canonJa = (canon && canon.name && canon.name.ja) || '';
+      const dispJa = (m.name && m.name.ja) || '';
+      const enStr  = (m.name && m.name.en) || (canon && canon.name && canon.name.en) || '';
+      let count = 0;
+      const mt = canonJa.match(/(\d+)\s*個/) || dispJa.match(/(\d+)\s*個/) || enStr.match(/[×x]\s*(\d+)/i);
+      if (mt) count = parseInt(mt[1],10);
+      return { itemId:m.id, price:Number(m.price)||0, count, name:m.name };
     })
     .sort((a,b)=>a.count-b.count);
 }
