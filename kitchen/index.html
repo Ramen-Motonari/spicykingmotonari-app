@@ -3044,6 +3044,16 @@ function getAbbrevJa(item) {
       if (/^(鶏|Chicken|鸡|닭)$/i.test(s)) return 'チャーシュー（トリ）3枚';
     }
   }
+  // テイクアウト餃子（id 100〜105）：個数を必ず伝票名に表示する。
+  //   店側の nameOverride で「N個」が消えても canonical から個数を補完し「餃子N個」で統一。
+  if (typeof id === 'number' && id >= 100 && id <= 105) {
+    const _gc = MOTONARI.getMenuById(id);
+    const _gcJa = (_gc && _gc.name && _gc.name.ja) || '';
+    if (_gcJa.indexOf('餃子') !== -1) {
+      const _gm = _gcJa.match(/(\d+)\s*個/);
+      return _gm ? `餃子${_gm[1]}個` : '餃子';
+    }
+  }
   // 1. 管理APPの「キッチン伝票表示名」を最優先で使用
   if (id !== undefined && id !== null) {
     // canonical の nameOverride 保存値
@@ -3494,8 +3504,10 @@ function renderCompactGroupCard(orderId, grp, isNewOrder) {
   const allServed = grp.items.every(i => i.served);
   const groupKey = getGroupKey(grp);
   const toPrefix = takeoutNamePrefix(orderId);
+  // テイクアウト注文はミニ醤油ラーメンの表示をしない（店内チャーハン限定のお誘いのため）
+  const _grpIsTakeout = !!toPrefix;
   // チャーハン＋ミニ醤油ラーメン(¥300)：区切り線＋「＋ミニ醤油」をスタック表示（opts のマーカーは重複を避けて除外）
-  const miniShoyu = !!main.miniShoyu || (Array.isArray(main.opts) && main.opts.some(o => String(o).indexOf('ミニ醤油') !== -1));
+  const miniShoyu = !_grpIsTakeout && (!!main.miniShoyu || (Array.isArray(main.opts) && main.opts.some(o => String(o).indexOf('ミニ醤油') !== -1)));
   const optsForDisp = miniShoyu ? (main.opts || []).filter(o => String(o).indexOf('ミニ醤油') === -1) : main.opts;
   const miniShoyuTag = miniShoyu ? `<div class="tc-mini-shoyu" style="margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:13px;font-weight:900;color:var(--accent2)">＋ミニ醤油</div>` : '';
   const optsHtml = buildOptsHtml(optsForDisp, main);

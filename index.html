@@ -2923,7 +2923,7 @@ function renderModal(){
   // チャーハン単品（サイドカテゴリーから直接選択）：ミニ醤油ラーメン(¥300)セットのお誘い
   //   ※ チャーハンセット(id 10034)はミニ醤油込みのため、このお誘いは表示しない
   //   ※閲覧専用モードでは注文誘導のため非表示
-  if(!isViewOnly && isChaahanItem(item) && !isChahanSet(item)){
+  if(!isViewOnly && isChaahanItem(item) && !isChahanSet(item) && (window._currentOrderType || 'dinein') !== 'takeout'){
     h += renderMiniShoyuOption();
   }
 
