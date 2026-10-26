@@ -95,7 +95,7 @@ body.dark-bg{background:#111}
 .tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 /* 店内／テイクアウト切り替え（カテゴリーの下） */
 .ordertype-bar{display:flex;gap:8px;padding:0 16px 12px}
-.ot-btn{flex:1;padding:9px 12px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;border:1.5px solid var(--accent);background:transparent;color:var(--accent);transition:all .15s;font-family:inherit;white-space:nowrap}
+.ot-btn{flex:1;padding:9px 12px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;border:1.5px solid var(--accent);background:transparent;color:var(--muted);transition:all .15s;font-family:inherit;white-space:nowrap}
 .ot-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(200,134,10,.3)}
 
 .section-title{margin-top:18px;padding:18px 16px 14px;font-size:28px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#1a1a1a;text-shadow:1px 2px 4px #fff;display:flex;align-items:center;gap:4px;background:linear-gradient(to right,var(--accent),rgba(200,134,10,.08) 70%,transparent);background-repeat:no-repeat;background-size:100% 0.8em;background-position:left bottom 8px}
@@ -2247,16 +2247,16 @@ function buildTabs(){
 
 // 店内／テイクアウト切り替え（カテゴリーの下に表示）
 const _orderTypeLabels = {
-  dinein:  { ja:'店内',         en:'Dine-in', zh:'堂食', ko:'매장' },
-  takeout: { ja:'テイクアウト', en:'Takeout', zh:'外带', ko:'포장' }
+  dinein:  { ja:'店内',         en:'For Here', zh:'堂食', ko:'매장' },
+  takeout: { ja:'テイクアウト', en:'To Go',    zh:'外带', ko:'포장' }
 };
 function renderOrderTypeToggle(){
   const cur = window._currentOrderType || 'dinein';
-  const mk = (type, icon) => {
+  const mk = (type) => {
     const lbl = _orderTypeLabels[type][lang] || _orderTypeLabels[type].ja;
-    return `<button class="ot-btn ${cur===type?'active':''}" onclick="setOrderType('${type}')">${icon} ${lbl}</button>`;
+    return `<button class="ot-btn ${cur===type?'active':''}" onclick="setOrderType('${type}')">${lbl}</button>`;
   };
-  setHTML('orderTypeBar', mk('dinein','🍜') + mk('takeout','🛍'));
+  setHTML('orderTypeBar', mk('dinein') + mk('takeout'));
 }
 function setOrderType(type){
   if (type !== 'dinein' && type !== 'takeout') return;
