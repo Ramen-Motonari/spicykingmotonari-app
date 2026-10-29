@@ -2209,6 +2209,17 @@ function ebiFestivalItems(){
   });
 }
 
+// ===== 期間限定「おすすめ」表示（2026-10-29〜10-31の3日間だけ）=====
+//   海老祭りカテゴリの上に「おすすめ」を表示する。商品は管理APPの「おすすめ」設定（recommendedIds）で決める。
+//   2026-11-01 00:00 以降は自動的に非表示（タブ・一覧の両方から外す）。
+//   ※通常の「おすすめ」機能とは別枠の期間限定表示。期間を延長/再開したい場合はこの日付を変更する。
+function isRecommendPromoActive(){
+  const now = new Date();
+  const start = new Date(2026, 9, 29, 0, 0, 0);  // 2026-10-29 00:00（月は0始まり）
+  const end   = new Date(2026, 10, 1, 0, 0, 0);  // 2026-11-01 00:00（この時刻以降は非表示）
+  return now >= start && now < end;
+}
+
 function buildTabs(){
   const t=T[lang];
   const _tabsElRef = document.getElementById('tabsEl');
@@ -2222,8 +2233,10 @@ function buildTabs(){
   if (_tabsElRef) _tabsElRef.style.display = '';
   const recLabel = (catLabels[lang] && catLabels[lang].recommended) || '⭐ おすすめ';
   // 海老祭り開催中は「おすすめ」の隣に海老祭りタブを追加（おすすめと両方表示）
+  //   「おすすめ」タブは期間限定（isRecommendPromoActive）の間だけ表示する
   const festKey = ebiFestivalCatKey();
-  const topTabs = [ { k:'recommended', l: recLabel } ];
+  const topTabs = [];
+  if (isRecommendPromoActive()) topTabs.push({ k:'recommended', l: recLabel });
   if (festKey) topTabs.push({ k: festKey, l: (catLabels[lang] && catLabels[lang][festKey]) || 'スパキン海老祭り' });
   const baseTabs = [
     {k:'all',l:t.tabAll},
@@ -2294,10 +2307,14 @@ function renderMenu(){
   //   ※ 管理APPのカテゴリ並び順に recommended が含まれない場合でも先頭に固定
   //   海老祭り開催中は「おすすめ」の直後に海老祭りを固定（おすすめと両方表示）
   const festKey = ebiFestivalCatKey();
+  // 「おすすめ」は期間限定（isRecommendPromoActive）の間だけ最上部に表示。期間外は出さない。
+  const showRec = isRecommendPromoActive();
   const cats = currentCat==='all'
-    ? (festKey
-        ? ['recommended', festKey, ...allCatKeys.filter(k => k !== 'recommended' && k !== festKey && k !== 'takeout')]
-        : ['recommended', ...allCatKeys.filter(k => k !== 'recommended' && k !== 'takeout')])
+    ? [
+        ...(showRec ? ['recommended'] : []),
+        ...(festKey ? [festKey] : []),
+        ...allCatKeys.filter(k => k !== 'recommended' && k !== festKey && k !== 'takeout')
+      ]
     : [currentCat];
 
   // メニューアイテムカードを生成するヘルパー
