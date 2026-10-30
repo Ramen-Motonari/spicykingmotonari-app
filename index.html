@@ -1075,6 +1075,22 @@ function rebuildMenu() {
     if (!it.custom.noodleSize) it.custom.noodleSize = 1;
   });
 
+  // パスカード無料ラーメン（#10067）：SK スパイシーキング(#2) と全く同じUI。
+  //   ・ラーメン本体は0円（管理APPで price=0 設定）。辛さ追加・平打ち麺変更などの
+  //     追加オプションは SK と同じ料金（オプション文字列の加算）で通常どおり課金される。
+  //   ・cat を tonkotsu に固定し、SKと同じ麺サイズ選択肢（細麺/平打ち麺）を使用。
+  //   ・spicy:true で辛さ(0〜10)選択＋🌶バッジを付与。chashu（豚/鶏 必須）＋麺サイズも注入。
+  //   ・管理APPで既に該当フラグ/選択肢が付いている場合は上書きしない。
+  menu.forEach(it => {
+    if (it.id !== 10067) return;
+    it.cat = 'tonkotsu';
+    if (!it.spicy) it.spicy = true;
+    it.custom = { ...(it.custom || {}) };
+    if (!it.custom.chashu)     it.custom.chashu = 1;
+    if (!it.custom.noodleSize) it.custom.noodleSize = 1;
+    if (!it.custom.karasaAdd)  it.custom.karasaAdd = 1;
+  });
+
   // カレー系（カレー／カレースペシャル／チーズカレー 等）：
   //   とんかつ/チキンカツ トッピング選択を廃止し、SKシリーズ同様に
   //   チャーシュー（豚/鶏 必須選択）を付与する。キッチン伝票もSKと同形式で枚数表示。
