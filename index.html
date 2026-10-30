@@ -1439,6 +1439,7 @@ function subscribeMenuOverrides(){
     _menuOverrides = {};
     snap.forEach(d => { _menuOverrides[d.id] = d.data(); });
     rebuildMenu();
+    refreshOpenItemModalLatest();
   }, err => console.error('menuOverrides listener:', err));
 }
 function subscribeCustomMenuItems(){
@@ -1449,6 +1450,7 @@ function subscribeCustomMenuItems(){
     _customMenuItems = [];
     snap.forEach(d => { _customMenuItems.push({ docId: d.id, ...d.data() }); });
     rebuildMenu();
+    refreshOpenItemModalLatest();
   }, err => console.error('customMenuItems listener:', err));
 }
 function subscribeCustomCategories(){
@@ -1460,6 +1462,7 @@ function subscribeCustomCategories(){
     snap.forEach(d => { _customCategories.push({ docId: d.id, ...d.data() }); });
     _customCategories.sort((a,b) => (a.order||0)-(b.order||0));
     rebuildMenu();
+    refreshOpenItemModalLatest();
   }, err => console.error('customCategories listener:', err));
 }
 // appConfig/categoryOrder を購読：管理APPでカテゴリ並び替えされたら即時反映
@@ -1506,6 +1509,7 @@ function subscribeItemOrder(){
       _itemOrder = { byCategory: {} };
     }
     rebuildMenu();
+    refreshOpenItemModalLatest();
   }, err => console.error('itemOrder listener:', err));
 }
 
@@ -2554,6 +2558,26 @@ function forceCloseItem(){
   document.body.style.overflow='';
 }
 window.forceCloseItem = forceCloseItem;
+
+// ラーメン選択モーダルを開いている間も、下部のトッピング／ドリンク／サイド等を
+// 常に最新のメニュー状態（名前・価格・非表示/削除・並び順）へ追従させる。
+//   メニュー系リスナー（override/custom/itemOrder など）が rebuildMenu した後に呼ぶ。
+//   addonSection は menu から直接描画するため、再描画するだけで最新が反映される。
+function refreshOpenItemModalLatest(){
+  try{
+    const modal = $('itemModal');
+    if(!curItem || !modal || !modal.classList.contains('open')) return;
+    // rebuildMenu で menu 内の各オブジェクトが作り直されるので、
+    // 表示中の商品も同じ id の最新オブジェクトへ貼り替える（選択状態 curOpts/curQty は維持）。
+    const fresh = Array.isArray(menu) ? menu.find(m => m && m.id === curItem.id) : null;
+    if(fresh) curItem = fresh;
+    // スクロール位置を保持したまま再描画（操作中のガタつき防止）
+    const modalEl = modal.querySelector('.modal');
+    const sc = modalEl ? modalEl.scrollTop : 0;
+    renderModal();
+    if(modalEl) modalEl.scrollTop = sc;
+  }catch(e){ console.error('refreshOpenItemModalLatest:', e); }
+}
 
 function renderModal(){
   const item=curItem, t=T[lang];
