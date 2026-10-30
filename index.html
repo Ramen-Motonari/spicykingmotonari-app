@@ -2863,8 +2863,13 @@ function renderModal(){
     }[lang] || '麺の量をお選びください（必須選択）');
     const ebiSizeOpts = tsukemenSizeOpts[lang] || tsukemenSizeOpts.ja;
     reqHtml += optGrpReq(ebiSizeLabel,'tsukemenSize',ebiSizeOpts,missing);
-    // ③ 粉チーズライス あり／なし（必須選択）※ 10053 は「ライス」表記
-    const cheeseTitle = isEbiPlainRice(item) ? ({
+    // ③ 粉チーズライス あり／なし（必須選択）※ 10053 は「ライス」/ 10066 は「スパイスライス」表記
+    const cheeseTitle = (item.id === 10066) ? ({
+      ja:'スパイスライスはいかがですか？',
+      en:'Would you like spice rice?',
+      zh:'需要香料饭吗？',
+      ko:'스파이스 라이스는 어떠세요？'
+    }[lang] || 'スパイスライスはいかがですか？') : isEbiPlainRice(item) ? ({
       ja:'ライスはいかがですか？',
       en:'Would you like rice?',
       zh:'需要米饭吗？',
@@ -2988,6 +2993,13 @@ function isEbiKingItem(item){
 }
 // エビキング系のうち、ライス表記を「粉チーズライス」ではなく「ライス」にする商品（id 10053 / 10066）
 function isEbiPlainRice(item){ return !!(item && (item.id === 10053 || item.id === 10066)); }
+// エビキング系のライス表記（伝票保存用の日本語ラベル）：
+//   10066（パンプキンつけ麺）=「スパイスライス」／ 10053（ワンナイトキノコ）=「ライス」／ その他=「粉チーズライス」
+function ebiRiceLabel(item){
+  if(item && item.id === 10066) return 'スパイスライス';
+  if(isEbiPlainRice(item)) return 'ライス';
+  return '粉チーズライス';
+}
 // SKつけ麺判定：商品名に「つけ麺」を含む or id=10012（カスタム商品）
 function isTsukemenItem(item){
   if (!item) return false;
@@ -3034,7 +3046,7 @@ function getMissingFields(){
     missing.push({key:'tsukemenSize',label:'麺の量'});
   // エビキング系：粉チーズライス あり/なし（必須）※ 10053 は「ライス」表記
   if(isEbiKingItem(curItem) && !curOpts.konaCheeseRice)
-    missing.push({key:'konaCheeseRice',label:isEbiPlainRice(curItem)?'ライス':'粉チーズライス'});
+    missing.push({key:'konaCheeseRice',label:ebiRiceLabel(curItem)});
   return missing;
 }
 
@@ -3789,7 +3801,7 @@ function addCart(){
   // エビキング系：スパイシー変更(10041のみ) / あつ盛り変更 / 粉チーズライス あり・なし（麺の量は上の tsukemenSize で push 済み）
   if(curItem.id===10041 && curOpts.ebiSpicy) opts.push('スパイシー海老KINGつけ麺に変更');
   if(curOpts.ebiAtsumori) opts.push('あつ盛りに変更');
-  if(curOpts.konaCheeseRice){ const rl = isEbiPlainRice(curItem)?'ライス':'粉チーズライス'; opts.push(curOpts.konaCheeseRice==='yes'?rl+'あり':rl+'なし'); }
+  if(curOpts.konaCheeseRice){ const rl = ebiRiceLabel(curItem); opts.push(curOpts.konaCheeseRice==='yes'?rl+'あり':rl+'なし'); }
   if(curOpts.spicyLv)    opts.push(`${curOpts.spicyLv} +¥${curOpts.spicyPr}`);
   // ドリンク単品：割り方/銘柄・中おかわりを opts に反映
   if(curOpts.drinkChoice) opts.push(curOpts.drinkChoice);

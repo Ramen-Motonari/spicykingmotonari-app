@@ -3174,6 +3174,9 @@ function parseRamenOpts(opts, mainItem) {
       result.riceChange = 'チャーシュー丼変更';
       return;
     }
+    // パンプキンつけ麺(#10066)のスパイスライス有無（「スパイスライスあり/なし」）→ 有無なので専用フィールドへ。
+    //   ※「ライス」を含むので下の isRice ブロックより前に判定（量マッチ失敗で握りつぶされるのを防ぐ）
+    if (/^スパイスライス(あり|なし)$/.test(s)) { result.tsukeRice = s; return; }
     // つけ麺のライス有無（「ライスあり」「ライスなし」）→ 量ではなく有無なので専用フィールドへ。
     //   ※ この下の isRice ブロックより前に判定しないと、量マッチ失敗で握りつぶされる（表示されないバグ）
     if (/^ライス(あり|なし)$/.test(s)) { result.tsukeRice = s; return; }
