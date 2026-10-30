@@ -582,6 +582,21 @@ body.dark-bg{background:#111}
   </div>
 </div>
 
+<!-- パスカード無料ラーメン（#10067）：ラーメンパスカード所持者限定のパスワード認証 -->
+<div id="passLockOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:795;display:none;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:18px;width:100%;max-width:360px;padding:26px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.4)">
+    <div style="font-size:42px;line-height:1">🎫</div>
+    <div style="font-size:19px;color:#c8860a;font-weight:900;letter-spacing:1px;margin-top:8px">ラーメンパスカード限定</div>
+    <div style="font-size:13px;color:#666;margin:10px 0 18px;line-height:1.7">こちらはラーメンパスカードをお持ちの方限定です。<br>お持ちの方はスタッフにパスワードをお聞きください。</div>
+    <input id="passPwInput" type="password" autocomplete="off" maxlength="16" placeholder="パスワード" style="width:100%;padding:14px;font-size:18px;border:2px solid #e0e0e0;border-radius:10px;text-align:center;letter-spacing:4px;font-family:'Oswald',sans-serif;font-weight:900;outline:none" onkeydown="if(event.key==='Enter')checkPassPw()">
+    <div id="passPwErr" style="font-size:12px;color:#c0392b;font-weight:700;height:18px;margin-top:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="closePassLock()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #ccc;background:#fff;color:#666;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">キャンセル</button>
+      <button onclick="checkPassPw()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#c8860a;color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:'Noto Sans JP',sans-serif">確定</button>
+    </div>
+  </div>
+</div>
+
 <!-- Admin Modal -->
 <div class="modal-overlay" id="adminModal" onclick="if(event.target===this)closeAdmin()">
   <div class="modal" style="max-height:90vh">
@@ -851,6 +866,8 @@ function getNoodleSizeOpts(l, cat, id){
 }
 // 学生ラーメン(#10051)判定。醤油と全く同じUIにするため、醤油系の各分岐で醤油と同列に扱う。
 function isGakuseiRamen(item){ return !!item && item.id === 10051; }
+// パスカード無料ラーメン(#10067) 判定：ラーメンパスカード所持者限定のパスワードゲート対象。
+function isPassCardRamen(item){ return !!item && item.id === 10067; }
 function actsAsShouyu(item){ return !!item && (item.cat === 'shouyu' || isGakuseiRamen(item)); }
 // 学生大盛り無料／平日ランチ大盛り無料 用の「無料大盛り」表記を返す（曜日に依存せず無料版を返す）
 //   ・醤油は大盛り無料の対象外（''）
@@ -2496,6 +2513,12 @@ function openItem(id){
   //   はい → そのまま注文ページ（モーダル）へ ／ いいえ → TOP（メニュー）へ戻る
   if(isGakuseiRamen(item)){
     openStudentGate(item);
+    return;
+  }
+  // パスカード無料ラーメン（#10067）：ラーメンパスカード所持者限定。
+  //   パスワード認証を通過したときだけ注文ページ（モーダル）へ進める。
+  if(isPassCardRamen(item)){
+    openPassLock(item.id);
     return;
   }
   _openItemModal(item);
@@ -5345,6 +5368,55 @@ function checkStaffPw() {
 // グローバル公開（HTML onclick から呼ばれる）
 window.closeStaffLock = closeStaffLock;
 window.checkStaffPw = checkStaffPw;
+
+/* ===== パスカード無料ラーメン（#10067）：パスワード認証ゲート ===== */
+const PASS_PW = 'rpc';          // ラーメンパスカード所持者用パスワード（大文字小文字を区別しない）
+let _passTargetId = null;
+function openPassLock(id){
+  _passTargetId = id;
+  const overlay = document.getElementById('passLockOverlay');
+  const input = document.getElementById('passPwInput');
+  const err = document.getElementById('passPwErr');
+  if (input) input.value = '';
+  if (err) err.textContent = '';
+  if (overlay){
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => { if (input) input.focus(); }, 50);
+  }
+}
+function closePassLock(){
+  const overlay = document.getElementById('passLockOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+  _passTargetId = null;
+}
+function checkPassPw(){
+  const input = document.getElementById('passPwInput');
+  const err = document.getElementById('passPwErr');
+  const val = (input && input.value || '').trim().toLowerCase();
+  if (val === PASS_PW){
+    const targetId = _passTargetId;
+    closePassLock();
+    // 認証成功 → 対象商品の注文モーダルを直接開く（ゲート再発火を避けるため _openItemModal を使用）
+    const item = (targetId != null && Array.isArray(menu)) ? menu.find(m => m && m.id === targetId) : null;
+    if (item) _openItemModal(item);
+  } else {
+    if (err) err.textContent = '❌ パスワードが違います';
+    if (input){
+      input.style.borderColor = '#c0392b';
+      input.style.animation = 'flashRed 0.4s ease 2';
+      setTimeout(() => {
+        input.style.borderColor = '#e0e0e0';
+        input.style.animation = '';
+        input.value = '';
+        input.focus();
+      }, 800);
+    }
+  }
+}
+window.closePassLock = closePassLock;
+window.checkPassPw = checkPassPw;
 
 function closeGhostLock(){
   $('ghostLockOverlay').classList.remove('open');
