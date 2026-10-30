@@ -998,6 +998,10 @@ let flatNoodleSoldout = false;
 let riceSoldout = false, chickenChashuSoldout = false, porkChashuSoldout = false, shoyuSoldout = false;
 // おすすめ商品 ID 配列（最大3件・全端末同期・スタッフが変更するまで永続）
 let recommendedIds = [];
+// おすすめ自動クリーンアップ用：カスタムメニュー／オーバーライドが
+// 少なくとも1回ロード済みかどうか（未ロード時に有効な ID を誤削除しないためのガード）
+let _kitchenCustomLoaded = false;
+let _kitchenOverridesLoaded = false;
 // 「全表示」モード対象の伝票ラベル（メモリ保持・ページリロードで初期化）
 let _expandedTickets = new Set();
 // 「ラーメン一覧」モードかどうか
@@ -1210,7 +1214,25 @@ function startRecommendedListener() {
     updateRecommendedBadge();
     const page = document.getElementById('recommendedFullPage');
     if (page && page.style.display === 'block') renderRecommendedFullList();
+    // 現状のメニューと常にリンク：削除/非表示/販売終了になった商品を自動で外す
+    reconcileRecommendedIds();
   }, err => console.error('recommended listener:', err));
+}
+// おすすめに登録できる有効な商品か（削除/非表示を除外）
+function isRecommendableValid(id) {
+  const it = Array.isArray(allMenuItems) ? allMenuItems.find(m => m && m.id === id) : null;
+  return !!(it && !it._hidden);
+}
+// recommended/current をメニューの現状に同期させる：
+//   削除済み・非表示・販売終了になった商品 ID を自動でクリーンアップする。
+//   ※ カスタム／オーバーライド未ロード時は有効な ID を誤って消さないよう何もしない。
+function reconcileRecommendedIds() {
+  if (!_kitchenCustomLoaded || !_kitchenOverridesLoaded) return;
+  const cur = Array.isArray(recommendedIds) ? recommendedIds : [];
+  if (!cur.length) return;
+  const cleaned = cur.filter(id => isRecommendableValid(id));
+  if (cleaned.length === cur.length) return; // 変化なし→無限ループ防止
+  setRecommendedIdsRemote(cleaned).catch(e => console.error('reco reconcile:', e));
 }
 async function setRecommendedIdsRemote(ids) {
   const { doc, setDoc, serverTimestamp } = window.fbApi;
@@ -1227,6 +1249,7 @@ function startCustomMenuListener() {
   onSnapshot(collection(window.fb.db, 'customMenuItems'), (snap) => {
     _kitchenCustomMenuItems = [];
     snap.forEach(d => { _kitchenCustomMenuItems.push({ docId: d.id, ...d.data() }); });
+    _kitchenCustomLoaded = true;
     rebuildAllMenuItems();
     // 名前変更を画面に即時反映
     if (currentMode === 'kitchen' && document.getElementById('kitchenScreen').classList.contains('active')) renderKitchen();
@@ -1234,6 +1257,10 @@ function startCustomMenuListener() {
     // 売り切れ管理画面（フルページ）が開いていれば再描画
     const soldoutPage = document.getElementById('soldoutFullPage');
     if (soldoutPage && soldoutPage.style.display !== 'none') renderSoldoutFullList();
+    // おすすめをメニューの現状に同期
+    reconcileRecommendedIds();
+    const recoPage = document.getElementById('recommendedFullPage');
+    if (recoPage && recoPage.style.display === 'block') renderRecommendedFullList();
   }, err => console.error('customMenuItems listener:', err));
 }
 
@@ -1243,6 +1270,7 @@ function startMenuOverridesListener() {
   onSnapshot(collection(window.fb.db, 'menuOverrides'), (snap) => {
     _kitchenMenuOverrides = {};
     snap.forEach(d => { _kitchenMenuOverrides[d.id] = d.data(); });
+    _kitchenOverridesLoaded = true;
     rebuildAllMenuItems();
     // 名前変更を画面に即時反映
     if (currentMode === 'kitchen' && document.getElementById('kitchenScreen').classList.contains('active')) renderKitchen();
@@ -1255,6 +1283,10 @@ function startMenuOverridesListener() {
     // 売り切れ管理画面（フルページ）が開いていれば再描画
     const soldoutPage = document.getElementById('soldoutFullPage');
     if (soldoutPage && soldoutPage.style.display !== 'none') renderSoldoutFullList();
+    // おすすめをメニューの現状に同期
+    reconcileRecommendedIds();
+    const recoPage = document.getElementById('recommendedFullPage');
+    if (recoPage && recoPage.style.display === 'block') renderRecommendedFullList();
   }, err => console.error('menuOverrides listener:', err));
 }
 
@@ -1480,10 +1512,16 @@ function renderRecommendedFullList() {
     html += `<div style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:1px;padding:10px 0 6px;border-bottom:1px solid #22c55e;margin-bottom:8px">⭐ 現在のおすすめ（タップで解除）</div>`;
     ids.forEach((id, idx) => {
       const item = items.find(m => m && m.id === id);
+      const valid = isRecommendableValid(id);
       const name = (item && item.name) ? item.name : `(ID:${id})`;
-      html += `<div onclick="quickToggleRecommended(${id})" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(34,197,94,0.15);border-radius:12px;margin-bottom:6px;border:1.5px solid #22c55e;cursor:pointer">
-        <div style="font-size:14px;font-weight:700;color:#22c55e">⭐ ${idx+1}. ${name}</div>
-        <button onclick="event.stopPropagation();quickToggleRecommended(${id})" style="padding:8px 16px;border-radius:10px;border:none;background:#e74c3c;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">おすすめ済</button>
+      // 削除/非表示になった商品は自動クリーンアップ対象。灰色＋注記で明示。
+      const bg = valid ? 'rgba(34,197,94,0.15)' : 'rgba(150,150,150,0.12)';
+      const bd = valid ? '#22c55e' : '#bbb';
+      const fg = valid ? '#22c55e' : '#999';
+      const note = valid ? '' : `<div style="font-size:10px;color:#999;font-weight:500;margin-top:2px">※ 削除/非表示のため自動で解除されます</div>`;
+      html += `<div onclick="quickToggleRecommended(${id})" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${bg};border-radius:12px;margin-bottom:6px;border:1.5px solid ${bd};cursor:pointer">
+        <div><div style="font-size:14px;font-weight:700;color:${fg}">⭐ ${idx+1}. ${name}</div>${note}</div>
+        <button onclick="event.stopPropagation();quickToggleRecommended(${id})" style="padding:8px 16px;border-radius:10px;border:none;background:#e74c3c;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif">解除</button>
       </div>`;
     });
   }
