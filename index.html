@@ -3502,6 +3502,9 @@ function gyozaTakeoutChoices(){
       if (mt) count = parseInt(mt[1],10);
       return { itemId:m.id, price:Number(m.price)||0, count, name:m.name };
     })
+    // 個数が解析できない（＝「N個」表記を持たない）商品は個数選択に出さない。
+    //   これが残ると「0個」という不正な選択肢が表示されてしまうため除外する。
+    .filter(c => c.count > 0)
     .sort((a,b)=>a.count-b.count);
 }
 function gyozaCountLabel(c){
