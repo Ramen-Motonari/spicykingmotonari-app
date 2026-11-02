@@ -3297,9 +3297,16 @@ function parseRamenOpts(opts, mainItem) {
 }
 
 // テイクアウト注文の商品名には先頭に赤文字【TO】を付与（キッチン識別用）
-function takeoutNamePrefix(orderId) {
-  const o = (typeof orders !== 'undefined' && orders.find(x => x.id === orderId))
-         || (typeof paidOrders !== 'undefined' && paidOrders.find(x => x.id === orderId));
+//   引数は注文オブジェクトでも注文ID（文字列）でも可。
+//   ・オブジェクトを渡した場合はその orderType を直接判定（配列検索に依存せず確実）。
+//   ・IDを渡した場合は従来どおり orders / paidOrders から逆引き。
+function takeoutNamePrefix(orderOrId) {
+  let o = orderOrId;
+  if (!o || typeof o !== 'object') {
+    o = (typeof orders !== 'undefined' && orders.find(x => x.id === orderOrId))
+     || (typeof paidOrders !== 'undefined' && paidOrders.find(x => x.id === orderOrId))
+     || null;
+  }
   return (o && o.orderType === 'takeout') ? '<span class="to-prefix">【TO】</span>' : '';
 }
 
@@ -3741,6 +3748,7 @@ function renderKaedamaListCard(order, item, itemIdx, unitIdx) {
   const tLabel = order.tableLabel || order.table || '?';
   const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
   const name = getAbbrevJaHtml(item);
+  const toPrefix = takeoutNamePrefix(order);
   const isServed = (Array.isArray(item.servedIndices) && item.servedIndices.includes(unitIdx)) || ((Number(item.qty) || 1) <= 1 && item.served);
   // オプション（硬さ等）を補足表示
   const opts = Array.isArray(item.opts) ? item.opts.filter(o => o != null && String(o).trim() !== '') : [];
@@ -3749,7 +3757,7 @@ function renderKaedamaListCard(order, item, itemIdx, unitIdx) {
     <div class="rlist-line1">
       <span class="rlist-table with-sep">${_tBase}</span>${_tSub}
       <span class="rlist-tsep">｜</span>
-      <span class="rlist-name">🍝 ${name}</span>
+      <span class="rlist-name">${toPrefix}🍝 ${name}</span>
       ${optsHtml ? `<span class="rlist-sep">/</span>${optsHtml}` : ''}
     </div>
   </div>`;
@@ -3783,7 +3791,7 @@ function getKaedamaRightBadgeSmall(main) {
 function renderRamenListCard(order, main, addons, unitIdx, isAdditional) {
   const tLabel = order.tableLabel || order.table || '?';
   const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
-  const mainName = getAbbrevJaHtml(main);
+  const mainName = takeoutNamePrefix(order) + getAbbrevJaHtml(main);
   const kaedamaBadge = getKaedamaRightBadgeSmall(main);
   const addBadge = isAdditional ? `<span class="rlist-add-badge">追加</span>` : '';
   // 辛さデフォルト補完
@@ -3928,6 +3936,7 @@ function renderSideListCard(order, item, itemIdx, unitIdx) {
   const tLabel = order.tableLabel || order.table || '?';
   const { base: _tBase, badge: _tSub } = _listSeatParts(tLabel);
   const name = getAbbrevJaHtml(item);
+  const toPrefix = takeoutNamePrefix(order);
   // qty>1 の場合は servedIndices で個別管理（タップで item 全体トグル）
   const isServed = (Array.isArray(item.servedIndices) && item.servedIndices.includes(unitIdx)) || ((Number(item.qty) || 1) <= 1 && item.served);
   // オプション（温/冷・サイズ等）を補足表示
@@ -3936,7 +3945,7 @@ function renderSideListCard(order, item, itemIdx, unitIdx) {
   return `<div class="rlist-card ${isServed?'served':''}" onclick="toggleGroupServed('${order.id}','idx:${itemIdx}')">
     <div class="rlist-line1">
       <span class="rlist-table ${_tSub?'with-sep':''}">${_tBase}</span>${_tSub}
-      <span class="rlist-name">${name}</span>
+      <span class="rlist-name">${toPrefix}${name}</span>
       ${optsHtml ? `<span class="rlist-sep">/</span>${optsHtml}` : ''}
     </div>
   </div>`;
