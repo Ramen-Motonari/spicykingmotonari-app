@@ -672,6 +672,13 @@ window.adminLogout = adminLogout;
           </div>
           <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">※ 他店へのチャーシュー卸し。税抜でそのまま入力（税換算なし）。デイリー表の月合計・売上分析（店舗売上とは別集計）に反映されます。</div>
         </div>
+        <div class="manual-input-section">
+          <div class="section-label" style="color:#8e44ad">🌏 外国人客数</div>
+          <div class="manual-input-grid">
+            <div class="manual-field"><label>外国人客数 <span class="auto-label">入力</span></label><input type="number" id="dinner-foreign-customers" placeholder="例: 12"></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">※ その日の外国人のお客様の人数。デイリー表の「外国人客数」および「外国人率（外国人客数 ÷ 客数）」に反映されます。デイリー表で直接編集することもできます。</div>
+        </div>
         <div class="manual-input-section" style="border:1.5px solid var(--green);background:rgba(39,174,96,0.05)">
           <div class="section-label" style="color:var(--green)">💾 今日の数値を保存</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -2034,7 +2041,9 @@ function getKanritableColumns() {
     { key: 'customers',     group: '客数',     sub: '当日',  label: '客数 当日',    computed: true, fmt: 'num', width: 60, pw: 5 },
     { key: 'customersCum',  group: '客数',     sub: '累計',  label: '客数 累計',    computed: true, fmt: 'num', width: 68, pw: 5.5 },
     { key: 'avgSpend',      group: '客単価',   sub: '当日',  label: '客単価 当日',  computed: true, fmt: 'yen', width: 72, pw: 6.5 },
-    { key: 'avgSpendCum',   group: '客単価',   sub: '累計',  label: '客単価 累計',  computed: true, fmt: 'yen', width: 80, pw: 6.5 }
+    { key: 'avgSpendCum',   group: '客単価',   sub: '累計',  label: '客単価 累計',  computed: true, fmt: 'yen', width: 80, pw: 6.5 },
+    { key: 'foreignCustomers', group: '外国人', sub: '客数', label: '外国人客数', editable: true, fmt: 'num',  width: 64, pw: 5 },
+    { key: 'foreignRate',      group: '外国人', sub: '比率', label: '外国人率',   computed: true, fmt: 'pct1', width: 64, pw: 5 }
   ];
 }
 
@@ -2113,9 +2122,9 @@ function renderKanritableTable() {
   let cumStoreTax = 0, storeCumPrev = 0, cumUberTax = 0;
   // 週ごとの集計用（7日区切り：1-7, 8-14, 15-21, 22-28, 29-末日）
   let weekIdx = 0; // 0始まりの週インデックス
-  let wSales = 0, wPurch = 0, wHours = 0, wCentral = 0, wCust = 0;
+  let wSales = 0, wPurch = 0, wHours = 0, wCentral = 0, wCust = 0, wForeign = 0;
   // 月合計
-  let mSales = 0, mPurch = 0, mHours = 0, mCentral = 0, mCust = 0;
+  let mSales = 0, mPurch = 0, mHours = 0, mCentral = 0, mCust = 0, mForeign = 0;
   // Uber Eats（税抜）月内合計（店舗売上には含めず、専用行＋月合計でのみ加算）
   let mUber = 0;
   // その他売上（臨時）：月内合計（税込）と項目名の収集
@@ -2141,7 +2150,7 @@ function renderKanritableTable() {
 
   // 週小計行を描画するヘルパー（仕入率・人時売上はセントラル込みの売上で計算）
   //   客単価は店舗売上（セントラル除く）÷客数。
-  const buildWeekSubtotal = (weekNum, sumSales, sumCentral, sumPurch, sumHours, sumCust) => {
+  const buildWeekSubtotal = (weekNum, sumSales, sumCentral, sumPurch, sumHours, sumCust, sumForeign) => {
     // 週小計も店舗売上のみで計算（セントラルは下部のセントラル行と月合計のみで加算）
     const purchRate = sumSales > 0 ? Math.round((sumPurch / sumSales) * 1000) / 10 : 0;
     const sph = sumHours > 0 ? Math.round(sumSales / sumHours) : 0;
@@ -2157,6 +2166,8 @@ function renderKanritableTable() {
       else if (c.key === 'salesPerHour')  val = sph || '';
       else if (c.key === 'customers')     val = sumCust || '';
       else if (c.key === 'avgSpend')      val = (sumCust > 0) ? avg : '';
+      else if (c.key === 'foreignCustomers') val = sumForeign || '';
+      else if (c.key === 'foreignRate')      val = (sumCust > 0 && sumForeign > 0) ? Math.round((sumForeign / sumCust) * 1000) / 10 : '';
       else val = '';
       return cellOf(val, c, '', true, '');
     }).join('');
@@ -2192,13 +2203,17 @@ function renderKanritableTable() {
     // → これにより「本年売上 累計」が「本年売上 当日（店舗のみ）」の単純な積み上げと一致する。
     // 客数（APP注文ベース・終日合算）
     const dayCust = countCustomersFromOrders(ordersByDay[dKey] || []);
+    // 外国人客数（手入力）。未入力は空欄・率も非表示。
+    const foreignCustRaw = data.foreignCustomers;
+    const hasForeign = foreignCustRaw != null && String(foreignCustRaw) !== '';
+    const dayForeign = Number(foreignCustRaw || 0);
 
     cumSales += salesToday;
     cumPurch += purchaseToday;
     cumStoreSales += salesToday; // 客単価累計は店舗売上ベース（セントラル除く）
     cumCust += dayCust;
-    wSales += salesToday; wCentral += centralSales; wPurch += purchaseToday; wHours += workHours; wCust += dayCust;
-    mSales += salesToday; mCentral += centralSales; mPurch += purchaseToday; mHours += workHours; mCust += dayCust;
+    wSales += salesToday; wCentral += centralSales; wPurch += purchaseToday; wHours += workHours; wCust += dayCust; wForeign += dayForeign;
+    mSales += salesToday; mCentral += centralSales; mPurch += purchaseToday; mHours += workHours; mCust += dayCust; mForeign += dayForeign;
     { const oa = Number(data.otherSalesAmount || 0);
       if (oa > 0) { mOtherTax += oa; if (data.otherSalesName) mOtherNames.add(String(data.otherSalesName)); } }
 
@@ -2221,7 +2236,8 @@ function renderKanritableTable() {
       customers: dayCust || '',
       customersCum: cumCust || '',
       avgSpend: dayCust > 0 ? dayAvg : '',
-      avgSpendCum: cumCust > 0 ? cumAvg : ''
+      avgSpendCum: cumCust > 0 ? cumAvg : '',
+      foreignRate: (hasForeign && dayCust > 0) ? Math.round((dayForeign / dayCust) * 1000) / 10 : ''
     };
     const cells = cols.map(c => {
       let val;
@@ -2236,8 +2252,8 @@ function renderKanritableTable() {
     // 週小計を挿入（7,14,21,28日目と月末）
     if (d % 7 === 0 || d === lastDay) {
       weekIdx++;
-      rows += buildWeekSubtotal(weekIdx, wSales, wCentral, wPurch, wHours, wCust);
-      wSales = 0; wCentral = 0; wPurch = 0; wHours = 0; wCust = 0;
+      rows += buildWeekSubtotal(weekIdx, wSales, wCentral, wPurch, wHours, wCust, wForeign);
+      wSales = 0; wCentral = 0; wPurch = 0; wHours = 0; wCust = 0; wForeign = 0;
     }
   }
   // Uber Eats（税抜）月合計：売上分析と同様に税込を期間一括で税抜丸め（軽減税率8%）。
@@ -2259,6 +2275,8 @@ function renderKanritableTable() {
       else if (c.key === 'salesPerHour')  val = mStoreSph || '';
       else if (c.key === 'customers')     val = mCust || '';
       else if (c.key === 'avgSpend')      val = (mCust > 0) ? mStoreAvg : '';
+      else if (c.key === 'foreignCustomers') val = mForeign || '';
+      else if (c.key === 'foreignRate')      val = (mCust > 0 && mForeign > 0) ? Math.round((mForeign / mCust) * 1000) / 10 : '';
       else val = '';
       const display = _fmt(val, c.fmt);
       return `<td style="padding:7px 6px;border:1px solid var(--border);background:rgba(59,130,246,0.18);text-align:right;color:#fff;font-family:'Oswald',sans-serif;font-weight:800;font-size:12px">${display}</td>`;
@@ -2339,6 +2357,8 @@ function renderKanritableTable() {
     else if (c.key === 'salesPerHour')  val = mSph || '';
     else if (c.key === 'customers')     val = mCust || '';
     else if (c.key === 'avgSpend')      val = (mCust > 0) ? mAvg : '';
+    else if (c.key === 'foreignCustomers') val = mForeign || '';
+    else if (c.key === 'foreignRate')      val = (mCust > 0 && mForeign > 0) ? Math.round((mForeign / mCust) * 1000) / 10 : '';
     else val = '';
     const display = _fmt(val, c.fmt);
     return `<td style="padding:8px 6px;border:1px solid var(--border);background:rgba(192,57,43,0.18);text-align:right;color:#fff;font-family:'Oswald',sans-serif;font-weight:900;font-size:13px">${display}</td>`;
@@ -2409,6 +2429,7 @@ function loadUberFieldsFromSaved(dateKey, force) {
   apply('dinner-other-name',  'otherSalesName');
   apply('dinner-other-sales', 'otherSalesAmount');
   apply('dinner-central-sales', 'centralSales');
+  apply('dinner-foreign-customers', 'foreignCustomers');
 }
 
 // 夜の日報の日付が変更されたときのハンドラ：保存済みデータを復元してから再計算
@@ -2590,6 +2611,7 @@ async function saveDailyReportFromDinner() {
   addUber('dinner-uber-sales', 'uberDinnerSales');
   addUber('dinner-other-sales', 'otherSalesAmount');
   addUber('dinner-central-sales', 'centralSales'); // セントラル（税抜そのまま）
+  addUber('dinner-foreign-customers', 'foreignCustomers'); // 外国人客数
   // その他売上の項目名（テキスト）：入力があれば保存、空欄なら書き込まない
   { const onm = (document.getElementById('dinner-other-name')?.value || '').trim();
     if (onm) payload.otherSalesName = onm; }
@@ -2669,12 +2691,12 @@ function exportKanritableCSV() {
   // 店舗売上を売上分析と一致させるための累計（税込を期間一括で税抜丸め）
   let cumStoreTax = 0, storeCumPrev = 0, cumUberTax = 0;
   let weekIdx = 0;
-  let wSales = 0, wPurch = 0, wHours = 0, wCentral = 0, wCust = 0;
-  let mSales = 0, mPurch = 0, mHours = 0, mCentral = 0, mCust = 0;
+  let wSales = 0, wPurch = 0, wHours = 0, wCentral = 0, wCust = 0, wForeign = 0;
+  let mSales = 0, mPurch = 0, mHours = 0, mCentral = 0, mCust = 0, mForeign = 0;
   let mUber = 0; // Uber Eats（税抜）月内合計
   let mOtherTax = 0;
   // 客単価は店舗売上（sumSales＝セントラル除く）÷客数
-  const buildSubtotal = (label1, label2, sumSales, sumCentral, sumPurch, sumHours, sumCust, avgSalesBase) => {
+  const buildSubtotal = (label1, label2, sumSales, sumCentral, sumPurch, sumHours, sumCust, avgSalesBase, sumForeign) => {
     const combined = sumSales + sumCentral; // 店舗売上＋セントラル（税抜）
     const rate = combined > 0 ? Math.round((sumPurch / combined) * 1000) / 10 : '';
     const sph = sumHours > 0 ? Math.round(combined / sumHours) : '';
@@ -2693,6 +2715,8 @@ function exportKanritableCSV() {
       else if (c.key === 'salesPerHour')  v = sph || '';
       else if (c.key === 'customers')     v = sumCust || '';
       else if (c.key === 'avgSpend')      v = (sumCust > 0) ? avg : '';
+      else if (c.key === 'foreignCustomers') v = sumForeign || '';
+      else if (c.key === 'foreignRate')      v = (sumCust > 0 && sumForeign > 0) ? Math.round((sumForeign / sumCust) * 1000) / 10 : '';
       return '"' + String(v).replace(/"/g, '""') + '"';
     }).join(',') + '\n';
   };
@@ -2722,8 +2746,10 @@ function exportKanritableCSV() {
     cumSales += salesToday;
     cumPurch += purchaseToday;
     cumStoreSales += salesToday; cumCust += dayCust;
-    wSales += salesToday; wCentral += centralSales; wPurch += purchaseToday; wHours += workHours; wCust += dayCust;
-    mSales += salesToday; mCentral += centralSales; mPurch += purchaseToday; mHours += workHours; mCust += dayCust;
+    const dayForeign = Number(data.foreignCustomers || 0);
+    const hasForeign = data.foreignCustomers != null && String(data.foreignCustomers) !== '';
+    wSales += salesToday; wCentral += centralSales; wPurch += purchaseToday; wHours += workHours; wCust += dayCust; wForeign += dayForeign;
+    mSales += salesToday; mCentral += centralSales; mPurch += purchaseToday; mHours += workHours; mCust += dayCust; mForeign += dayForeign;
     mOtherTax += Number(data.otherSalesAmount || 0);
     const purchRate = cumSales > 0 ? Math.round((cumPurch / cumSales) * 1000) / 10 : '';
     const salesPerHour = workHours > 0 ? Math.round(salesToday / workHours) : '';
@@ -2737,7 +2763,8 @@ function exportKanritableCSV() {
       customers: dayCust || '',
       customersCum: cumCust || '',
       avgSpend: dayCust > 0 ? dayAvg : '',
-      avgSpendCum: cumCust > 0 ? cumAvg : ''
+      avgSpendCum: cumCust > 0 ? cumAvg : '',
+      foreignRate: (hasForeign && dayCust > 0) ? Math.round((dayForeign / dayCust) * 1000) / 10 : ''
     };
     const row = cols.map(c => {
       let v;
@@ -2750,15 +2777,15 @@ function exportKanritableCSV() {
     csv += row + '\n';
     if (d % 7 === 0 || d === lastDay) {
       weekIdx++;
-      csv += buildSubtotal(`週${weekIdx}`, '小計', wSales, 0, wPurch, wHours, wCust);
-      wSales = 0; wCentral = 0; wPurch = 0; wHours = 0; wCust = 0;
+      csv += buildSubtotal(`週${weekIdx}`, '小計', wSales, 0, wPurch, wHours, wCust, undefined, wForeign);
+      wSales = 0; wCentral = 0; wPurch = 0; wHours = 0; wCust = 0; wForeign = 0;
     }
   }
   // Uber Eats（税抜）月合計：税込を期間一括で税抜丸め（軽減税率8%）
   mUber = Math.round(cumUberTax / 1.08);
   // 店舗売上のみ 合計行（その他・セントラル含まず）→ その他/セントラル行 → 月合計行（すべて合算）
   const mOtherNoTaxCsv = Math.round(mOtherTax / 1.10);
-  csv += buildSubtotal('店舗', '小計', mSales, 0, mPurch, mHours, mCust);
+  csv += buildSubtotal('店舗', '小計', mSales, 0, mPurch, mHours, mCust, undefined, mForeign);
   if (mUber > 0) {
     csv += cols.map(c => {
       let v = '';
@@ -2784,7 +2811,7 @@ function exportKanritableCSV() {
       return '"' + String(v).replace(/"/g, '""') + '"';
     }).join(',') + '\n';
   }
-  csv += buildSubtotal('月', '合計', mSales + mUber + mOtherNoTaxCsv, mCentral, mPurch, mHours, mCust, mSales);
+  csv += buildSubtotal('月', '合計', mSales + mUber + mOtherNoTaxCsv, mCentral, mPurch, mHours, mCust, mSales, mForeign);
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
