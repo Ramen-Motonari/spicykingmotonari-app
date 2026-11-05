@@ -6927,18 +6927,14 @@ function exportSoupRankingPDF() {
 }
 async function exportKanritablePDF() {
   const m = document.getElementById('kanritableMonth')?.value || '';
-  // キャプチャ中だけ横スクロール枠・高さ制限を解除し、表をコンテンツ実幅で展開する。
-  //   通常は card(max-height) + 内側 overflow-x:auto の中で表がスクロール表示されるため、
-  //   そのままキャプチャすると「ページ右側の空白」や「表の見切れ」が生じる。
-  //   出力中だけ枠を外して表の実寸をそのまま取り込むことで、A3横1枚に余白なく収める。
+  // キャプチャ中だけ card の高さ制限を解除し、表全体を縦に展開してから取り込む。
+  //   card は max-height + overflow:auto のため、解除しないと表の下部が見切れる可能性がある。
+  //   ※表の width は触らない（max-content 化すると fullWidthCapture の切り出し座標が
+  //     ズレて真っ白なPDFになるため）。横幅は既存どおり min-width:1500px を維持する。
   const wrap = document.getElementById('kanritableWrap');
-  const scrollDiv = wrap ? wrap.querySelector('div') : null;
-  const table = document.getElementById('kanritableTable');
   const saved = [];
   const stash = (el, prop, val) => { if (!el) return; saved.push([el, prop, el.style[prop]]); el.style[prop] = val; };
-  if (wrap)      { stash(wrap, 'maxHeight', 'none'); stash(wrap, 'overflow', 'visible'); }
-  if (scrollDiv) { stash(scrollDiv, 'overflow', 'visible'); stash(scrollDiv, 'width', 'max-content'); }
-  if (table)     { stash(table, 'width', 'max-content'); stash(table, 'minWidth', '0'); }
+  if (wrap) { stash(wrap, 'maxHeight', 'none'); stash(wrap, 'overflow', 'visible'); }
   try {
     // A3 横・余白ほぼゼロ。表が縦に長い月は行単位(tr)で改ページ（行の途中で切らない）。
     await exportElementToPDF('page-kanritable', `デイリー_${m}.pdf`, {
