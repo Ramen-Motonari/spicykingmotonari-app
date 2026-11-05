@@ -2325,7 +2325,9 @@ function renderKanritableTable() {
   const mSalesTotal = mStoreOther + mCentral;    // 店舗＋Uber＋その他＋セントラル（仕入率・人時売上の分母／本年売上合計）
   const mPurchRate = mSalesTotal > 0 ? Math.round((mPurch / mSalesTotal) * 1000) / 10 : 0;
   const mSph = mHours > 0 ? Math.round(mSalesTotal / mHours) : 0;
-  const mAvg = mCust > 0 ? Math.round(mSalesTotal / mCust) : 0; // セントラル・その他込みの客単価
+  // 客単価はセントラル（他店卸し）等を含めず、店舗売上のみ÷客数で算出する。
+  //   最下段の月合計行でも店舗小計行と同じ ¥値（mSales/mCust）になるよう mSalesTotal ではなく mSales を分母に使う。
+  const mAvg = mCust > 0 ? Math.round(mSales / mCust) : 0; // 店舗売上のみの客単価（セントラル・Uber・その他は含めない）
   const monthCells = cols.map(c => {
     let val = '';
     if (c.key === 'day')          val = '月';
@@ -2672,11 +2674,14 @@ function exportKanritableCSV() {
   let mUber = 0; // Uber Eats（税抜）月内合計
   let mOtherTax = 0;
   // 客単価は店舗売上（sumSales＝セントラル除く）÷客数
-  const buildSubtotal = (label1, label2, sumSales, sumCentral, sumPurch, sumHours, sumCust) => {
+  const buildSubtotal = (label1, label2, sumSales, sumCentral, sumPurch, sumHours, sumCust, avgSalesBase) => {
     const combined = sumSales + sumCentral; // 店舗売上＋セントラル（税抜）
     const rate = combined > 0 ? Math.round((sumPurch / combined) * 1000) / 10 : '';
     const sph = sumHours > 0 ? Math.round(combined / sumHours) : '';
-    const avg = sumCust > 0 ? Math.round(sumSales / sumCust) : '';
+    // 客単価はセントラル・Uber・その他を含めず「店舗売上のみ÷客数」で算出する。
+    //   月合計行では sumSales に Uber・その他が含まれるため、客単価だけは店舗売上(avgSalesBase)を分母にする。
+    const avgBase = (avgSalesBase != null) ? avgSalesBase : sumSales;
+    const avg = sumCust > 0 ? Math.round(avgBase / sumCust) : '';
     return cols.map(c => {
       let v = '';
       if (c.key === 'day')          v = label1;
@@ -2779,7 +2784,7 @@ function exportKanritableCSV() {
       return '"' + String(v).replace(/"/g, '""') + '"';
     }).join(',') + '\n';
   }
-  csv += buildSubtotal('月', '合計', mSales + mUber + mOtherNoTaxCsv, mCentral, mPurch, mHours, mCust);
+  csv += buildSubtotal('月', '合計', mSales + mUber + mOtherNoTaxCsv, mCentral, mPurch, mHours, mCust, mSales);
   // BOM付きで保存（Excel日本語対応）
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
