@@ -343,9 +343,11 @@ body.print-mode .print-target #kanritableWrap > div{ overflow:visible !important
 body.pdf-export-mode .print-target #kanritableTable,
 body.print-mode .print-target #kanritableTable{ width:100% !important; min-width:auto !important; font-size:8pt !important; table-layout:fixed !important; }
 body.pdf-export-mode .print-target #kanritableTable th,
-body.print-mode .print-target #kanritableTable th{ padding:0.6mm 0.5mm !important; font-size:7pt !important; background:#000 !important; color:#fff !important; font-weight:900 !important; min-width:0 !important; white-space:nowrap !important; line-height:1.05 !important; }
+body.print-mode .print-target #kanritableTable th{ padding:1.0mm 0.5mm !important; font-size:7pt !important; background:#000 !important; color:#fff !important; font-weight:900 !important; min-width:0 !important; white-space:nowrap !important; line-height:1.2 !important; }
+/* 行の高さを広げて A3横1枚の縦いっぱいまで表を伸ばす（下側の余白対策）。
+   文字サイズは8ptのまま（列幅は8pt基準のため拡大すると折り返す）、縦の余白と行高で調整。 */
 body.pdf-export-mode .print-target #kanritableTable td,
-body.print-mode .print-target #kanritableTable td{ padding:0.4mm 0.6mm !important; font-size:8pt !important; line-height:1.0 !important; color:#000 !important; font-weight:700 !important; border:1px solid #999 !important; }
+body.print-mode .print-target #kanritableTable td{ padding:1.15mm 0.6mm !important; font-size:8pt !important; line-height:1.2 !important; color:#000 !important; font-weight:700 !important; border:1px solid #999 !important; }
 /* 天気：通常はselectで編集、PDF/印刷ではselectが描画されないため静的テキストを表示 */
 .kt-weather-print{ display:none; }
 body.pdf-export-mode .print-target .kt-weather-print,
@@ -6937,7 +6939,7 @@ async function exportKanritablePDF() {
     pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
     format: 'a3',
     orientation: 'landscape',
-    margin: [4, 4, 4, 4]
+    margin: [3, 3, 3, 3]
   });
 }
 
