@@ -6927,30 +6927,18 @@ function exportSoupRankingPDF() {
 }
 async function exportKanritablePDF() {
   const m = document.getElementById('kanritableMonth')?.value || '';
-  // キャプチャ中だけ縦横のスクロール制限を解除し、表全体を展開してから取り込む。
-  //   ・card(wrap)   … max-height + overflow:auto → 解除しないと表の下部が見切れる。
-  //   ・内側 div      … overflow-x:auto → 解除しないと表の左右（日付・売上など）が見切れる。
-  //   ※表の width は触らない（max-content 化すると fullWidthCapture の切り出し座標が
-  //     ズレて真っ白なPDFになるため）。横幅は既存どおり min-width:1500px を維持する。
-  const wrap = document.getElementById('kanritableWrap');
-  const scrollDiv = wrap ? wrap.querySelector('div') : null;
-  const saved = [];
-  const stash = (el, prop, val) => { if (!el) return; saved.push([el, prop, el.style[prop]]); el.style[prop] = val; };
-  if (wrap)      { stash(wrap, 'maxHeight', 'none'); stash(wrap, 'overflow', 'visible'); }
-  if (scrollDiv) { stash(scrollDiv, 'overflow', 'visible'); }
-  try {
-    // A3 横・余白ほぼゼロ。表が縦に長い月は行単位(tr)で改ページ（行の途中で切らない）。
-    await exportElementToPDF('page-kanritable', `デイリー_${m}.pdf`, {
-      pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
-      fullWidthCapture: true,
-      fullWidthPad: 6,          // 左右の予備余白を最小化（右の空白対策）
-      format: 'a3',
-      orientation: 'landscape',
-      margin: [3, 3, 3, 3]      // 上下左右の用紙余白を最小化
-    });
-  } finally {
-    saved.forEach(([el, prop, val]) => { el.style[prop] = val; });
-  }
+  // デイリー表は印刷用CSS（body.pdf-export-mode .print-target #kanritableTable…）で
+  //   width:100% / table-layout:fixed / overflow解除 が適用され、全列が用紙幅に収まる。
+  // そのため fullWidthCapture（左右にPADを付けた座標切り出し）は使わず自然キャプチャする。
+  //   ← fullWidthCapture は windowWidth 再レイアウトで表の位置がズレ、PADを詰めると
+  //     左端の列（日付・売上）が見切れていた。自然キャプチャなら要素全体を取り込むため
+  //     左右とも欠けない。A3横・余白最小で全列を1枚幅に収める。
+  await exportElementToPDF('page-kanritable', `デイリー_${m}.pdf`, {
+    pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
+    format: 'a3',
+    orientation: 'landscape',
+    margin: [4, 4, 4, 4]
+  });
 }
 
 window.printPage = printPage;
